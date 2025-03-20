@@ -1,0 +1,958 @@
+import { supabase } from '@/lib/supabase';
+
+// User Profile Types
+export type UserProfile = {
+  id: string;
+  first_name?: string;
+  last_name?: string;
+  bio?: string;
+  avatar_url?: string;
+  date_of_birth?: string;
+  gender?: string;
+  height_cm?: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
+// Workout Program Types
+export type WorkoutProgram = {
+  id?: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  difficulty?: 'beginner' | 'intermediate' | 'advanced';
+  goal?: string;
+  duration_weeks?: number;
+  sessions_per_week?: number;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type WorkoutSession = {
+  id?: string;
+  program_id: string;
+  name: string;
+  day_of_week?: number;
+  week_number?: number;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type Exercise = {
+  id?: string;
+  name: string;
+  description?: string;
+  muscle_group?: string;
+  equipment?: string;
+  difficulty?: 'beginner' | 'intermediate' | 'advanced';
+  video_url?: string;
+  created_at?: string;
+};
+
+export type WorkoutExercise = {
+  id?: string;
+  workout_session_id: string;
+  exercise_id: string;
+  sets?: number;
+  reps?: string;
+  rest_seconds?: number;
+  order_index?: number;
+  notes?: string;
+  created_at?: string;
+};
+
+// Workout Log Types
+export type WorkoutLog = {
+  id?: string;
+  user_id: string;
+  workout_session_id?: string;
+  date: string;
+  duration_minutes?: number;
+  notes?: string;
+  rating?: number;
+  created_at?: string;
+};
+
+export type ExerciseLog = {
+  id?: string;
+  workout_log_id: string;
+  exercise_id?: string;
+  sets_completed?: number;
+  reps_completed?: string;
+  weight_used?: string;
+  notes?: string;
+  created_at?: string;
+};
+
+// Nutrition Types
+export type NutritionPlan = {
+  id?: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  daily_calories?: number;
+  protein_grams?: number;
+  carbs_grams?: number;
+  fat_grams?: number;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type MealPlan = {
+  id?: string;
+  nutrition_plan_id: string;
+  name: string;
+  day_of_week?: number;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type Meal = {
+  id?: string;
+  meal_plan_id: string;
+  name: string;
+  meal_type?: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  calories?: number;
+  protein_grams?: number;
+  carbs_grams?: number;
+  fat_grams?: number;
+  recipe?: string;
+  notes?: string;
+  created_at?: string;
+};
+
+// Progress Tracking Types
+export type ProgressRecord = {
+  id?: string;
+  user_id: string;
+  date: string;
+  weight_kg?: number;
+  body_fat_percentage?: number;
+  waist_cm?: number;
+  chest_cm?: number;
+  arms_cm?: number;
+  legs_cm?: number;
+  notes?: string;
+  photo_url?: string;
+  created_at?: string;
+};
+
+// Goals Types
+export type Goal = {
+  id?: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  category?: 'weight' | 'strength' | 'nutrition' | 'habits' | 'other';
+  target_value?: number;
+  current_value?: number;
+  unit?: string;
+  start_date?: string;
+  target_date?: string;
+  is_completed?: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+// Sleep Tracking Type
+export type SleepRecord = {
+  id?: string;
+  user_id: string;
+  date: string;
+  sleep_duration_hours: number;
+  sleep_quality?: number;
+  time_to_bed?: string;
+  time_woke_up?: string;
+  deep_sleep_hours?: number;
+  light_sleep_hours?: number;
+  rem_sleep_hours?: number;
+  sleep_disruptions?: number;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+// Helper function to retry a function with exponential backoff
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  retries = 2, 
+  delay = 500,
+  retryOnEmpty = true
+): Promise<T> {
+  try {
+    const result = await fn();
+    
+    // Special case for empty object errors
+    if (retryOnEmpty && 
+        result instanceof Object && 
+        Object.keys(result).length === 0) {
+      if (retries > 0) {
+        console.log(`Encountered empty object, retrying... (${retries} attempts left)`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return withRetry(fn, retries - 1, delay * 1.5, retryOnEmpty);
+      }
+    }
+    
+    return result;
+  } catch (error) {
+    if (retries > 0) {
+      console.log(`API call failed, retrying... (${retries} attempts left)`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return withRetry(fn, retries - 1, delay * 1.5, retryOnEmpty);
+    }
+    throw error;
+  }
+}
+
+// User Profiles API
+export const userProfilesApi = {
+  // Get a user's profile
+  getProfile: async (userId: string): Promise<UserProfile | null> => {
+    try {
+      // Use retry mechanism for the Supabase query
+      const profileFetch = async () => {
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+          
+        // If we get an empty error object, throw it so the retry mechanism catches it
+        if (error && Object.keys(error).length === 0) {
+          throw error;
+        }
+        
+        return { data, error };
+      };
+      
+      // Retry the fetch operation with exponential backoff
+      const { data, error } = await withRetry(profileFetch);
+
+      // Handle Row Level Security (RLS) errors
+      if (error && error.message?.includes('row-level security')) {
+        console.warn('Row Level Security policy is preventing access to profile. Attempting to create a profile entry.');
+        
+        try {
+          // Get the authentication user data for fallback
+          const { data: authData } = await supabase.auth.getUser();
+          const user = authData?.user;
+          
+          if (user) {
+            // Try to create a profile entry for this user
+            const { data: insertedProfile, error: insertError } = await supabase
+              .from('user_profiles')
+              .insert([{
+                id: userId,
+                first_name: user.user_metadata?.first_name || '',
+                last_name: user.user_metadata?.last_name || '',
+                bio: 'A fitness enthusiast',
+                height_cm: 170
+              }])
+              .select('*')
+              .single();
+            
+            if (insertError) {
+              console.warn('Failed to automatically create profile. The user should run this SQL command:');
+              console.warn(`
+INSERT INTO user_profiles (id, first_name, last_name, bio, height_cm)
+VALUES ('${userId}', '${user.user_metadata?.first_name || ''}', '${user.user_metadata?.last_name || ''}', 'Bio information', 170)
+ON CONFLICT (id) DO NOTHING;`);
+            
+              // Return a fallback profile
+              return {
+                id: userId,
+                first_name: user.user_metadata?.first_name || '',
+                last_name: user.user_metadata?.last_name || '',
+                bio: 'A fitness enthusiast',
+                height_cm: 170,
+                created_at: new Date().toISOString()
+              };
+            }
+            
+            return insertedProfile;
+          }
+        } catch (e) {
+          console.error('Error creating fallback profile:', e);
+        }
+        
+        // If all automatic attempts fail, return a basic fallback profile
+        return {
+          id: userId,
+          first_name: '',
+          last_name: '',
+          bio: 'A fitness enthusiast',
+          height_cm: 170,
+          created_at: new Date().toISOString()
+        };
+      }
+
+      // Handle relation does not exist error
+      if (error && (error.message?.includes('relation') || error.message?.includes('does not exist'))) {
+        console.warn('Table user_profiles does not exist yet. Please run the schema.sql file in Supabase SQL Editor.');
+        
+        // Get the authentication user data for fallback
+        const { data: authData } = await supabase.auth.getUser();
+        const user = authData?.user;
+        
+        // Create a fallback profile from auth data if available
+        return {
+          id: userId,
+          first_name: user?.user_metadata?.first_name || '',
+          last_name: user?.user_metadata?.last_name || '',
+          bio: 'A fitness enthusiast',
+          height_cm: 170,
+          created_at: new Date().toISOString()
+        };
+      }
+
+      // Handle other errors
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        
+        // Check if error is an empty object or doesn't have a message
+        if (Object.keys(error).length === 0 || !error.message) {
+          console.warn('Received empty error object, this might be related to authentication or permissions');
+          
+          // Get the authentication user data for fallback
+          try {
+            const { data: authData } = await supabase.auth.getUser();
+            
+            if (authData?.user) {
+              return {
+                id: userId,
+                first_name: authData.user.user_metadata?.first_name || 'User',
+                last_name: authData.user.user_metadata?.last_name || '',
+                bio: 'Profile information temporarily unavailable. Please try logging out and back in.',
+                height_cm: 170,
+                created_at: new Date().toISOString()
+              };
+            }
+          } catch (authError) {
+            console.warn('Failed to get auth user data for fallback profile:', authError);
+          }
+          
+          // Return basic fallback if auth data isn't available
+          return {
+            id: userId,
+            first_name: 'User',
+            last_name: '',
+            bio: 'Profile information unavailable. Please try logging out and back in.',
+            height_cm: 170,
+            created_at: new Date().toISOString()
+          };
+        }
+        
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      // Catch any unexpected errors
+      console.error('Unexpected error in getProfile:', error);
+      
+      // If it's an empty object, provide a fallback profile
+      if (error && typeof error === 'object' && Object.keys(error).length === 0) {
+        console.warn('Empty error object caught in getProfile - likely a connection issue');
+        
+        // First try to refresh the session before giving up
+        try {
+          console.log('Attempting to refresh auth session...');
+          await supabase.auth.refreshSession();
+        } catch (refreshError) {
+          console.warn('Failed to refresh session:', refreshError);
+        }
+        
+        return {
+          id: userId,
+          first_name: 'User',
+          last_name: '',
+          bio: 'Profile temporarily unavailable. Please try refreshing the page or logging out and back in.',
+          height_cm: 170,
+          created_at: new Date().toISOString()
+        };
+      }
+      
+      // Re-throw the error for other cases
+      throw error;
+    }
+  },
+
+  // Update a user's profile
+  updateProfile: async (profile: UserProfile): Promise<UserProfile | null> => {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .update({
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        bio: profile.bio,
+        avatar_url: profile.avatar_url,
+        date_of_birth: profile.date_of_birth,
+        gender: profile.gender,
+        height_cm: profile.height_cm,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', profile.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating user profile:', error);
+      return null;
+    }
+
+    return data;
+  }
+};
+
+// Workout Programs API
+export const workoutProgramsApi = {
+  // Get all programs for a user
+  getUserPrograms: async (userId: string): Promise<WorkoutProgram[]> => {
+    const { data, error } = await supabase
+      .from('workout_programs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    // Handle Row Level Security (RLS) errors
+    if (error && error.message?.includes('row-level security')) {
+      console.warn('Row Level Security policy is preventing access to workout programs. Please check RLS policies in Supabase.');
+      return [];
+    }
+
+    // Handle relation does not exist error
+    if (error && (error.message?.includes('relation') || error.message?.includes('does not exist'))) {
+      console.warn('Table workout_programs does not exist yet. Please run the schema.sql file in Supabase SQL Editor.');
+      return [];
+    }
+
+    if (error) {
+      console.error('Error fetching workout programs:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  // Get a single workout program
+  getProgram: async (programId: string): Promise<WorkoutProgram | null> => {
+    const { data, error } = await supabase
+      .from('workout_programs')
+      .select('*')
+      .eq('id', programId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching workout program:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  // Create a new workout program
+  createProgram: async (program: WorkoutProgram): Promise<WorkoutProgram | null> => {
+    const { data, error } = await supabase
+      .from('workout_programs')
+      .insert([program])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating workout program:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  // Update a workout program
+  updateProgram: async (program: WorkoutProgram): Promise<WorkoutProgram | null> => {
+    const { id, ...programData } = program;
+
+    const { data, error } = await supabase
+      .from('workout_programs')
+      .update({
+        ...programData,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating workout program:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  // Delete a workout program
+  deleteProgram: async (programId: string): Promise<boolean> => {
+    const { error } = await supabase
+      .from('workout_programs')
+      .delete()
+      .eq('id', programId);
+
+    if (error) {
+      console.error('Error deleting workout program:', error);
+      return false;
+    }
+
+    return true;
+  },
+
+  // Get all sessions for a program
+  getProgramSessions: async (programId: string): Promise<WorkoutSession[]> => {
+    const { data, error } = await supabase
+      .from('workout_sessions')
+      .select('*')
+      .eq('program_id', programId)
+      .order('week_number', { ascending: true })
+      .order('day_of_week', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching workout sessions:', error);
+      return [];
+    }
+
+    return data || [];
+  }
+};
+
+// Workout Sessions API
+export const workoutSessionsApi = {
+  // Create a new workout session
+  createSession: async (session: WorkoutSession): Promise<WorkoutSession | null> => {
+    const { data, error } = await supabase
+      .from('workout_sessions')
+      .insert([session])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating workout session:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  // Get a single workout session with exercises
+  getSessionWithExercises: async (sessionId: string): Promise<{ session: WorkoutSession, exercises: WorkoutExercise[] } | null> => {
+    // Get the session
+    const { data: session, error: sessionError } = await supabase
+      .from('workout_sessions')
+      .select('*')
+      .eq('id', sessionId)
+      .single();
+
+    if (sessionError) {
+      console.error('Error fetching workout session:', sessionError);
+      return null;
+    }
+
+    // Get the exercises
+    const { data: exercises, error: exercisesError } = await supabase
+      .from('workout_exercises')
+      .select('*, exercises(*)')
+      .eq('workout_session_id', sessionId)
+      .order('order_index', { ascending: true });
+
+    if (exercisesError) {
+      console.error('Error fetching workout exercises:', exercisesError);
+      return null;
+    }
+
+    return {
+      session,
+      exercises: exercises || []
+    };
+  }
+};
+
+// Progress Tracking API
+export const progressTrackingApi = {
+  // Get all progress records for a user
+  getUserProgress: async (userId: string): Promise<ProgressRecord[]> => {
+    const { data, error } = await supabase
+      .from('progress_tracking')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false });
+
+    // Handle Row Level Security (RLS) errors
+    if (error && error.message?.includes('row-level security')) {
+      console.warn('Row Level Security policy is preventing access to progress records. Please check RLS policies in Supabase.');
+      return [];
+    }
+
+    // Handle relation does not exist error
+    if (error && (error.message?.includes('relation') || error.message?.includes('does not exist'))) {
+      console.warn('Table progress_tracking does not exist yet. Please run the schema.sql file in Supabase SQL Editor.');
+      return [];
+    }
+
+    if (error) {
+      console.error('Error fetching progress records:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  // Get a user's latest progress record
+  getLatestProgress: async (userId: string): Promise<ProgressRecord | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('progress_tracking')
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: false })
+        .limit(1)
+        .single();
+
+      // Handle Row Level Security (RLS) errors
+      if (error && error.message?.includes('row-level security')) {
+        console.warn('Row Level Security policy is preventing access to progress records. Please check RLS policies in Supabase.');
+        return null;
+      }
+
+      // Handle relation does not exist error
+      if (error && (error.message?.includes('relation') || error.message?.includes('does not exist'))) {
+        console.warn('Table progress_tracking does not exist yet. Please run the schema.sql file in Supabase SQL Editor.');
+        return null;
+      }
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 is the error code for no rows returned
+        console.error('Error fetching latest progress record:', error);
+        return null;
+      }
+
+      return data || null;
+    } catch (error) {
+      console.error('Exception in getLatestProgress:', error);
+      return null;
+    }
+  },
+
+  // Create a new progress record
+  createProgressRecord: async (record: ProgressRecord): Promise<ProgressRecord | null> => {
+    const { data, error } = await supabase
+      .from('progress_tracking')
+      .insert([record])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating progress record:', error);
+      return null;
+    }
+
+    return data;
+  }
+};
+
+// Goals API
+export const goalsApi = {
+  // Get all goals for a user
+  getUserGoals: async (userId: string): Promise<Goal[]> => {
+    const { data, error } = await supabase
+      .from('goals')
+      .select('*')
+      .eq('user_id', userId)
+      .order('is_completed', { ascending: true })
+      .order('target_date', { ascending: true });
+
+    // Handle Row Level Security (RLS) errors
+    if (error && error.message?.includes('row-level security')) {
+      console.warn('Row Level Security policy is preventing access to goals. Please check RLS policies in Supabase.');
+      return [];
+    }
+
+    // Handle relation does not exist error
+    if (error && (error.message?.includes('relation') || error.message?.includes('does not exist'))) {
+      console.warn('Table goals does not exist yet. Please run the schema.sql file in Supabase SQL Editor.');
+      return [];
+    }
+
+    if (error) {
+      console.error('Error fetching goals:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  // Create a new goal
+  createGoal: async (goal: Goal): Promise<Goal | null> => {
+    const { data, error } = await supabase
+      .from('goals')
+      .insert([goal])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating goal:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  // Update a goal
+  updateGoal: async (goal: Goal): Promise<Goal | null> => {
+    const { id, ...goalData } = goal;
+
+    const { data, error } = await supabase
+      .from('goals')
+      .update({
+        ...goalData,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating goal:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  // Delete a goal
+  deleteGoal: async (goalId: string): Promise<boolean> => {
+    const { error } = await supabase
+      .from('goals')
+      .delete()
+      .eq('id', goalId);
+
+    if (error) {
+      console.error('Error deleting goal:', error);
+      return false;
+    }
+
+    return true;
+  }
+};
+
+// Nutrition Plans API
+export const nutritionPlansApi = {
+  // Get all nutrition plans for a user
+  getUserNutritionPlans: async (userId: string): Promise<NutritionPlan[]> => {
+    const { data, error } = await supabase
+      .from('nutrition_plans')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    // Handle Row Level Security (RLS) errors
+    if (error && error.message?.includes('row-level security')) {
+      console.warn('Row Level Security policy is preventing access to nutrition plans. Please check RLS policies in Supabase.');
+      return [];
+    }
+
+    // Handle relation does not exist error
+    if (error && (error.message?.includes('relation') || error.message?.includes('does not exist'))) {
+      console.warn('Table nutrition_plans does not exist yet. Please run the schema.sql file in Supabase SQL Editor.');
+      return [];
+    }
+
+    if (error) {
+      console.error('Error fetching nutrition plans:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  // Get a user's active nutrition plan
+  getActiveNutritionPlan: async (userId: string): Promise<NutritionPlan | null> => {
+    const { data, error } = await supabase
+      .from('nutrition_plans')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error fetching active nutrition plan:', error);
+      return null;
+    }
+
+    return data || null;
+  },
+
+  // Create a new nutrition plan
+  createNutritionPlan: async (plan: NutritionPlan): Promise<NutritionPlan | null> => {
+    const { data, error } = await supabase
+      .from('nutrition_plans')
+      .insert([plan])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating nutrition plan:', error);
+      return null;
+    }
+
+    return data;
+  }
+};
+
+// Sleep Tracking API
+export const sleepTrackingApi = {
+  // Get all sleep records for a user
+  getUserSleepRecords: async (userId: string): Promise<SleepRecord[]> => {
+    const { data, error } = await supabase
+      .from('sleep_tracking')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false });
+
+    // Handle Row Level Security (RLS) errors
+    if (error && error.message?.includes('row-level security')) {
+      console.warn('Row Level Security policy is preventing access to sleep records. Please check RLS policies in Supabase.');
+      return [];
+    }
+
+    // Handle relation does not exist error
+    if (error && (error.message?.includes('relation') || error.message?.includes('does not exist'))) {
+      console.warn('Table sleep_tracking does not exist yet. Please run the schema.sql file in Supabase SQL Editor.');
+      return [];
+    }
+
+    if (error) {
+      console.error('Error fetching sleep records:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  // Get sleep records within a date range
+  getSleepRecordsInRange: async (userId: string, startDate: string, endDate: string): Promise<SleepRecord[]> => {
+    const { data, error } = await supabase
+      .from('sleep_tracking')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .order('date', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching sleep records in range:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  // Get a specific sleep record by id
+  getSleepRecord: async (recordId: string): Promise<SleepRecord | null> => {
+    const { data, error } = await supabase
+      .from('sleep_tracking')
+      .select('*')
+      .eq('id', recordId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching sleep record:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  // Get the latest sleep record
+  getLatestSleepRecord: async (userId: string): Promise<SleepRecord | null> => {
+    const { data, error } = await supabase
+      .from('sleep_tracking')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error fetching latest sleep record:', error);
+      return null;
+    }
+
+    return data || null;
+  },
+
+  // Create a new sleep record
+  createSleepRecord: async (record: SleepRecord): Promise<SleepRecord | null> => {
+    console.log('Creating sleep record with data:', record);
+    
+    const { data, error } = await supabase
+      .from('sleep_tracking')
+      .insert([record])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating sleep record:', error);
+      console.error('Error details:', { 
+        code: error.code, 
+        message: error.message, 
+        details: error.details,
+        hint: error.hint
+      });
+      return null;
+    }
+
+    console.log('Sleep record created successfully:', data);
+    return data;
+  },
+
+  // Update a sleep record
+  updateSleepRecord: async (record: SleepRecord): Promise<SleepRecord | null> => {
+    const { id, ...recordData } = record;
+
+    if (!id) {
+      console.error('Sleep record ID is required for update');
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from('sleep_tracking')
+      .update({
+        ...recordData,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating sleep record:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  // Delete a sleep record
+  deleteSleepRecord: async (recordId: string): Promise<boolean> => {
+    const { error } = await supabase
+      .from('sleep_tracking')
+      .delete()
+      .eq('id', recordId);
+
+    if (error) {
+      console.error('Error deleting sleep record:', error);
+      return false;
+    }
+
+    return true;
+  }
+}; 
