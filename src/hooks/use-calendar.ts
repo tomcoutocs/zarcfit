@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { calendarApi, CalendarEvent } from '@/lib/supabase';
 import { useAuth } from '@/context/auth-context';
 
@@ -36,38 +36,37 @@ export const useCalendar = (): [CalendarState, CalendarActions] => {
     currentYear: today.getFullYear(),
   });
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
-      // Use the authenticated user ID if available, otherwise use mock ID
       const userId = user?.id || MOCK_USER_ID;
-      
+
       const events = await calendarApi.getMonthEvents(
         userId,
         state.currentYear,
         state.currentMonth
       );
-      
+
       setState(prev => ({ ...prev, events, loading: false }));
     } catch (error: unknown) {
       console.error('Error fetching month events:', error);
-      
-      const errorMessage = error instanceof Error 
-        ? error.message 
+
+      const errorMessage = error instanceof Error
+        ? error.message
         : 'Failed to fetch events';
-        
-      setState(prev => ({ 
-        ...prev, 
-        loading: false, 
+
+      setState(prev => ({
+        ...prev,
+        loading: false,
         error: errorMessage
       }));
     }
-  };
+  }, [user?.id, state.currentYear, state.currentMonth]);
 
   useEffect(() => {
     fetchEvents();
-  }, [state.currentMonth, state.currentYear, user?.id]);
+  }, [fetchEvents]);
 
   const actions: CalendarActions = {
     createEvent: async (eventData) => {

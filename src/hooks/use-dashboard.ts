@@ -392,7 +392,7 @@ export function useSleepRecordsInRange(userId: string | undefined, startDate: st
     error: null
   });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!userId) {
       setState(prev => ({ ...prev, loading: false }));
       return;
@@ -402,7 +402,7 @@ export function useSleepRecordsInRange(userId: string | undefined, startDate: st
 
     try {
       const records = await sleepTrackingApi.getSleepRecordsInRange(userId, startDate, endDate);
-      
+
       setState({
         sleepRecords: records,
         loading: false,
@@ -416,11 +416,11 @@ export function useSleepRecordsInRange(userId: string | undefined, startDate: st
         error: error instanceof Error ? error.message : 'Failed to load sleep records for the date range'
       });
     }
-  };
+  }, [userId, startDate, endDate]);
 
   useEffect(() => {
     fetchData();
-  }, [userId, startDate, endDate]);
+  }, [fetchData]);
 
   return {
     ...state,
