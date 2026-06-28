@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -61,7 +61,7 @@ export default function EditBlogPostPage() {
   useEffect(() => {
     const fetchBlogPost = async () => {
       try {
-        const supabase = createClientComponentClient();
+        const supabase = createSupabaseBrowserClient();
         const { data, error } = await supabase
           .from('blog_posts')
           .select('*')
@@ -133,7 +133,7 @@ export default function EditBlogPostPage() {
         return;
       }
 
-      const supabase = createClientComponentClient();
+      const supabase = createSupabaseBrowserClient();
       
       // Update blog post
       const { error: saveError } = await supabase

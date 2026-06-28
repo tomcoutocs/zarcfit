@@ -1,12 +1,21 @@
 import { createBrowserClient } from '@supabase/ssr';
 
-function getSupabaseConfig() {
+const PLACEHOLDER_URL = 'https://placeholder.supabase.co';
+const PLACEHOLDER_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDUxOTIwMDAsImV4cCI6MTk2MDc2ODAwMH0.placeholder';
+
+function readSupabaseEnv() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? '';
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? '';
+  return { url, anonKey };
+}
+
+function getSupabaseConfig() {
+  const { url, anonKey } = readSupabaseEnv();
 
   if (!url || !anonKey) {
     throw new Error(
-      'Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local'
+      'Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your environment.'
     );
   }
 
@@ -20,17 +29,18 @@ function getSupabaseConfig() {
 }
 
 export function createSupabaseBrowserClient() {
-  const { url, anonKey } = getSupabaseConfig();
-  return createBrowserClient(url, anonKey);
+  try {
+    const { url, anonKey } = getSupabaseConfig();
+    return createBrowserClient(url, anonKey);
+  } catch {
+    // Allow production builds when env vars are not yet set (e.g. first Vercel deploy).
+    return createBrowserClient(PLACEHOLDER_URL, PLACEHOLDER_KEY);
+  }
 }
 
 export function isSupabaseConfigured(): boolean {
-  try {
-    getSupabaseConfig();
-    return true;
-  } catch {
-    return false;
-  }
+  const { url, anonKey } = readSupabaseEnv();
+  return Boolean(url && anonKey && url.includes('.supabase.co'));
 }
 
 export function getSupabaseConfigError(): string | null {

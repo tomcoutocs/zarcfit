@@ -1,4 +1,4 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { type Session } from '@supabase/supabase-js';
 
 export interface ConnectionStatus {
@@ -21,7 +21,7 @@ export interface ResetResult {
  */
 export async function checkSupabaseConnection(): Promise<ConnectionStatus> {
   const startTime = performance.now();
-  const supabase = createClientComponentClient();
+  const supabase = createSupabaseBrowserClient();
   
   try {
     // Test the connection by retrieving the current session
@@ -75,7 +75,7 @@ export async function checkSupabaseConnection(): Promise<ConnectionStatus> {
  * 3. Checking the connection again
  */
 export async function resetSupabaseConnection(): Promise<ResetResult> {
-  const supabase = createClientComponentClient();
+  const supabase = createSupabaseBrowserClient();
   let message = 'Connection reset process completed.';
   let session: Session | null = null;
   
@@ -168,7 +168,7 @@ export async function checkAuthUidFunction(): Promise<{
   working: boolean; 
   error: string | null; 
 }> {
-  const supabase = createClientComponentClient();
+  const supabase = createSupabaseBrowserClient();
   
   try {
     // First check if the function exists

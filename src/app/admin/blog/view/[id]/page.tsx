@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -34,7 +34,7 @@ export default function ViewBlogPostPage() {
   useEffect(() => {
     const fetchBlogPost = async () => {
       try {
-        const supabase = createClientComponentClient();
+        const supabase = createSupabaseBrowserClient();
         const { data, error } = await supabase
           .from('blog_posts')
           .select('*')
@@ -69,7 +69,7 @@ export default function ViewBlogPostPage() {
     setIsDeleting(true);
     
     try {
-      const supabase = createClientComponentClient();
+      const supabase = createSupabaseBrowserClient();
       const { error } = await supabase
         .from('blog_posts')
         .delete()

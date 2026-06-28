@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { useAuth } from '@/context/auth-context';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowLeft, Save } from 'lucide-react';
@@ -81,7 +81,7 @@ export default function NewBlogPostPage() {
       }
 
       // In a real implementation, we would save the blog post to a database
-      const supabase = createClientComponentClient();
+      const supabase = createSupabaseBrowserClient();
       
       // Create a new blog post
       const { error: saveError } = await supabase

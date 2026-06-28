@@ -5,7 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { checkSupabaseConnection, resetSupabaseConnection } from '@/lib/supabase/utils';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 
 interface ConnectionStatus {
   connected: boolean;
@@ -54,7 +54,7 @@ export default function ConnectionReset({ onSuccess }: ConnectionResetProps) {
   // Check if auth.uid function is working
   const checkAuthUid = async () => {
     try {
-      const supabase = createClientComponentClient();
+      const supabase = createSupabaseBrowserClient();
       const { error: rpcError } = await supabase.rpc('get_auth_uid');
       
       if (rpcError) {

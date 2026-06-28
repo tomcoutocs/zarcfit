@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/context/auth-context';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
 
 export default function ProfilePage() {
@@ -54,7 +54,7 @@ export default function ProfilePage() {
     setSuccess('');
 
     try {
-      const supabase = createClientComponentClient();
+      const supabase = createSupabaseBrowserClient();
       const { error } = await supabase.auth.updateUser({
         data: {
           firstName: formData.firstName,
