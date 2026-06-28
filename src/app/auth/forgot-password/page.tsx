@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import AuthShell from '@/components/layout/AuthShell';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -38,8 +39,8 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md">
+    <AuthShell title="Reset your password" subtitle="We'll send you a recovery link">
+      <Card className="glass-card w-full border-border/60 shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold">Reset your password</CardTitle>
           <CardDescription>
@@ -84,6 +85,6 @@ export default function ForgotPasswordPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </AuthShell>
   );
 } 

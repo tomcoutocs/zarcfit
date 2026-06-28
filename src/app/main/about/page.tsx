@@ -2,13 +2,19 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Award, BookOpen, Dumbbell, Medal } from 'lucide-react';
 import Image from 'next/image';
+import PageHero from '@/components/layout/PageHero';
 
 export default function AboutPage() {
   return (
-    <div className="container mx-auto px-4 py-12">
+    <>
+      <PageHero
+        badge="Meet Your Coach"
+        title="About Marco"
+        subtitle="Certified Strength and Conditioning Specialist dedicated to your fitness journey"
+        size="compact"
+      />
+      <div className="container mx-auto px-4 py-12">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-4xl font-bold mb-6">About Me</h1>
-        
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
           <div className="col-span-1 md:col-span-1">
             <div className="aspect-square rounded-lg overflow-hidden">
@@ -134,6 +140,7 @@ export default function AboutPage() {
           </p>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 } 

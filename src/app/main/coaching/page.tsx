@@ -5,20 +5,21 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, ChevronRight } from 'lucide-react';
+import PageHero from '@/components/layout/PageHero';
 
 export default function CoachingPage() {
   const router = useRouter();
   
   return (
-    <div className="container mx-auto px-4 py-12">
+    <>
+      <PageHero
+        badge="1-on-1 Coaching"
+        title="Online Coaching"
+        subtitle="Personalized guidance, support, and accountability — wherever you are"
+        size="compact"
+      />
+      <div className="container mx-auto px-4 py-12">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-4xl font-bold mb-6">Online Coaching</h1>
-        
-        <div className="mb-12">
-          <p className="text-lg mb-6">
-            My online coaching services are designed to provide you with personalized guidance, support, and accountability no matter where you are in the world. With customized workout plans, nutrition strategies, and regular check-ins, you&apos;ll have everything you need to reach your fitness goals.
-          </p>
-          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
             <div>
               <h2 className="text-2xl font-bold mb-4">How It Works</h2>
@@ -93,7 +94,6 @@ export default function CoachingPage() {
               </ul>
             </div>
           </div>
-        </div>
         
         <div className="mb-16">
           <h2 className="text-3xl font-bold mb-8 text-center">Coaching Packages</h2>
@@ -296,6 +296,7 @@ export default function CoachingPage() {
           </Button>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 } 

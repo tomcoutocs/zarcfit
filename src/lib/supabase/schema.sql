@@ -323,6 +323,20 @@ CREATE POLICY "Users can delete their own sleep tracking"
 ON sleep_tracking FOR DELETE
 USING (auth.uid() = user_id);
 
+-- Optional helper for client-side auth diagnostics
+CREATE OR REPLACE FUNCTION get_auth_uid()
+RETURNS uuid
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT auth.uid();
+$$;
+
+GRANT EXECUTE ON FUNCTION get_auth_uid() TO authenticated;
+GRANT EXECUTE ON FUNCTION get_auth_uid() TO anon;
+
 -- Goals policies
 CREATE POLICY "Users can view their own goals"
 ON goals FOR SELECT

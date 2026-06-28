@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, Dumbbell, Flame, Zap } from 'lucide-react';
+import PageHero from '@/components/layout/PageHero';
+import CTABanner from '@/components/layout/CTABanner';
 
 export default function ProgramsPage() {
   const router = useRouter();
@@ -18,16 +20,15 @@ export default function ProgramsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-12">
+    <>
+      <PageHero
+        badge="Training Programs"
+        title="Fitness Programs"
+        subtitle="Expert-designed programs tailored to meet your specific goals"
+        size="compact"
+      />
+      <div className="container mx-auto px-4 py-12">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-4xl font-bold mb-6">Fitness Programs</h1>
-        
-        <div className="mb-10">
-          <p className="text-lg mb-6">
-            Choose from our selection of expert-designed fitness programs tailored to meet your specific goals. Each program includes detailed workout plans, nutrition guidance, and ongoing support to ensure your success.
-          </p>
-        </div>
-        
         {/* Featured Programs */}
         <div className="mb-16">
           <h2 className="text-3xl font-bold mb-8">Featured Programs</h2>
@@ -369,20 +370,18 @@ export default function ProgramsPage() {
           </div>
         </div>
         
-        {/* CTA Section */}
-        <div className="bg-primary/10 p-8 rounded-lg text-center">
-          <h2 className="text-2xl font-bold mb-4">Not sure which program is right for you?</h2>
-          <p className="mb-6 max-w-2xl mx-auto">
-            Schedule a free consultation call with one of our coaches to discuss your fitness goals and find the perfect program to match your needs.
-          </p>
-          <Button 
-            size="lg" 
-            onClick={navigateToContact}
+        <div className="mb-16">
+          <CTABanner
+            title="Not sure which program is right for you?"
+            description="Schedule a free consultation call with one of our coaches to discuss your fitness goals and find the perfect program to match your needs."
           >
-            Schedule Consultation
-          </Button>
+            <Button size="lg" className="glow-primary font-semibold" onClick={navigateToContact}>
+              Schedule Consultation
+            </Button>
+          </CTABanner>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 } 

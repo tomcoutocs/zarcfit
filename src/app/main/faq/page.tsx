@@ -9,27 +9,24 @@ import { Button } from '@/components/ui/button';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
+import PageHero from '@/components/layout/PageHero';
 
 export default function FAQPage() {
   return (
-    <div className="container mx-auto px-4 py-12">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4">Frequently Asked Questions</h1>
-          <p className="text-xl text-muted-foreground mb-8">
-            Find answers to the most common questions about our fitness programs and services.
-          </p>
-          
-          <div className="relative max-w-md mx-auto">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search for answers..."
-              className="pl-10"
-            />
-          </div>
+    <>
+      <PageHero
+        badge="Help Center"
+        title="Frequently Asked Questions"
+        subtitle="Find answers to the most common questions about our fitness programs and services"
+        size="compact"
+      >
+        <div className="relative mx-auto max-w-md">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input type="search" placeholder="Search for answers..." className="border-border/60 bg-card/50 pl-10 backdrop-blur-sm" />
         </div>
-        
+      </PageHero>
+      <div className="container mx-auto px-4 py-12">
+      <div className="max-w-4xl mx-auto">
         {/* FAQ Categories */}
         <div className="flex flex-wrap justify-center gap-3 mb-12">
           <Button variant="outline" className="rounded-full">All Questions</Button>
@@ -279,6 +276,7 @@ export default function FAQPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 } 

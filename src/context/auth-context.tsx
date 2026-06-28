@@ -1,9 +1,13 @@
 "use client";
 
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
+import {
+  createSupabaseBrowserClient,
+  getSupabaseConfigError,
+  toAuthNetworkError,
+} from '@/lib/supabase/browser';
 
 type UserMetadata = {
   firstName?: string;
@@ -34,7 +38,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const configError = getSupabaseConfigError();
 
   useEffect(() => {
     const getInitialSession = async () => {
@@ -65,6 +70,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   const signUp = async (email: string, password: string, metadata?: UserMetadata) => {
+    if (configError) {
+      return { error: { message: configError, name: 'ConfigError', status: 500 } as AuthError };
+    }
+
     try {
       console.log('Attempting to sign up user:', email);
       console.log('With metadata:', metadata);
@@ -81,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password,
         options: { 
           data: formattedMetadata,
-          emailRedirectTo: `${window.location.origin}/auth/email-verification`
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         }
       });
       
@@ -117,27 +126,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error };
     } catch (err) {
       console.error('Unexpected error in signUp function:', err);
-      return { 
-        error: {
-          message: 'An unexpected error occurred during signup.',
-          name: 'SignUpError',
-          status: 500
-        } as AuthError 
+      const networkError = toAuthNetworkError(err);
+      return {
+        error: networkError as AuthError,
       };
     }
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    
-    if (!error) {
-      router.push('/dashboard');
+    if (configError) {
+      return { error: { message: configError, name: 'ConfigError', status: 500 } as AuthError };
     }
-    
-    return { error };
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (!error) {
+        router.push('/dashboard');
+      }
+
+      return { error };
+    } catch (err) {
+      return { error: toAuthNetworkError(err) as AuthError };
+    }
   };
 
   const signOut = async () => {

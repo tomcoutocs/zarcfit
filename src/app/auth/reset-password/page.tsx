@@ -1,12 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import AuthShell from '@/components/layout/AuthShell';
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
+import { completeAuthFromUrl } from '@/lib/supabase/auth-callback';
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState('');
@@ -14,7 +17,36 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+  const [checkingLink, setCheckingLink] = useState(true);
   const { resetPassword } = useAuth();
+
+  useEffect(() => {
+    const establishSession = async () => {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { error: callbackError, handled } = await completeAuthFromUrl(supabase);
+
+        if (handled && callbackError) {
+          setError(callbackError);
+          setSessionReady(false);
+        } else {
+          const { data: { session } } = await supabase.auth.getSession();
+          setSessionReady(!!session);
+          if (handled && session) {
+            window.history.replaceState({}, '', '/auth/reset-password');
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        setError('Invalid or expired reset link. Please request a new one.');
+      } finally {
+        setCheckingLink(false);
+      }
+    };
+
+    establishSession();
+  }, []);
 
   const validatePassword = () => {
     if (password.length < 8) return 'Password must be at least 8 characters';
@@ -54,8 +86,8 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md">
+    <AuthShell title="Set new password" subtitle="Choose a strong password for your account">
+      <Card className="glass-card w-full border-border/60 shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold">Create new password</CardTitle>
           <CardDescription>
@@ -63,6 +95,17 @@ export default function ResetPasswordPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {checkingLink ? (
+            <div className="flex justify-center py-8">
+              <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
+            </div>
+          ) : !sessionReady && !success ? (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {error || 'This reset link is invalid or has expired. Request a new link from the forgot password page.'}
+              </AlertDescription>
+            </Alert>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">
@@ -97,12 +140,13 @@ export default function ResetPasswordPage() {
                 required
               />
             </div>
-            <Button className="w-full" type="submit" disabled={isLoading}>
+            <Button className="w-full" type="submit" disabled={isLoading || !sessionReady}>
               {isLoading ? 'Resetting...' : 'Reset Password'}
             </Button>
           </form>
+          )}
         </CardContent>
       </Card>
-    </div>
+    </AuthShell>
   );
 } 

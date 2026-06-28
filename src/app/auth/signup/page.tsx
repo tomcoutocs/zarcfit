@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
+import AuthShell from '@/components/layout/AuthShell';
 
 export default function SignupPage() {
   const [firstName, setFirstName] = useState('');
@@ -110,8 +111,8 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md">
+    <AuthShell title="Create your account" subtitle="Start your fitness transformation today">
+      <Card className="glass-card w-full border-border/60 shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
           <CardDescription>
@@ -253,6 +254,6 @@ export default function SignupPage() {
           </div>
         </CardFooter>
       </Card>
-    </div>
+    </AuthShell>
   );
 } 

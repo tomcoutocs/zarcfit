@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
+import PageHero from '@/components/layout/PageHero';
 
 // Badge component
 const Badge = ({ children, className, variant = "default" }: 
@@ -25,25 +26,19 @@ const Badge = ({ children, className, variant = "default" }:
 
 export default function BlogPage() {
   return (
-    <div className="container mx-auto px-4 py-12">
+    <>
+      <PageHero
+        badge="Fitness Insights"
+        title="Fitness Blog"
+        subtitle="Expert advice on fitness, nutrition, and wellness"
+        size="compact"
+      />
+      <div className="container mx-auto px-4 py-12">
       <div className="max-w-5xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10">
-          <div>
-            <h1 className="text-4xl font-bold mb-2">Fitness Blog</h1>
-            <p className="text-lg text-muted-foreground">
-              Expert advice on fitness, nutrition, and wellness
-            </p>
-          </div>
-          
-          <div className="mt-4 md:mt-0 w-full md:w-auto">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search articles..."
-                className="pl-9 w-full md:w-[250px]"
-              />
-            </div>
+        <div className="mb-10 flex justify-end">
+          <div className="relative w-full md:w-auto">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input type="search" placeholder="Search articles..." className="border-border/60 bg-card/50 pl-9 w-full md:w-[250px]" />
           </div>
         </div>
         
@@ -354,6 +349,7 @@ export default function BlogPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 } 

@@ -209,176 +209,88 @@ async function withRetry<T>(
 }
 
 // User Profiles API
+function profileFromAuthMetadata(
+  userId: string,
+  metadata: Record<string, unknown> | undefined
+): UserProfile {
+  const first =
+    (metadata?.first_name as string | undefined) ||
+    (metadata?.firstName as string | undefined) ||
+    '';
+  const last =
+    (metadata?.last_name as string | undefined) ||
+    (metadata?.lastName as string | undefined) ||
+    '';
+
+  return {
+    id: userId,
+    first_name: first,
+    last_name: last,
+    bio: 'A fitness enthusiast',
+    height_cm: 170,
+    created_at: new Date().toISOString(),
+  };
+}
+
+async function ensureUserProfile(userId: string): Promise<UserProfile | null> {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData?.user || authData.user.id !== userId) {
+    return null;
+  }
+
+  const user = authData.user;
+  const metadata = user.user_metadata as Record<string, unknown> | undefined;
+
+  const { data: inserted, error: insertError } = await supabase
+    .from('user_profiles')
+    .insert([
+      {
+        id: userId,
+        first_name:
+          (metadata?.first_name as string | undefined) ||
+          (metadata?.firstName as string | undefined) ||
+          '',
+        last_name:
+          (metadata?.last_name as string | undefined) ||
+          (metadata?.lastName as string | undefined) ||
+          '',
+        bio: 'A fitness enthusiast',
+        height_cm: 170,
+      },
+    ])
+    .select('*')
+    .maybeSingle();
+
+  if (inserted) return inserted;
+
+  if (insertError && insertError.code !== '23505') {
+    console.warn('Could not create profile:', insertError.message ?? insertError.code);
+  }
+
+  const { data: existing } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  return existing ?? profileFromAuthMetadata(userId, metadata);
+}
+
 export const userProfilesApi = {
-  // Get a user's profile
   getProfile: async (userId: string): Promise<UserProfile | null> => {
-    try {
-      // Use retry mechanism for the Supabase query
-      const profileFetch = async () => {
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
-          
-        // If we get an empty error object, throw it so the retry mechanism catches it
-        if (error && Object.keys(error).length === 0) {
-          throw error;
-        }
-        
-        return { data, error };
-      };
-      
-      // Retry the fetch operation with exponential backoff
-      const { data, error } = await withRetry(profileFetch);
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
 
-      // Handle Row Level Security (RLS) errors
-      if (error && error.message?.includes('row-level security')) {
-        console.warn('Row Level Security policy is preventing access to profile. Attempting to create a profile entry.');
-        
-        try {
-          // Get the authentication user data for fallback
-          const { data: authData } = await supabase.auth.getUser();
-          const user = authData?.user;
-          
-          if (user) {
-            // Try to create a profile entry for this user
-            const { data: insertedProfile, error: insertError } = await supabase
-              .from('user_profiles')
-              .insert([{
-                id: userId,
-                first_name: user.user_metadata?.first_name || '',
-                last_name: user.user_metadata?.last_name || '',
-                bio: 'A fitness enthusiast',
-                height_cm: 170
-              }])
-              .select('*')
-              .single();
-            
-            if (insertError) {
-              console.warn('Failed to automatically create profile. The user should run this SQL command:');
-              console.warn(`
-INSERT INTO user_profiles (id, first_name, last_name, bio, height_cm)
-VALUES ('${userId}', '${user.user_metadata?.first_name || ''}', '${user.user_metadata?.last_name || ''}', 'Bio information', 170)
-ON CONFLICT (id) DO NOTHING;`);
-            
-              // Return a fallback profile
-              return {
-                id: userId,
-                first_name: user.user_metadata?.first_name || '',
-                last_name: user.user_metadata?.last_name || '',
-                bio: 'A fitness enthusiast',
-                height_cm: 170,
-                created_at: new Date().toISOString()
-              };
-            }
-            
-            return insertedProfile;
-          }
-        } catch (e) {
-          console.error('Error creating fallback profile:', e);
-        }
-        
-        // If all automatic attempts fail, return a basic fallback profile
-        return {
-          id: userId,
-          first_name: '',
-          last_name: '',
-          bio: 'A fitness enthusiast',
-          height_cm: 170,
-          created_at: new Date().toISOString()
-        };
-      }
-
-      // Handle relation does not exist error
-      if (error && (error.message?.includes('relation') || error.message?.includes('does not exist'))) {
-        console.warn('Table user_profiles does not exist yet. Please run the schema.sql file in Supabase SQL Editor.');
-        
-        // Get the authentication user data for fallback
-        const { data: authData } = await supabase.auth.getUser();
-        const user = authData?.user;
-        
-        // Create a fallback profile from auth data if available
-        return {
-          id: userId,
-          first_name: user?.user_metadata?.first_name || '',
-          last_name: user?.user_metadata?.last_name || '',
-          bio: 'A fitness enthusiast',
-          height_cm: 170,
-          created_at: new Date().toISOString()
-        };
-      }
-
-      // Handle other errors
-      if (error) {
-        console.error('Error fetching user profile:', error);
-        
-        // Check if error is an empty object or doesn't have a message
-        if (Object.keys(error).length === 0 || !error.message) {
-          console.warn('Received empty error object, this might be related to authentication or permissions');
-          
-          // Get the authentication user data for fallback
-          try {
-            const { data: authData } = await supabase.auth.getUser();
-            
-            if (authData?.user) {
-              return {
-                id: userId,
-                first_name: authData.user.user_metadata?.first_name || 'User',
-                last_name: authData.user.user_metadata?.last_name || '',
-                bio: 'Profile information temporarily unavailable. Please try logging out and back in.',
-                height_cm: 170,
-                created_at: new Date().toISOString()
-              };
-            }
-          } catch (authError) {
-            console.warn('Failed to get auth user data for fallback profile:', authError);
-          }
-          
-          // Return basic fallback if auth data isn't available
-          return {
-            id: userId,
-            first_name: 'User',
-            last_name: '',
-            bio: 'Profile information unavailable. Please try logging out and back in.',
-            height_cm: 170,
-            created_at: new Date().toISOString()
-          };
-        }
-        
-        return null;
-      }
-
-      return data;
-    } catch (error) {
-      // Catch any unexpected errors
-      console.error('Unexpected error in getProfile:', error);
-      
-      // If it's an empty object, provide a fallback profile
-      if (error && typeof error === 'object' && Object.keys(error).length === 0) {
-        console.warn('Empty error object caught in getProfile - likely a connection issue');
-        
-        // First try to refresh the session before giving up
-        try {
-          console.log('Attempting to refresh auth session...');
-          await supabase.auth.refreshSession();
-        } catch (refreshError) {
-          console.warn('Failed to refresh session:', refreshError);
-        }
-        
-        return {
-          id: userId,
-          first_name: 'User',
-          last_name: '',
-          bio: 'Profile temporarily unavailable. Please try refreshing the page or logging out and back in.',
-          height_cm: 170,
-          created_at: new Date().toISOString()
-        };
-      }
-      
-      // Re-throw the error for other cases
-      throw error;
+    if (error?.message) {
+      console.error('Error fetching user profile:', error.message);
     }
+
+    if (data) return data;
+
+    return ensureUserProfile(userId);
   },
 
   // Update a user's profile

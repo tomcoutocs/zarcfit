@@ -5,10 +5,9 @@ import { useAuth } from '@/context/auth-context';
 import { useSleepRecords } from '@/hooks/use-dashboard';
 import { sleepTrackingApi, SleepRecord } from '@/lib/supabase/dashboard-api';
 import { supabase } from '@/lib/supabase';
-import SleepGraphs from '@/components/sleep/SleepGraphs';
+import { SleepGraphs } from '@/components/sleep/SleepGraphs';
 import SleepStats from '@/components/sleep/SleepStats';
 import ConnectionReset from '@/components/ConnectionReset';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format, parseISO } from 'date-fns';
@@ -236,7 +235,7 @@ USING (auth.uid() = user_id);
         console.warn('Failed to refresh auth session:', refreshError);
       }
       
-      const { error } = await supabase.from('sleep_tracking').select('count').limit(1);
+      const { error } = await supabase.from('sleep_tracking').select('id').limit(1);
       if (error) {
         console.error('Supabase error when checking sleep_tracking table:', error);
         
@@ -257,54 +256,20 @@ USING (auth.uid() = user_id);
           return false;
         } 
         // Check if this is an RLS error
-        else if (error.message?.includes('permission denied') || error.message?.includes('policy') || error.message?.includes('RLS')) {
+        else if (error.message?.includes('permission denied') || error.message?.includes('policy') || error.message?.includes('row-level security')) {
           setApiStatus('RLS policy violation detected. Please update your RLS policies.');
           return false;
         }
-      } else {
-        // Try to test auth.uid function
-        try {
-          const { error: uidError } = await supabase.rpc('get_auth_uid');
-          
-          // Handle empty error object case for auth.uid error
-          if (uidError && typeof uidError === 'object' && Object.keys(uidError).length === 0) {
-            console.warn('Empty error object encountered when checking auth.uid. This is likely an authentication issue.');
-            setApiStatus('Authentication issue detected when accessing auth.uid. Please try refreshing or logging out and back in.');
-            
-            // Show connection reset for auth.uid errors
-            setShowConnectionReset(true);
-            setShowAuthFunctionFix(true);
-            return false;
-          }
-          
-          if (uidError) {
-            console.error('Error accessing auth.uid:', uidError);
-            if (uidError.message?.includes('function') && uidError.message?.includes('exist')) {
-              setApiStatus('The get_auth_uid function does not exist. Please create it first.');
-              setShowAuthFunctionFix(true);
-              setShowConnectionReset(true);
-            } else {
-              setApiStatus('Successfully connected to Supabase - sleep_tracking table exists, but there may be RLS issues.');
-            }
-          } else {
-            setApiStatus('Successfully connected to Supabase - sleep_tracking table exists and RLS is working.');
-            setShowSql(false); // Hide the SQL instructions if table exists
-            setShowAuthFunctionFix(false);
-            setShowConnectionReset(false);
-          }
-        } catch (functionError) {
-          console.error('Function test error:', functionError);
-          
-          // Handle empty error objects in the catch block
-          if (functionError && typeof functionError === 'object' && Object.keys(functionError).length === 0) {
-            setApiStatus('Authentication issue when checking auth.uid. Please try logging out and back in.');
-            setShowConnectionReset(true);
-          } else {
-            setApiStatus('Successfully connected to Supabase - sleep_tracking table exists, but there may be RLS issues.');
-          }
-        }
-        return true;
+
+        return false;
       }
+
+      // Table exists and the current user can query it (empty rows is OK)
+      setApiStatus('Successfully connected to Supabase — sleep tracking is ready.');
+      setShowSql(false);
+      setShowAuthFunctionFix(false);
+      setShowConnectionReset(false);
+      return true;
     } catch (e) {
       // Handle errors outside the try block
       console.error('Error checking Supabase table:', e);

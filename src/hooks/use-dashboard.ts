@@ -117,37 +117,7 @@ export function useDashboard(userId: string | undefined): DashboardData {
       try {
         // Fetch all data in parallel for better performance
         const results = await Promise.allSettled([
-          // Wrap the getProfile call in a try/catch to handle empty errors
-          (async () => {
-            try {
-              return await userProfilesApi.getProfile(userId);
-            } catch (error) {
-              console.warn('Error in profile fetch caught and handled:', error);
-              // Return a fallback profile if we get the empty object error
-              if (error && typeof error === 'object' && Object.keys(error).length === 0) {
-                if (retryCount < MAX_RETRIES) {
-                  retryCount++;
-                  console.log(`Empty object error, retrying (${retryCount}/${MAX_RETRIES})...`);
-                  // Wait a moment before retrying with exponential backoff
-                  await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, retryCount)));
-                  if (isMounted) {
-                    fetchDashboardData(true);
-                  }
-                  return null;
-                }
-                
-                return {
-                  id: userId,
-                  first_name: 'User',
-                  last_name: '',
-                  bio: 'Profile temporarily unavailable. Please try refreshing the page.',
-                  height_cm: 170,
-                  created_at: new Date().toISOString()
-                };
-              }
-              throw error; // Re-throw if it's not an empty object error
-            }
-          })(),
+          userProfilesApi.getProfile(userId),
           workoutProgramsApi.getUserPrograms(userId),
           progressTrackingApi.getLatestProgress(userId),
           goalsApi.getUserGoals(userId),

@@ -19,6 +19,7 @@ import { CalendarHeader } from '@/components/calendar/calendar-header';
 import { EventDialog } from '@/components/calendar/event-dialog';
 import { useCalendar } from '@/hooks/use-calendar';
 import { CalendarEvent } from '@/lib/supabase';
+import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
 
 // Helper function to format date
 function formatMonthYear(year: number, month: number) {
@@ -73,10 +74,8 @@ export default function CalendarPage() {
   };
   
   return (
-    <div className="container px-4 py-6 space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h1 className="text-3xl font-bold">Calendar</h1>
-        
+    <div className="space-y-8">
+      <DashboardPageHeader title="Calendar" description="Schedule workouts, meals, and events">
         <div className="flex items-center gap-2">
           <Tabs defaultValue="month" className="w-[300px]">
             <TabsList className="grid w-full grid-cols-3">
@@ -86,7 +85,7 @@ export default function CalendarPage() {
             </TabsList>
           </Tabs>
           
-          <Button className="gap-2" onClick={() => {
+          <Button className="gap-2 glow-primary" onClick={() => {
             setSelectedEvent(undefined);
             setSelectedDate(new Date());
             setDialogOpen(true);
@@ -95,7 +94,7 @@ export default function CalendarPage() {
             <span>Add Event</span>
           </Button>
         </div>
-      </div>
+      </DashboardPageHeader>
       
       <Card>
         <CardHeader className="pb-2 flex flex-row items-center justify-between">

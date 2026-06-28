@@ -5,19 +5,19 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { PhoneCall, Mail, MapPin, Clock, ArrowRight } from 'lucide-react';
+import PageHero from '@/components/layout/PageHero';
 
 export default function ContactPage() {
   return (
-    <div className="container mx-auto px-4 py-12">
+    <>
+      <PageHero
+        badge="Get In Touch"
+        title="Contact Us"
+        subtitle="Have a question? We're here to help you on your fitness journey"
+        size="compact"
+      />
+      <div className="container mx-auto px-4 py-12">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-4xl font-bold mb-6">Contact Us</h1>
-        
-        <div className="mb-10">
-          <p className="text-lg mb-6">
-            Have a question about our programs or services? We&apos;re here to help. Reach out to us using the form below or contact us directly.
-          </p>
-        </div>
-        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
           {/* Contact Form */}
           <div className="lg:col-span-2">
@@ -188,6 +188,7 @@ export default function ContactPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 } 

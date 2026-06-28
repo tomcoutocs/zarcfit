@@ -7,6 +7,7 @@ import { useDashboard } from '@/hooks/use-dashboard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import ConnectionReset from '@/components/ConnectionReset';
+import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -61,8 +62,11 @@ export default function DashboardPage() {
   }
   
   return (
-    <div className="container py-6 space-y-6">
-      <h1 className="text-3xl font-bold">Dashboard</h1>
+    <div className="space-y-6">
+      <DashboardPageHeader
+        title="Dashboard"
+        description="Your fitness overview at a glance"
+      />
       
       {/* Display the connection troubleshooter if needed */}
       {showConnectionReset && (

@@ -15,13 +15,12 @@ import {
   Plus,
   MoreVertical
 } from 'lucide-react';
+import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
 
 export default function WorkoutPage() {
   return (
-    <div className="container px-4 py-6 space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h1 className="text-3xl font-bold">Workout Tracking</h1>
-        
+    <div className="space-y-8">
+      <DashboardPageHeader title="Workout Tracking" description="Track exercises, sets, and progress">
         <div className="flex items-center gap-2">
           <Button variant="outline" className="gap-2">
             <CalendarDays className="h-4 w-4" />
@@ -31,12 +30,12 @@ export default function WorkoutPage() {
             <BarChart3 className="h-4 w-4" />
             <span>Analytics</span>
           </Button>
-          <Button className="gap-2">
+          <Button className="gap-2 glow-primary">
             <Plus className="h-4 w-4" />
             <span>New Workout</span>
           </Button>
         </div>
-      </div>
+      </DashboardPageHeader>
       
       <Tabs defaultValue="today" className="w-full">
         <TabsList className="grid w-full md:w-auto grid-cols-3 mb-8">

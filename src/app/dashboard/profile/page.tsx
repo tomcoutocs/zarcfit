@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/context/auth-context';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -83,8 +84,8 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="container mx-auto max-w-4xl py-6">
-      <h1 className="text-3xl font-bold mb-6">Your Profile</h1>
+    <div className="mx-auto max-w-4xl space-y-6">
+      <DashboardPageHeader title="Your Profile" description="Manage your personal information" />
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Profile Summary Card */}

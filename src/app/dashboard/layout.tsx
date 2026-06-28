@@ -2,30 +2,49 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { MessageSquare, Dumbbell, Utensils, Calendar, User, Clipboard, LogOut, Menu, X, Moon } from 'lucide-react';
+import { MessageSquare, Dumbbell, Utensils, Calendar, User, Clipboard, LogOut, Menu, X, Moon, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/context/auth-context';
 import { usePathname, useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 interface NavItemProps {
   href: string;
   icon: React.ReactNode;
   label: string;
   isActive?: boolean;
+  onClick?: () => void;
 }
 
-function NavItem({ href, icon, label, isActive = false }: NavItemProps) {
+function NavItem({ href, icon, label, isActive = false, onClick }: NavItemProps) {
   return (
-    <Link 
+    <Link
       href={href}
-      className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${isActive ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
+      onClick={onClick}
+      className={cn(
+        'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+        isActive
+          ? 'nav-link-active shadow-sm'
+          : 'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground'
+      )}
     >
       {icon}
       <span>{label}</span>
     </Link>
   );
 }
+
+const navItems = [
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Overview' },
+  { href: '/dashboard/chat', icon: MessageSquare, label: 'Chat' },
+  { href: '/dashboard/workout', icon: Dumbbell, label: 'Workout Tracking' },
+  { href: '/dashboard/meal-plan', icon: Utensils, label: 'Meal Plan' },
+  { href: '/dashboard/sleep', icon: Moon, label: 'Sleep Tracking' },
+  { href: '/dashboard/calendar', icon: Calendar, label: 'Calendar' },
+  { href: '/dashboard/profile', icon: User, label: 'Profile' },
+  { href: '/dashboard/plans', icon: Clipboard, label: 'Plans' },
+];
 
 export default function DashboardLayout({
   children,
@@ -42,197 +61,115 @@ export default function DashboardLayout({
     router.push('/');
   };
 
+  const isActive = (href: string) => {
+    if (href === '/dashboard') return pathname === '/dashboard';
+    return pathname === href || pathname.startsWith(href + '/');
+  };
+
   return (
     <ProtectedRoute>
-      <div className="flex min-h-screen">
+      <div className="flex min-h-screen bg-background">
         {/* Sidebar */}
-        <div className="w-64 border-r bg-background hidden md:block">
-          <div className="p-4 border-b">
-            <Link href="/" className="flex items-center gap-2">
-              <span className="text-xl font-bold">ZarcFit</span>
+        <aside className="hidden w-64 flex-col border-r border-sidebar-border bg-sidebar md:flex">
+          <div className="border-b border-sidebar-border p-5">
+            <Link href="/" className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 ring-1 ring-primary/20">
+                <Dumbbell className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-lg font-bold tracking-tight">
+                Zarc<span className="text-primary">Fit</span>
+              </span>
             </Link>
           </div>
-          
-          <div className="p-4">
-            <nav className="space-y-1">
-              <NavItem 
-                href="/dashboard/chat" 
-                icon={<MessageSquare className="h-5 w-5" />} 
-                label="Chat"
-                isActive={pathname === '/dashboard/chat'}
+
+          <nav className="flex-1 space-y-1 p-4">
+            {navItems.map((item) => (
+              <NavItem
+                key={item.href}
+                href={item.href}
+                icon={<item.icon className="h-5 w-5" />}
+                label={item.label}
+                isActive={isActive(item.href)}
               />
-              <NavItem 
-                href="/dashboard/workout" 
-                icon={<Dumbbell className="h-5 w-5" />} 
-                label="Workout Tracking"
-                isActive={pathname === '/dashboard/workout'}
-              />
-              <NavItem 
-                href="/dashboard/meal-plan" 
-                icon={<Utensils className="h-5 w-5" />} 
-                label="Meal Plan"
-                isActive={pathname === '/dashboard/meal-plan'}
-              />
-              <NavItem 
-                href="/dashboard/sleep" 
-                icon={<Moon className="h-5 w-5" />} 
-                label="Sleep Tracking"
-                isActive={pathname === '/dashboard/sleep'}
-              />
-              <NavItem 
-                href="/dashboard/calendar" 
-                icon={<Calendar className="h-5 w-5" />} 
-                label="Calendar"
-                isActive={pathname === '/dashboard/calendar'}
-              />
-              <NavItem 
-                href="/dashboard/profile" 
-                icon={<User className="h-5 w-5" />} 
-                label="Profile"
-                isActive={pathname === '/dashboard/profile'}
-              />
-              <NavItem 
-                href="/dashboard/plans" 
-                icon={<Clipboard className="h-5 w-5" />} 
-                label="Plans"
-                isActive={pathname === '/dashboard/plans'}
-              />
-            </nav>
-            
-            <div className="mt-6 pt-6 border-t">
-              <Button
-                variant="ghost"
-                className="w-full justify-start"
-                onClick={handleSignOut}
-              >
-                <LogOut className="h-5 w-5 mr-3" />
-                Sign Out
-              </Button>
-            </div>
+            ))}
+          </nav>
+
+          <div className="border-t border-sidebar-border p-4">
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-muted-foreground hover:text-destructive"
+              onClick={handleSignOut}
+            >
+              <LogOut className="mr-3 h-5 w-5" />
+              Sign Out
+            </Button>
           </div>
-        </div>
-        
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col">
-          {/* Mobile Header */}
-          <div className="block md:hidden border-b bg-background">
+        </aside>
+
+        {/* Main */}
+        <div className="flex flex-1 flex-col">
+          {/* Mobile header */}
+          <div className="border-b border-border/50 bg-background/80 backdrop-blur-xl md:hidden">
             <div className="flex items-center justify-between p-4">
               <Link href="/" className="flex items-center gap-2">
-                <span className="text-xl font-bold">ZarcFit</span>
+                <Dumbbell className="h-5 w-5 text-primary" />
+                <span className="text-lg font-bold">ZarcFit</span>
               </Link>
-              
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
                 <Link href="/dashboard/profile">
                   <Button size="icon" variant="ghost">
                     <User className="h-5 w-5" />
                   </Button>
                 </Link>
-                
-                <Button 
-                  size="sm" 
-                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                >
+                <Button size="sm" variant="outline" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
                   {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
                 </Button>
               </div>
             </div>
-            
-            {/* Mobile Navigation */}
+
             {mobileMenuOpen ? (
-              <div className="border-t p-4">
+              <div className="border-t border-border/50 p-4">
                 <nav className="space-y-1">
-                  <NavItem 
-                    href="/dashboard/chat" 
-                    icon={<MessageSquare className="h-5 w-5" />} 
-                    label="Chat"
-                    isActive={pathname === '/dashboard/chat'}
-                  />
-                  <NavItem 
-                    href="/dashboard/workout" 
-                    icon={<Dumbbell className="h-5 w-5" />} 
-                    label="Workout Tracking"
-                    isActive={pathname === '/dashboard/workout'}
-                  />
-                  <NavItem 
-                    href="/dashboard/meal-plan" 
-                    icon={<Utensils className="h-5 w-5" />} 
-                    label="Meal Plan"
-                    isActive={pathname === '/dashboard/meal-plan'}
-                  />
-                  <NavItem 
-                    href="/dashboard/sleep" 
-                    icon={<Moon className="h-5 w-5" />} 
-                    label="Sleep Tracking"
-                    isActive={pathname === '/dashboard/sleep'}
-                  />
-                  <NavItem 
-                    href="/dashboard/calendar" 
-                    icon={<Calendar className="h-5 w-5" />} 
-                    label="Calendar"
-                    isActive={pathname === '/dashboard/calendar'}
-                  />
-                  <NavItem 
-                    href="/dashboard/profile" 
-                    icon={<User className="h-5 w-5" />} 
-                    label="Profile"
-                    isActive={pathname === '/dashboard/profile'}
-                  />
-                  <NavItem 
-                    href="/dashboard/plans" 
-                    icon={<Clipboard className="h-5 w-5" />} 
-                    label="Plans"
-                    isActive={pathname === '/dashboard/plans'}
-                  />
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start mt-6"
-                    onClick={handleSignOut}
-                  >
-                    <LogOut className="h-5 w-5 mr-3" />
+                  {navItems.map((item) => (
+                    <NavItem
+                      key={item.href}
+                      href={item.href}
+                      icon={<item.icon className="h-5 w-5" />}
+                      label={item.label}
+                      isActive={isActive(item.href)}
+                      onClick={() => setMobileMenuOpen(false)}
+                    />
+                  ))}
+                  <Button variant="ghost" className="mt-4 w-full justify-start" onClick={handleSignOut}>
+                    <LogOut className="mr-3 h-5 w-5" />
                     Sign Out
                   </Button>
                 </nav>
               </div>
             ) : (
-              <div className="p-2 border-t grid grid-cols-4 gap-1">
-                <Link href="/dashboard/chat" className="flex flex-col items-center p-2 text-sm">
-                  <MessageSquare className="h-5 w-5 mb-1" />
-                  <span>Chat</span>
-                </Link>
-                <Link href="/dashboard/workout" className="flex flex-col items-center p-2 text-sm">
-                  <Dumbbell className="h-5 w-5 mb-1" />
-                  <span>Workout</span>
-                </Link>
-                <Link href="/dashboard/meal-plan" className="flex flex-col items-center p-2 text-sm">
-                  <Utensils className="h-5 w-5 mb-1" />
-                  <span>Meals</span>
-                </Link>
-                <Link href="/dashboard/sleep" className="flex flex-col items-center p-2 text-sm">
-                  <Moon className="h-5 w-5 mb-1" />
-                  <span>Sleep</span>
-                </Link>
-                <Link href="/dashboard/calendar" className="flex flex-col items-center p-2 text-sm">
-                  <Calendar className="h-5 w-5 mb-1" />
-                  <span>Calendar</span>
-                </Link>
-                <Link href="/dashboard/plans" className="flex flex-col items-center p-2 text-sm">
-                  <Clipboard className="h-5 w-5 mb-1" />
-                  <span>Plans</span>
-                </Link>
-                <Link href="/dashboard/profile" className="flex flex-col items-center p-2 text-sm">
-                  <User className="h-5 w-5 mb-1" />
-                  <span>Profile</span>
-                </Link>
+              <div className="grid grid-cols-4 gap-1 border-t border-border/50 p-2">
+                {navItems.slice(0, 4).map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      'flex flex-col items-center rounded-lg p-2 text-xs',
+                      isActive(item.href) ? 'text-primary' : 'text-muted-foreground'
+                    )}
+                  >
+                    <item.icon className="mb-1 h-5 w-5" />
+                    <span className="truncate">{item.label.split(' ')[0]}</span>
+                  </Link>
+                ))}
               </div>
             )}
           </div>
-          
-          {/* Page Content */}
-          <main className="flex-1 overflow-auto p-4 md:p-6 bg-muted/30">
+
+          <main className="flex-1 overflow-auto bg-muted/20 p-4 md:p-6 lg:p-8">
             {children}
           </main>
         </div>
       </div>
     </ProtectedRoute>
   );
-} 
+}

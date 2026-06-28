@@ -15,13 +15,12 @@ import {
   MoreVertical,
   Filter
 } from 'lucide-react';
+import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
 
 export default function MealPlanPage() {
   return (
-    <div className="container px-4 py-6 space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h1 className="text-3xl font-bold">Meal Planning</h1>
-        
+    <div className="space-y-8">
+      <DashboardPageHeader title="Meal Planning" description="Plan meals and track nutrition">
         <div className="flex items-center gap-2">
           <Button variant="outline" className="gap-2">
             <Filter className="h-4 w-4" />
@@ -31,12 +30,12 @@ export default function MealPlanPage() {
             <GanttChart className="h-4 w-4" />
             <span>Meal Library</span>
           </Button>
-          <Button className="gap-2">
+          <Button className="gap-2 glow-primary">
             <Plus className="h-4 w-4" />
             <span>Add Meal</span>
           </Button>
         </div>
-      </div>
+      </DashboardPageHeader>
       
       {/* Weekly Calendar Navigator */}
       <div className="flex items-center justify-between pb-4 border-b">

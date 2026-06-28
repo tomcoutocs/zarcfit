@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import AuthShell from '@/components/layout/AuthShell';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -50,8 +51,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md">
+    <AuthShell title="Sign in to ZarcFit" subtitle="Access your personalized dashboard">
+      <Card className="glass-card w-full border-border/60 shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold">Sign in to ZarcFit</CardTitle>
           <CardDescription>
@@ -139,6 +140,6 @@ export default function LoginPage() {
           </div>
         </CardFooter>
       </Card>
-    </div>
+    </AuthShell>
   );
 } 
