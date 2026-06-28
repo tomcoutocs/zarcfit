@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface BlogPost {
   id: string;
@@ -189,9 +190,12 @@ export default function ViewBlogPostPage() {
         <CardContent className="space-y-6">
           {blogPost.featured_image && (
             <div className="overflow-hidden rounded-md">
-              <img 
-                src={blogPost.featured_image} 
+              <Image
+                src={blogPost.featured_image}
                 alt={blogPost.title}
+                width={1200}
+                height={630}
+                unoptimized
                 className="w-full h-auto object-cover"
               />
             </div>
