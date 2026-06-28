@@ -176,38 +176,6 @@ export type SleepRecord = {
   updated_at?: string;
 };
 
-// Helper function to retry a function with exponential backoff
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  retries = 2, 
-  delay = 500,
-  retryOnEmpty = true
-): Promise<T> {
-  try {
-    const result = await fn();
-    
-    // Special case for empty object errors
-    if (retryOnEmpty && 
-        result instanceof Object && 
-        Object.keys(result).length === 0) {
-      if (retries > 0) {
-        console.log(`Encountered empty object, retrying... (${retries} attempts left)`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return withRetry(fn, retries - 1, delay * 1.5, retryOnEmpty);
-      }
-    }
-    
-    return result;
-  } catch (error) {
-    if (retries > 0) {
-      console.log(`API call failed, retrying... (${retries} attempts left)`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return withRetry(fn, retries - 1, delay * 1.5, retryOnEmpty);
-    }
-    throw error;
-  }
-}
-
 // User Profiles API
 function profileFromAuthMetadata(
   userId: string,

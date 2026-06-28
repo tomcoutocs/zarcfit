@@ -75,41 +75,13 @@ export function useDashboard(userId: string | undefined): DashboardData {
     error: null
   });
   
-  // Add session refresh functionality
-  const refreshSession = useCallback(async () => {
-    try {
-      console.log('Attempting to refresh Supabase session...');
-      const { error } = await supabase.auth.refreshSession();
-      if (error) {
-        console.error('Failed to refresh session:', error);
-        return false;
-      }
-      console.log('Session refreshed successfully');
-      return true;
-    } catch (error) {
-      console.error('Error in refreshSession:', error);
-      return false;
-    }
-  }, []);
-
   useEffect(() => {
     let isMounted = true;
-    let retryCount = 0;
-    const MAX_RETRIES = 2;
-    
-    async function fetchDashboardData(retry = false) {
+
+    async function fetchDashboardData() {
       if (!userId) {
         setData(prev => ({ ...prev, loading: false }));
         return;
-      }
-
-      if (retry) {
-        // If retrying, attempt to refresh the session first
-        const refreshed = await refreshSession();
-        if (!refreshed && retryCount >= MAX_RETRIES) {
-          console.error('Max retries reached, giving up');
-          return;
-        }
       }
 
       setData(prev => ({ ...prev, loading: true, error: null }));

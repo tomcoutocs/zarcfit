@@ -85,7 +85,7 @@ export function EventDialog({
     }
   }, [open, selectedEvent, selectedDate]);
 
-  const handleChange = (field: keyof EventFormData, value: any) => {
+  const handleChange = (field: keyof EventFormData, value: EventFormData[keyof EventFormData]) => {
     setFormData(prev => ({
       ...prev,
       [field]: value

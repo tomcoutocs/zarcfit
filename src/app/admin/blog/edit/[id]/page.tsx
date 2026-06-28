@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -39,8 +39,10 @@ interface BlogPost {
   created_at: string;
 }
 
-export default function EditBlogPostPage({ params }: { params: { id: string } }) {
+export default function EditBlogPostPage() {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const postId = params.id;
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [error, setError] = useState('');
@@ -63,7 +65,7 @@ export default function EditBlogPostPage({ params }: { params: { id: string } })
         const { data, error } = await supabase
           .from('blog_posts')
           .select('*')
-          .eq('id', params.id)
+          .eq('id', postId)
           .single();
           
         if (error) {
@@ -92,7 +94,7 @@ export default function EditBlogPostPage({ params }: { params: { id: string } })
     };
     
     fetchBlogPost();
-  }, [params.id]);
+  }, [postId]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -145,7 +147,7 @@ export default function EditBlogPostPage({ params }: { params: { id: string } })
           status: formData.status,
           // We don't update author fields here
         })
-        .eq('id', params.id);
+        .eq('id', postId);
       
       if (saveError) {
         throw new Error(saveError.message);

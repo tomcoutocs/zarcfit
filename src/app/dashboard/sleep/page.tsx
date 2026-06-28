@@ -9,9 +9,6 @@ import { SleepGraphs } from '@/components/sleep/SleepGraphs';
 import SleepStats from '@/components/sleep/SleepStats';
 import ConnectionReset from '@/components/ConnectionReset';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { format, parseISO } from 'date-fns';
-import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,20 +20,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
-export default function SleepTrackingPage() {
-  const { user } = useAuth();
-  const { sleepRecords, latestRecord, loading, error, refetch } = useSleepRecords(user?.id);
-  const [selectedRecord, setSelectedRecord] = useState<SleepRecord | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [apiStatus, setApiStatus] = useState<string>('');
-  const [showSql, setShowSql] = useState(false);
-  const [sqlCopied, setSqlCopied] = useState(false);
-  const [rlsSqlCopied, setRlsSqlCopied] = useState(false);
-  const [authFuncSqlCopied, setAuthFuncSqlCopied] = useState(false);
-  const [showAuthFunctionFix, setShowAuthFunctionFix] = useState(false);
-  const [showConnectionReset, setShowConnectionReset] = useState(false);
-  const [fixAuthFunctionSql, setFixAuthFunctionSql] = useState(`-- Fix auth.uid function SQL
+const FIX_AUTH_FUNCTION_SQL = `-- Fix auth.uid function SQL
 -- First, fix the auth.uid function
 DROP FUNCTION IF EXISTS get_auth_uid();
 
@@ -48,7 +32,6 @@ AS $$
 DECLARE
   auth_id uuid;
 BEGIN
-  -- Use auth.uid() in a safer way
   BEGIN
     auth_id := auth.uid();
     RETURN auth_id;
@@ -59,38 +42,21 @@ BEGIN
 END;
 $$;
 
--- Fix permissions on the function
 ALTER FUNCTION get_auth_uid() SECURITY DEFINER;
 GRANT EXECUTE ON FUNCTION get_auth_uid() TO authenticated;
-GRANT EXECUTE ON FUNCTION get_auth_uid() TO anon;
+GRANT EXECUTE ON FUNCTION get_auth_uid() TO anon;`;
 
--- Also fix RLS policies using a simpler approach
-DO $$
-BEGIN
-  -- Drop existing policies to avoid conflicts
-  DROP POLICY IF EXISTS "Users can view own records" ON sleep_tracking;
-  DROP POLICY IF EXISTS "Users can insert own records" ON sleep_tracking;
-  DROP POLICY IF EXISTS "Users can update own records" ON sleep_tracking;
-  DROP POLICY IF EXISTS "Users can delete own records" ON sleep_tracking;
-  
-  -- Create new policies directly without checking if they exist
-  CREATE POLICY "Users can view own records"
-  ON sleep_tracking FOR SELECT
-  USING (auth.uid() = user_id);
-  
-  CREATE POLICY "Users can insert own records"
-  ON sleep_tracking FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-  
-  CREATE POLICY "Users can update own records"
-  ON sleep_tracking FOR UPDATE
-  USING (auth.uid() = user_id);
-  
-  CREATE POLICY "Users can delete own records"
-  ON sleep_tracking FOR DELETE
-  USING (auth.uid() = user_id);
-END
-$$;`);
+export default function SleepTrackingPage() {
+  const { user } = useAuth();
+  const { sleepRecords, loading, error, refetch } = useSleepRecords(user?.id);
+  const [selectedRecord, setSelectedRecord] = useState<SleepRecord | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [apiStatus, setApiStatus] = useState<string>('');
+  const [showSql, setShowSql] = useState(false);
+  const [sqlCopied, setSqlCopied] = useState(false);
+  const [showAuthFunctionFix, setShowAuthFunctionFix] = useState(false);
+  const [showConnectionReset, setShowConnectionReset] = useState(false);
   
   // Form state
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -157,65 +123,6 @@ AS $$
 $$;
 `.trim();
 
-  // SQL to create the auth helper function first
-  const createAuthFunctionSql = `
--- Create the auth.uid helper function
-CREATE OR REPLACE FUNCTION get_auth_uid()
-RETURNS uuid
-LANGUAGE sql
-SECURITY DEFINER
-AS $$
-  SELECT auth.uid();
-$$;
-
--- Test if it works
-SELECT get_auth_uid();
-`.trim();
-
-  // SQL to fix RLS policies after the function exists
-  const fixRlsSql = `
--- Verify the current policies
-SELECT * FROM pg_policies WHERE tablename = 'sleep_tracking';
-
--- Drop existing policies if they're not working correctly
-DROP POLICY IF EXISTS "Users can insert their own sleep tracking" ON sleep_tracking;
-DROP POLICY IF EXISTS "Users can select their own sleep tracking" ON sleep_tracking;
-DROP POLICY IF EXISTS "Users can update their own sleep tracking" ON sleep_tracking;
-DROP POLICY IF EXISTS "Users can delete their own sleep tracking" ON sleep_tracking;
-DROP POLICY IF EXISTS "Users can view their own sleep tracking" ON sleep_tracking;
-
--- Create proper policies
-CREATE POLICY "Users can view their own sleep tracking"
-ON sleep_tracking FOR SELECT
-USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert their own sleep tracking"
-ON sleep_tracking FOR INSERT
-WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own sleep tracking"
-ON sleep_tracking FOR UPDATE
-USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete their own sleep tracking"
-ON sleep_tracking FOR DELETE
-USING (auth.uid() = user_id);
-`.trim();
-
-  // Function to copy RLS fix SQL to clipboard
-  const copyRlsFixSqlToClipboard = () => {
-    navigator.clipboard.writeText(fixRlsSql);
-    setRlsSqlCopied(true);
-    setTimeout(() => setRlsSqlCopied(false), 2000);
-  };
-  
-  // Function to copy auth function SQL to clipboard
-  const copyAuthFunctionSqlToClipboard = () => {
-    navigator.clipboard.writeText(createAuthFunctionSql);
-    setAuthFuncSqlCopied(true);
-    setTimeout(() => setAuthFuncSqlCopied(false), 2000);
-  };
-  
   // Function to copy SQL to clipboard
   const copySqlToClipboard = () => {
     navigator.clipboard.writeText(createTableSql);
@@ -294,22 +201,6 @@ USING (auth.uid() = user_id);
     
     checkSupabaseTable();
   }, []);
-  
-  // Calculate stats
-  const calculateAverageSleepDuration = () => {
-    if (sleepRecords.length === 0) return 0;
-    const total = sleepRecords.reduce((sum, record) => sum + record.sleep_duration_hours, 0);
-    return (total / sleepRecords.length).toFixed(1);
-  };
-  
-  const calculateAverageSleepQuality = () => {
-    if (sleepRecords.length === 0) return 0;
-    const records = sleepRecords.filter(record => record.sleep_quality);
-    if (records.length === 0) return 0;
-    
-    const total = records.reduce((sum, record) => sum + (record.sleep_quality || 0), 0);
-    return (total / records.length).toFixed(1);
-  };
   
   // Reset form
   const resetForm = () => {
@@ -567,11 +458,11 @@ USING (auth.uid() = user_id);
               There appears to be an issue with the <code>auth.uid()</code> function. Please run the SQL fix script:
             </p>
             <div className="bg-black text-white p-3 rounded text-xs mb-2 overflow-x-auto">
-              <pre>{fixAuthFunctionSql}</pre>
+              <pre>{FIX_AUTH_FUNCTION_SQL}</pre>
             </div>
             <div className="flex space-x-2">
               <Button 
-                onClick={() => navigator.clipboard.writeText(fixAuthFunctionSql)}
+                onClick={() => navigator.clipboard.writeText(FIX_AUTH_FUNCTION_SQL)}
                 variant="outline" 
                 size="sm"
               >
@@ -800,7 +691,7 @@ USING (auth.uid() = user_id);
                         } else {
                           alert(`API Error: ${result.message || 'Unknown error'}`);
                         }
-                      } catch (err) {
+                      } catch {
                         alert(`Error parsing API response: ${responseText.substring(0, 100)}...`);
                       }
                     } catch (err) {

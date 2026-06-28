@@ -6,19 +6,9 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Print detailed environment info for troubleshooting
-console.log('API Route - Detailed Environment Check:', { 
-  hasUrl: !!supabaseUrl,
-  url: supabaseUrl ? `${supabaseUrl.substring(0, 8)}...` : 'missing',
-  hasServiceKey: !!serviceRoleKey,
-  serviceKeyLength: serviceRoleKey ? serviceRoleKey.length : 0,
-  serviceKeyFirstChars: serviceRoleKey ? `${serviceRoleKey.substring(0, 4)}...` : 'missing',
-  hasAnonKey: !!anonKey,
-  anonKeyLength: anonKey ? anonKey.length : 0
-});
-
 // Create a test client with anon key for comparison
-const regularClient = createClient(supabaseUrl, anonKey);
+const regularClient =
+  supabaseUrl && anonKey ? createClient(supabaseUrl, anonKey) : null;
 
 // Create admin client with service role key
 const supabaseAdmin = serviceRoleKey 
@@ -26,13 +16,13 @@ const supabaseAdmin = serviceRoleKey
   : null;
 
 // Function to handle errors gracefully
-const handleError = (error: any) => {
+const handleError = (error: unknown) => {
   console.error('API: Error details:', error);
-  
-  // Extract useful information from the error
-  const message = error?.message || 'Unknown error';
-  const code = error?.code || 'NO_CODE';
-  const details = error?.details || {};
+
+  const err = error as { message?: string; code?: string; details?: unknown };
+  const message = err?.message || 'Unknown error';
+  const code = err?.code || 'NO_CODE';
+  const details = err?.details || {};
   
   return {
     error: 'Database error',
@@ -98,16 +88,18 @@ export async function POST(request: Request) {
     // First check with regular client if the issue is actually RLS
     // This helps diagnose if the problem is with RLS or something else
     try {
-      const { error: regularError } = await regularClient
-        .from('sleep_tracking')
-        .insert([sleepRecord])
-        .select()
-        .single();
-        
-      if (regularError) {
-        console.log('Regular client error (expected if RLS is working):', regularError.message);
-      } else {
-        console.log('Warning: Regular client insert succeeded - RLS might not be enforced');
+      if (regularClient) {
+        const { error: regularError } = await regularClient
+          .from('sleep_tracking')
+          .insert([sleepRecord])
+          .select()
+          .single();
+
+        if (regularError) {
+          console.log('Regular client error (expected if RLS is working):', regularError.message);
+        } else {
+          console.log('Warning: Regular client insert succeeded - RLS might not be enforced');
+        }
       }
     } catch (e) {
       console.error('Error testing regular client:', e);

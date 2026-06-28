@@ -7,6 +7,14 @@ interface SleepPhasesProps {
   sleepRecords: SleepRecord[];
 }
 
+type ChartTooltipPayload = { value: number; name: string; color?: string };
+
+interface ChartTooltipProps {
+  active?: boolean;
+  payload?: ChartTooltipPayload[];
+  label?: string;
+}
+
 export const SleepPhases: React.FC<SleepPhasesProps> = ({ sleepRecords }) => {
   // Process data for the graph
   const chartData = sleepRecords
@@ -14,7 +22,7 @@ export const SleepPhases: React.FC<SleepPhasesProps> = ({ sleepRecords }) => {
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .slice(-7)
     .map(record => {
-      const duration = record.duration / 60; // Total duration in hours
+      const duration = record.sleep_duration_hours;
       
       // Calculate approximate sleep phases (these would normally come from real data)
       // Deep sleep: ~20% of total sleep
@@ -36,12 +44,12 @@ export const SleepPhases: React.FC<SleepPhasesProps> = ({ sleepRecords }) => {
     });
 
   // Custom tooltip component
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: ChartTooltipProps) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-md shadow-md">
           <p className="font-medium">{label}</p>
-          {payload.map((entry: any, index: number) => (
+          {payload.map((entry, index) => (
             <p 
               key={`item-${index}`}
               style={{ color: entry.color }}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
@@ -22,8 +22,10 @@ interface BlogPost {
   updated_at: string;
 }
 
-export default function ViewBlogPostPage({ params }: { params: { id: string } }) {
+export default function ViewBlogPostPage() {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const postId = params.id;
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [blogPost, setBlogPost] = useState<BlogPost | null>(null);
@@ -36,7 +38,7 @@ export default function ViewBlogPostPage({ params }: { params: { id: string } })
         const { data, error } = await supabase
           .from('blog_posts')
           .select('*')
-          .eq('id', params.id)
+          .eq('id', postId)
           .single();
           
         if (error) {
@@ -57,7 +59,7 @@ export default function ViewBlogPostPage({ params }: { params: { id: string } })
     };
     
     fetchBlogPost();
-  }, [params.id]);
+  }, [postId]);
 
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this blog post? This action cannot be undone.')) {
@@ -71,7 +73,7 @@ export default function ViewBlogPostPage({ params }: { params: { id: string } })
       const { error } = await supabase
         .from('blog_posts')
         .delete()
-        .eq('id', params.id);
+        .eq('id', postId);
         
       if (error) {
         throw new Error(error.message);
@@ -152,7 +154,7 @@ export default function ViewBlogPostPage({ params }: { params: { id: string } })
             variant="outline" 
             asChild
           >
-            <Link href={`/admin/blog/edit/${params.id}`}>
+            <Link href={`/admin/blog/edit/${postId}`}>
               <Edit className="h-4 w-4 mr-2" />
               Edit
             </Link>
@@ -230,7 +232,7 @@ export default function ViewBlogPostPage({ params }: { params: { id: string } })
             variant="outline" 
             asChild
           >
-            <Link href={`/admin/blog/edit/${params.id}`}>
+            <Link href={`/admin/blog/edit/${postId}`}>
               <Edit className="h-4 w-4 mr-2" />
               Edit
             </Link>

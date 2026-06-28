@@ -7,6 +7,14 @@ interface SleepWeeklyProps {
   sleepRecords: SleepRecord[];
 }
 
+type ChartTooltipPayload = { value: number; name: string; color?: string };
+
+interface ChartTooltipProps {
+  active?: boolean;
+  payload?: ChartTooltipPayload[];
+  label?: string;
+}
+
 export const SleepWeekly: React.FC<SleepWeeklyProps> = ({ sleepRecords }) => {
   // Process data for the weekly view
   const today = new Date();
@@ -21,18 +29,18 @@ export const SleepWeekly: React.FC<SleepWeeklyProps> = ({ sleepRecords }) => {
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .map(record => ({
       date: format(parseISO(record.date), 'EEE dd'),
-      duration: record.duration / 60, // Convert to hours
-      disruptions: record.disruptions || 0,
+      duration: record.sleep_duration_hours,
+      disruptions: record.sleep_disruptions ?? 0,
       rawDate: record.date
     }));
 
   // Custom tooltip component
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: ChartTooltipProps) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-md shadow-md">
           <p className="font-medium">{label}</p>
-          {payload.map((entry: any, index: number) => (
+          {payload.map((entry, index) => (
             <p 
               key={`item-${index}`}
               style={{ color: entry.color }}

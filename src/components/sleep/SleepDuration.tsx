@@ -1,10 +1,18 @@
 import React from 'react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
+import { Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
 import { SleepRecord } from '@/types/sleep';
 import { format, parseISO } from 'date-fns';
 
 interface SleepDurationProps {
   sleepRecords: SleepRecord[];
+}
+
+type ChartTooltipPayload = { value: number; name: string; color?: string };
+
+interface ChartTooltipProps {
+  active?: boolean;
+  payload?: ChartTooltipPayload[];
+  label?: string;
 }
 
 export const SleepDuration: React.FC<SleepDurationProps> = ({ sleepRecords }) => {
@@ -15,13 +23,13 @@ export const SleepDuration: React.FC<SleepDurationProps> = ({ sleepRecords }) =>
     .slice(-7)
     .map(record => ({
       date: format(parseISO(record.date), 'MMM dd'),
-      duration: record.duration / 60, // Convert to hours
-      quality: record.quality,
+      duration: record.sleep_duration_hours,
+      quality: record.sleep_quality ?? 0,
       rawDate: record.date
     }));
 
   // Custom tooltip component
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: ChartTooltipProps) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-md shadow-md">
