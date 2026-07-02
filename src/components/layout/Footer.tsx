@@ -27,8 +27,8 @@ export default function Footer() {
             <ul className="space-y-2.5 text-sm">
               {[
                 { href: '/', label: 'Home' },
-                { href: '/main/about', label: 'About Me' },
-                { href: '/main/coaching', label: 'Online Coaching' },
+                { href: '/main/about', label: 'About' },
+                { href: '/main/coaching', label: 'Coaching' },
                 { href: '/main/programs', label: 'Programs' },
               ].map((link) => (
                 <li key={link.href}>
