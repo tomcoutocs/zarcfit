@@ -17,6 +17,7 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState<'client' | 'trainer'>('client');
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -56,7 +57,7 @@ export default function SignupPage() {
       const { error: signUpError } = await signUp(email, password, {
         firstName,
         lastName,
-      });
+      }, role);
       
       if (signUpError) {
         console.error('Sign up error:', signUpError);
@@ -155,6 +156,34 @@ export default function SignupPage() {
                 />
               </div>
             </div>
+            
+            <div className="space-y-2">
+              <Label>I am a...</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <Button
+                  type="button"
+                  variant={role === 'client' ? 'default' : 'outline'}
+                  onClick={() => setRole('client')}
+                  className="w-full"
+                >
+                  <span className="mr-2">👤</span> Client
+                </Button>
+                <Button
+                  type="button"
+                  variant={role === 'trainer' ? 'default' : 'outline'}
+                  onClick={() => setRole('trainer')}
+                  className="w-full"
+                >
+                  <span className="mr-2">💪</span> Trainer/Coach
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {role === 'client' 
+                  ? 'Track your fitness journey and work with trainers' 
+                  : 'Manage clients and create training programs'}
+              </p>
+            </div>
+            
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input 
