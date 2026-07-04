@@ -52,8 +52,6 @@ export default function SignupPage() {
     setSuccess('');
 
     try {
-      console.log('Signing up with:', { email, password, firstName, lastName });
-      
       const { error: signUpError } = await signUp(email, password, {
         firstName,
         lastName,

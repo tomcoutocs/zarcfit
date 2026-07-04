@@ -1,139 +1,104 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
 
-// Debug environment variables - more detailed debugging
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+// Security note: this route previously inserted records using the Supabase
+// service role key while trusting a `user_id` field from the request body —
+// meaning any caller could write sleep data for any user in the database,
+// completely bypassing RLS. It now authenticates the request via the
+// caller's own session cookies and always inserts as that user, so the
+// normal `auth.uid() = user_id` RLS policy on `sleep_tracking` does its job.
+async function getSessionClient() {
+  const cookieStore = await cookies();
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? '';
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? '';
 
-// Create a test client with anon key for comparison
-const regularClient =
-  supabaseUrl && anonKey ? createClient(supabaseUrl, anonKey) : null;
+  if (!url || !anonKey) return null;
 
-// Create admin client with service role key
-const supabaseAdmin = serviceRoleKey 
-  ? createClient(supabaseUrl, serviceRoleKey)
-  : null;
+  return createServerClient(url, anonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll() {
+        // Route handlers can't set cookies on the incoming request; the
+        // session is refreshed by middleware, not here.
+      },
+    },
+  });
+}
 
-// Function to handle errors gracefully
 const handleError = (error: unknown) => {
-  console.error('API: Error details:', error);
-
   const err = error as { message?: string; code?: string; details?: unknown };
-  const message = err?.message || 'Unknown error';
-  const code = err?.code || 'NO_CODE';
-  const details = err?.details || {};
-  
   return {
     error: 'Database error',
-    message,
-    code,
-    details
+    message: err?.message || 'Unknown error',
+    code: err?.code || 'NO_CODE',
+    details: err?.details || {},
   };
 };
 
 export async function POST(request: Request) {
   try {
-    // Log whether we have a functioning admin client
-    console.log('Sleep Records API called - Admin client check:', { 
-      hasAdminClient: !!supabaseAdmin,
-      hasServiceKey: !!serviceRoleKey,
-      serviceKeyFirstChars: serviceRoleKey ? `${serviceRoleKey.substring(0, 4)}...` : 'none',
-      anyEnvVars: Object.keys(process.env).length > 0,
-      relevantEnvVars: Object.keys(process.env).filter(key => 
-        key.includes('SUPABASE') || key.includes('NEXT')
-      ).length
-    });
+    const supabase = await getSessionClient();
 
-    // Check if service role key is missing
-    if (!supabaseAdmin) {
-      console.error('API: Missing service role key - cannot create admin client');
+    if (!supabase) {
       return NextResponse.json({
         error: 'Configuration error',
-        message: 'The server is missing the SUPABASE_SERVICE_ROLE_KEY environment variable.',
-        hint: 'Make sure you have added the service role key to your .env.local file and restarted the server.'
+        message: 'The server is missing Supabase environment variables.',
       }, { status: 500 });
     }
 
-    // Parse the request body
-    let sleepRecord;
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({
+        error: 'Unauthorized',
+        message: 'You must be signed in to create a sleep record.',
+      }, { status: 401 });
+    }
+
+    let body: Record<string, unknown>;
     try {
-      sleepRecord = await request.json();
-    } catch (parseError) {
-      console.error('API: Error parsing request body:', parseError);
+      body = await request.json();
+    } catch {
       return NextResponse.json({
         error: 'Invalid request',
-        message: 'Could not parse request body as JSON'
+        message: 'Could not parse request body as JSON',
       }, { status: 400 });
     }
-    
-    // Log the incoming record (without sensitive data)
-    console.log('API: Received sleep record:', {
-      ...sleepRecord,
-      user_id: sleepRecord?.user_id ? `${sleepRecord.user_id.substring(0, 3)}...` : undefined
-    });
-    
-    // Validate the record
-    if (!sleepRecord || !sleepRecord.user_id || !sleepRecord.date || sleepRecord.sleep_duration_hours === undefined) {
-      console.log('API: Invalid sleep record data');
-      return NextResponse.json({ 
-        error: 'Invalid sleep record data', 
-        message: 'Missing required fields in sleep record',
-        receivedFields: Object.keys(sleepRecord || {})
-      }, { status: 400 });
-    }
-    
-    console.log('API: Inserting sleep record as service role');
-    
-    // First check with regular client if the issue is actually RLS
-    // This helps diagnose if the problem is with RLS or something else
-    try {
-      if (regularClient) {
-        const { error: regularError } = await regularClient
-          .from('sleep_tracking')
-          .insert([sleepRecord])
-          .select()
-          .single();
 
-        if (regularError) {
-          console.log('Regular client error (expected if RLS is working):', regularError.message);
-        } else {
-          console.log('Warning: Regular client insert succeeded - RLS might not be enforced');
-        }
-      }
-    } catch (e) {
-      console.error('Error testing regular client:', e);
+    if (!body || !body.date || body.sleep_duration_hours === undefined) {
+      return NextResponse.json({
+        error: 'Invalid sleep record data',
+        message: 'Missing required fields in sleep record',
+        receivedFields: Object.keys(body || {}),
+      }, { status: 400 });
     }
-    
-    // Now try with admin client
-    try {
-      // Insert the record using the admin client (bypasses RLS)
-      const { data, error } = await supabaseAdmin
-        .from('sleep_tracking')
-        .insert([sleepRecord])
-        .select()
-        .single();
-        
-      if (error) {
-        console.error('API: Error inserting sleep record with admin client:', error);
-        return NextResponse.json(handleError(error), { status: 500 });
-      }
-      
-      console.log('API: Record inserted successfully:', data?.id);
-      return NextResponse.json(data);
-    } catch (insertError) {
-      console.error('API: Exception during insert operation:', insertError);
-      return NextResponse.json(handleError(insertError), { status: 500 });
+
+    // Always insert as the authenticated caller — never trust a user_id
+    // supplied by the client.
+    const sleepRecord = { ...body, user_id: user.id };
+
+    const { data, error } = await supabase
+      .from('sleep_tracking')
+      .insert([sleepRecord])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error inserting sleep record:', error);
+      return NextResponse.json(handleError(error), { status: 500 });
     }
+
+    return NextResponse.json(data);
   } catch (e: unknown) {
-    console.error('API: Unhandled exception in sleep records endpoint:', e);
+    console.error('Unhandled exception in sleep records endpoint:', e);
     const errorMessage = e instanceof Error ? e.message : 'Unknown error';
-    
+
     return NextResponse.json({
-      error: 'Server error', 
+      error: 'Server error',
       message: errorMessage,
-      type: typeof e,
-      stringified: String(e)
     }, { status: 500 });
   }
-} 
+}

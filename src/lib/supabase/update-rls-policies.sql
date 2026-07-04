@@ -20,6 +20,7 @@ DROP POLICY IF EXISTS "Users can delete their own workout programs" ON workout_p
 DROP POLICY IF EXISTS "Trainers can view their clients' programs" ON workout_programs;
 DROP POLICY IF EXISTS "Trainers can insert programs for clients" ON workout_programs;
 DROP POLICY IF EXISTS "Trainers can update their clients' programs" ON workout_programs;
+DROP POLICY IF EXISTS "Trainers can delete their clients' programs" ON workout_programs;
 
 CREATE POLICY "Users can view their own programs"
 ON workout_programs FOR SELECT
@@ -69,6 +70,17 @@ USING (
 CREATE POLICY "Users can delete their own programs"
 ON workout_programs FOR DELETE
 USING (auth.uid() = user_id);
+
+CREATE POLICY "Trainers can delete their clients' programs"
+ON workout_programs FOR DELETE
+USING (
+  EXISTS (
+    SELECT 1 FROM trainer_clients tc
+    WHERE tc.trainer_id = auth.uid()
+    AND tc.client_id = workout_programs.user_id
+    AND tc.status = 'active'
+  )
+);
 
 -- ============================================
 -- WORKOUT LOGS

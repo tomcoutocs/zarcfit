@@ -1,13 +1,58 @@
-import React from 'react';
+'use client';
+
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { PhoneCall, Mail, MapPin, Clock, ArrowRight } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { PhoneCall, Mail, MapPin, Clock, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import PageHero from '@/components/layout/PageHero';
+import { supabase } from '@/lib/supabase';
 
 export default function ContactPage() {
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    subject: '',
+    message: '',
+  });
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const handleChange = (field: keyof typeof formData) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus('submitting');
+    setErrorMessage('');
+
+    const { error } = await supabase.from('contact_messages').insert([{
+      first_name: formData.firstName,
+      last_name: formData.lastName,
+      email: formData.email,
+      phone: formData.phone || null,
+      subject: formData.subject || null,
+      message: formData.message,
+    }]);
+
+    if (error) {
+      setStatus('error');
+      setErrorMessage('Something went wrong sending your message. Please try again or email us directly.');
+      return;
+    }
+
+    setStatus('success');
+    setFormData({ firstName: '', lastName: '', email: '', phone: '', subject: '', message: '' });
+  };
+
   return (
     <>
       <PageHero
@@ -24,46 +69,95 @@ export default function ContactPage() {
             <Card>
               <CardContent className="p-6">
                 <h2 className="text-2xl font-bold mb-6">Send Us a Message</h2>
-                <form>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName">First Name</Label>
-                      <Input id="firstName" placeholder="Your first name" />
+
+                {status === 'success' ? (
+                  <Alert className="border-green-500/50 text-green-700">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <AlertDescription>
+                      Thanks for reaching out! We&apos;ve received your message and will get back to you within 24 hours.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <form onSubmit={handleSubmit}>
+                    {status === 'error' && (
+                      <Alert variant="destructive" className="mb-6">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>{errorMessage}</AlertDescription>
+                      </Alert>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="firstName">First Name</Label>
+                        <Input
+                          id="firstName"
+                          placeholder="Your first name"
+                          value={formData.firstName}
+                          onChange={handleChange('firstName')}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="lastName">Last Name</Label>
+                        <Input
+                          id="lastName"
+                          placeholder="Your last name"
+                          value={formData.lastName}
+                          onChange={handleChange('lastName')}
+                          required
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName">Last Name</Label>
-                      <Input id="lastName" placeholder="Your last name" />
+
+                    <div className="space-y-2 mb-6">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="Your email address"
+                        value={formData.email}
+                        onChange={handleChange('email')}
+                        required
+                      />
                     </div>
-                  </div>
-                  
-                  <div className="space-y-2 mb-6">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" placeholder="Your email address" />
-                  </div>
-                  
-                  <div className="space-y-2 mb-6">
-                    <Label htmlFor="phone">Phone Number (Optional)</Label>
-                    <Input id="phone" type="tel" placeholder="Your phone number" />
-                  </div>
-                  
-                  <div className="space-y-2 mb-6">
-                    <Label htmlFor="subject">Subject</Label>
-                    <Input id="subject" placeholder="What is this regarding?" />
-                  </div>
-                  
-                  <div className="space-y-2 mb-6">
-                    <Label htmlFor="message">Message</Label>
-                    <Textarea 
-                      id="message" 
-                      placeholder="How can we help you?" 
-                      className="min-h-[150px]" 
-                    />
-                  </div>
-                  
-                  <Button type="submit" className="w-full">
-                    Send Message
-                  </Button>
-                </form>
+
+                    <div className="space-y-2 mb-6">
+                      <Label htmlFor="phone">Phone Number (Optional)</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="Your phone number"
+                        value={formData.phone}
+                        onChange={handleChange('phone')}
+                      />
+                    </div>
+
+                    <div className="space-y-2 mb-6">
+                      <Label htmlFor="subject">Subject</Label>
+                      <Input
+                        id="subject"
+                        placeholder="What is this regarding?"
+                        value={formData.subject}
+                        onChange={handleChange('subject')}
+                      />
+                    </div>
+
+                    <div className="space-y-2 mb-6">
+                      <Label htmlFor="message">Message</Label>
+                      <Textarea
+                        id="message"
+                        placeholder="How can we help you?"
+                        className="min-h-[150px]"
+                        value={formData.message}
+                        onChange={handleChange('message')}
+                        required
+                      />
+                    </div>
+
+                    <Button type="submit" className="w-full" disabled={status === 'submitting'}>
+                      {status === 'submitting' ? 'Sending...' : 'Send Message'}
+                    </Button>
+                  </form>
+                )}
               </CardContent>
             </Card>
           </div>

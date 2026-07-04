@@ -261,6 +261,7 @@ WITH CHECK (
     SELECT 1 FROM trainer_clients tc
     WHERE tc.trainer_id = conversations.trainer_id
     AND tc.client_id = conversations.client_id
+    AND tc.status = 'active'
   )
 );
 

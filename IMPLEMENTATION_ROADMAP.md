@@ -433,8 +433,52 @@ The biggest remaining greenfield work — genuinely new UI + wiring, not just fi
       multi-week product feature in its own right, not a fix/completion of existing work like every
       other item in Phases 0-5
     - Recommend scoping this as its own dedicated project (with product/design input on what
-      "social" should mean for a coach-client fitness app) rather than retrofitting it in as part of
-      this cleanup pass
+        "social" should mean for a coach-client fitness app) rather than retrofitting it in as part of
+        this cleanup pass
+
+---
+
+## Final Audit & Post-Phase Fixes
+
+A full codebase audit was performed after Phases 0-5 landed. Findings and fixes:
+
+**Fixed:**
+- 🔴 **P0 security bypass** — `/api/sleep-records` inserted rows using the Supabase service-role key
+  while trusting a client-supplied `user_id`, letting any caller write sleep data for any account.
+  Rewritten to authenticate via the request's own session cookies and always insert as the
+  authenticated user, so the existing `auth.uid() = user_id` RLS policy is enforced.
+- 🔴 **P0 debug endpoints** — `/api/debug` and `/api/sleep-records/test` were unauthenticated,
+  unreferenced leftover debugging routes (the latter had the same service-role bypass as above).
+  Both removed.
+- 🔴 **P0 plaintext credential logging** — `auth/signup` logged the user's password to the console.
+  Removed.
+- 🟠 **P1 RLS gap** — `workout_programs` had no trainer DELETE policy (trainers could view/insert/
+  update but not delete a client's program). Added to `update-rls-policies.sql`.
+- 🟠 **P1 RLS gap** — the `conversations` INSERT policy didn't check `trainer_clients.status = 'active'`,
+  unlike every other trainer-client policy, allowing a conversation to be started against a pending/
+  paused/terminated relationship. Fixed.
+- 🟠 **P1 dead links** — `/terms` and `/privacy`, linked from the signup page, had no matching routes.
+  Added minimal but real Terms of Service and Privacy Policy pages and exempted them in middleware's
+  public-path list.
+- 🟡 **P2 RLS gap** — `user_profiles` had no INSERT policy in the base `schema.sql` (only in the later
+  `fix-auth-trigger.sql`), so a fresh install following just `schema.sql` would silently block profile
+  creation. Added.
+- 🟡 **P2 non-functional contact form** — `/main/contact` had no `onSubmit` handler at all. Added a
+  `contact_messages` table (`contact-schema.sql`, anon INSERT / admin-only SELECT/UPDATE) and wired the
+  form up to submit real messages with success/error states.
+- 🟢 **P3** — `use-calendar.ts` had a `MOCK_USER_ID` fallback that could fire calendar reads/writes with
+  an invalid id before the real user loaded. Removed, with explicit `user?.id` guards instead.
+- 🧹 **Cleanup** — stripped the `/client/sleep` page and `sleepTrackingApi.createSleepRecord` of leftover
+  debug scaffolding (inline SQL-fix snippets, a "Debug API" button, ~15 `console.log` calls, a silent
+  fallback to a direct un-authenticated Supabase insert) now that the underlying API route is secure.
+
+**Not done (flagged for a follow-up pass):**
+- The public `/main/blog` page is still static mock content, unconnected to the real `blog_posts` table
+  the admin blog editor writes to. Wiring up a public reader view is a reasonably self-contained follow-up.
+- "Activity feed coming soon" on the trainer dashboard, and "2FA"/"Preferences" on the client profile
+  page, are honest placeholders rather than bugs — left as-is pending product decisions on scope.
+- Blog content itself (7 marketing slugs referenced from `/main/blog`) is a content/writing task, not
+  an engineering one.
 
 ---
 

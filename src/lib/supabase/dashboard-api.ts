@@ -1103,8 +1103,6 @@ export const sleepTrackingApi = {
 
   // Create a new sleep record
   createSleepRecord: async (record: SleepRecord): Promise<SleepRecord | null> => {
-    console.log('Creating sleep record with data:', record);
-    
     const { data, error } = await supabase
       .from('sleep_tracking')
       .insert([record])
@@ -1113,16 +1111,9 @@ export const sleepTrackingApi = {
 
     if (error) {
       console.error('Error creating sleep record:', error);
-      console.error('Error details:', { 
-        code: error.code, 
-        message: error.message, 
-        details: error.details,
-        hint: error.hint
-      });
       return null;
     }
 
-    console.log('Sleep record created successfully:', data);
     return data;
   },
 

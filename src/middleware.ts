@@ -69,6 +69,8 @@ export async function middleware(req: NextRequest) {
     '/auth/callback',
     '/auth/accept-invitation',
     '/main',
+    '/terms',
+    '/privacy',
     '/',
     '/api',
   ]

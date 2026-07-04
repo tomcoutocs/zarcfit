@@ -2,10 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { calendarApi, CalendarEvent } from '@/lib/supabase';
 import { useAuth } from '@/context/auth-context';
 
-// Mock data for development before setting up actual Supabase database
-// This will be used as a fallback when no user is logged in
-const MOCK_USER_ID = 'user_123';
-
 interface CalendarState {
   events: CalendarEvent[];
   loading: boolean;
@@ -37,13 +33,16 @@ export const useCalendar = (): [CalendarState, CalendarActions] => {
   });
 
   const fetchEvents = useCallback(async () => {
+    if (!user?.id) {
+      setState(prev => ({ ...prev, events: [], loading: false }));
+      return;
+    }
+
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
-      const userId = user?.id || MOCK_USER_ID;
-
       const events = await calendarApi.getMonthEvents(
-        userId,
+        user.id,
         state.currentYear,
         state.currentMonth
       );
@@ -70,12 +69,11 @@ export const useCalendar = (): [CalendarState, CalendarActions] => {
 
   const actions: CalendarActions = {
     createEvent: async (eventData) => {
-      // Use the authenticated user ID if available, otherwise use mock ID
-      const userId = user?.id || MOCK_USER_ID;
-      
+      if (!user?.id) return null;
+
       const newEvent: CalendarEvent = {
         ...eventData,
-        user_id: userId,
+        user_id: user.id,
       };
 
       const createdEvent = await calendarApi.createEvent(newEvent);
