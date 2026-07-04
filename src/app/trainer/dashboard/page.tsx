@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { clientManagementApi, trainerProfileApi, ClientWithProfile } from '@/lib/supabase/trainer-api';
+import { clientManagementApi, ClientWithProfile } from '@/lib/supabase/trainer-api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -12,7 +12,6 @@ import {
   Users, 
   Calendar, 
   MessageSquare, 
-  TrendingUp,
   Plus,
   AlertCircle,
   Dumbbell,
@@ -169,7 +168,7 @@ export default function TrainerDashboardPage() {
               <div className="text-center py-8">
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground mb-4">
-                  You don't have any active clients yet
+                  You don&apos;t have any active clients yet
                 </p>
                 <Link href="/trainer/clients/add">
                   <Button>
@@ -242,7 +241,7 @@ export default function TrainerDashboardPage() {
           <CardHeader>
             <CardTitle>Pending Invitations</CardTitle>
             <CardDescription>
-              Clients who haven't accepted yet
+              Clients who haven&apos;t accepted yet
             </CardDescription>
           </CardHeader>
           <CardContent>

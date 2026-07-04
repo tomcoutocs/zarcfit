@@ -10,9 +10,13 @@
 -- WORKOUT PROGRAMS
 -- ============================================
 DROP POLICY IF EXISTS "Users can view their own programs" ON workout_programs;
+DROP POLICY IF EXISTS "Users can view their own workout programs" ON workout_programs;
 DROP POLICY IF EXISTS "Users can insert their own programs" ON workout_programs;
+DROP POLICY IF EXISTS "Users can insert their own workout programs" ON workout_programs;
 DROP POLICY IF EXISTS "Users can update their own programs" ON workout_programs;
+DROP POLICY IF EXISTS "Users can update their own workout programs" ON workout_programs;
 DROP POLICY IF EXISTS "Users can delete their own programs" ON workout_programs;
+DROP POLICY IF EXISTS "Users can delete their own workout programs" ON workout_programs;
 DROP POLICY IF EXISTS "Trainers can view their clients' programs" ON workout_programs;
 DROP POLICY IF EXISTS "Trainers can insert programs for clients" ON workout_programs;
 DROP POLICY IF EXISTS "Trainers can update their clients' programs" ON workout_programs;
@@ -70,6 +74,7 @@ USING (auth.uid() = user_id);
 -- WORKOUT LOGS
 -- ============================================
 DROP POLICY IF EXISTS "Users can view their own workout logs" ON workout_logs;
+DROP POLICY IF EXISTS "Users can insert their own workout logs" ON workout_logs;
 DROP POLICY IF EXISTS "Trainers can view their clients' workout logs" ON workout_logs;
 DROP POLICY IF EXISTS "Trainers can create workout logs for clients" ON workout_logs;
 
@@ -107,6 +112,7 @@ WITH CHECK (
 -- NUTRITION PLANS
 -- ============================================
 DROP POLICY IF EXISTS "Users can view their own nutrition plans" ON nutrition_plans;
+DROP POLICY IF EXISTS "Users can insert their own nutrition plans" ON nutrition_plans;
 DROP POLICY IF EXISTS "Trainers can view their clients' nutrition plans" ON nutrition_plans;
 DROP POLICY IF EXISTS "Trainers can create nutrition plans for clients" ON nutrition_plans;
 
@@ -174,7 +180,9 @@ USING (
 -- PROGRESS TRACKING
 -- ============================================
 DROP POLICY IF EXISTS "Users can view their own progress" ON progress_tracking;
+DROP POLICY IF EXISTS "Users can insert their own progress" ON progress_tracking;
 DROP POLICY IF EXISTS "Trainers can view their clients' progress" ON progress_tracking;
+DROP POLICY IF EXISTS "Trainers can insert progress for clients" ON progress_tracking;
 
 CREATE POLICY "Users can view their own progress"
 ON progress_tracking FOR SELECT
@@ -210,7 +218,11 @@ WITH CHECK (
 -- GOALS
 -- ============================================
 DROP POLICY IF EXISTS "Users can view their own goals" ON goals;
+DROP POLICY IF EXISTS "Users can insert their own goals" ON goals;
+DROP POLICY IF EXISTS "Users can update their own goals" ON goals;
 DROP POLICY IF EXISTS "Trainers can view their clients' goals" ON goals;
+DROP POLICY IF EXISTS "Trainers can create goals for clients" ON goals;
+DROP POLICY IF EXISTS "Trainers can update their clients' goals" ON goals;
 
 CREATE POLICY "Users can view their own goals"
 ON goals FOR SELECT
@@ -261,6 +273,7 @@ USING (
 -- SLEEP TRACKING
 -- ============================================
 DROP POLICY IF EXISTS "Users can view their own sleep tracking" ON sleep_tracking;
+DROP POLICY IF EXISTS "Users can insert their own sleep tracking" ON sleep_tracking;
 DROP POLICY IF EXISTS "Trainers can view their clients' sleep tracking" ON sleep_tracking;
 
 CREATE POLICY "Users can view their own sleep tracking"
@@ -286,7 +299,9 @@ WITH CHECK (auth.uid() = user_id);
 -- CALENDAR EVENTS
 -- ============================================
 DROP POLICY IF EXISTS "Users can view their own calendar events" ON calendar_events;
+DROP POLICY IF EXISTS "Users can insert their own calendar events" ON calendar_events;
 DROP POLICY IF EXISTS "Trainers can view their clients' calendar events" ON calendar_events;
+DROP POLICY IF EXISTS "Trainers can create calendar events for clients" ON calendar_events;
 
 CREATE POLICY "Users can view their own calendar events"
 ON calendar_events FOR SELECT
@@ -322,6 +337,9 @@ WITH CHECK (
 -- USER PROFILES
 -- ============================================
 DROP POLICY IF EXISTS "Users can view their own profile" ON user_profiles;
+DROP POLICY IF EXISTS "Users can view their own profiles" ON user_profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON user_profiles;
+DROP POLICY IF EXISTS "Users can update their own profiles" ON user_profiles;
 DROP POLICY IF EXISTS "Trainers can view their clients' profiles" ON user_profiles;
 
 CREATE POLICY "Users can view their own profile"

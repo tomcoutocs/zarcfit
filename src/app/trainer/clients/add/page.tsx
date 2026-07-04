@@ -133,7 +133,7 @@ export default function InviteClientPage() {
           <CardHeader>
             <CardTitle>Client Information</CardTitle>
             <CardDescription>
-              Enter your client's details to send them an invitation
+              Enter your client&apos;s details to send them an invitation
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -159,7 +159,7 @@ export default function InviteClientPage() {
                   required
                 />
                 <p className="text-sm text-muted-foreground">
-                  We'll send the invitation to this email address
+                  We&apos;ll send the invitation to this email address
                 </p>
               </div>
 
@@ -232,9 +232,9 @@ export default function InviteClientPage() {
                 <h4 className="font-medium mb-2">What happens next?</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   <li>• Your client will receive an invitation email</li>
-                  <li>• They'll create an account using the invitation link</li>
-                  <li>• Once accepted, they'll appear in your client roster</li>
-                  <li>• You'll be able to assign programs and track their progress</li>
+                  <li>• They&apos;ll create an account using the invitation link</li>
+                  <li>• Once accepted, they&apos;ll appear in your client roster</li>
+                  <li>• You&apos;ll be able to assign programs and track their progress</li>
                 </ul>
               </div>
             </form>

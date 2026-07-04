@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { clientManagementApi, TrainerClient } from '@/lib/supabase/trainer-api';
 import { userProfilesApi, UserProfile } from '@/lib/supabase/dashboard-api';
@@ -15,15 +15,12 @@ import {
   ArrowLeft,
   Activity,
   Dumbbell,
-  Utensils,
-  TrendingUp,
   MessageSquare,
   Calendar,
 } from 'lucide-react';
 
 export default function ClientDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const { user } = useAuth();
   const clientId = params?.clientId as string;
 

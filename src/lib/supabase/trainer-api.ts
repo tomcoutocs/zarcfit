@@ -89,6 +89,18 @@ export type ClientWithProfile = TrainerClient & {
   };
 };
 
+type TrainerClientQueryRow = TrainerClient & {
+  client?: {
+    id: string;
+    email?: string;
+    user_profiles?: {
+      first_name?: string;
+      last_name?: string;
+      avatar_url?: string;
+    };
+  };
+};
+
 // ============================================
 // TRAINER PROFILE API
 // ============================================
@@ -169,7 +181,7 @@ export const clientManagementApi = {
     }
 
     // Transform the data to a flatter structure
-    return (data || []).map((item: any) => ({
+    return (data || []).map((item: TrainerClientQueryRow) => ({
       ...item,
       client_email: item.client?.email || '',
       client_name: item.client?.user_profiles?.first_name && item.client?.user_profiles?.last_name
@@ -202,9 +214,13 @@ export const clientManagementApi = {
     clientId: string,
     status: 'active' | 'paused' | 'terminated'
   ): Promise<TrainerClient | null> => {
-    const update: any = {
+    const update: {
+      status: 'active' | 'paused' | 'terminated';
+      updated_at: string;
+      terminated_at?: string;
+    } = {
       status,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     };
 
     if (status === 'terminated') {
@@ -475,7 +491,7 @@ export const messagingApi = {
   // Get or create conversation
   getOrCreateConversation: async (trainerId: string, clientId: string): Promise<Conversation | null> => {
     // Try to get existing conversation
-    const { data: existing, error: fetchError } = await supabase
+    const { data: existing } = await supabase
       .from('conversations')
       .select('*')
       .eq('trainer_id', trainerId)

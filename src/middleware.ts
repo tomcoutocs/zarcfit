@@ -1,19 +1,56 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+const PLACEHOLDER_URL = 'https://placeholder.supabase.co'
+const PLACEHOLDER_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDUxOTIwMDAsImV4cCI6MTk2MDc2ODAwMH0.placeholder'
+
+function getSupabaseEnv() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? ''
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? ''
+
+  if (url && anonKey) {
+    return { url, anonKey }
+  }
+
+  return { url: PLACEHOLDER_URL, anonKey: PLACEHOLDER_KEY }
+}
+
+function copyCookies(from: NextResponse, to: NextResponse) {
+  from.cookies.getAll().forEach(({ name, value }) => {
+    to.cookies.set(name, value)
+  })
+}
+
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req, res })
-  
-  const { data: { session } } = await supabase.auth.getSession()
-  
+  let supabaseResponse = NextResponse.next({ request: req })
+
+  const { url, anonKey } = getSupabaseEnv()
+  const supabase = createServerClient(url, anonKey, {
+    cookies: {
+      getAll() {
+        return req.cookies.getAll()
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => req.cookies.set(name, value))
+        supabaseResponse = NextResponse.next({ request: req })
+        cookiesToSet.forEach(({ name, value, options }) =>
+          supabaseResponse.cookies.set(name, value, options)
+        )
+      },
+    },
+  })
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   const path = req.nextUrl.pathname
-  
-  // Public routes that don't require authentication
+
   const publicPaths = [
     '/auth/login',
-    '/auth/signup', 
+    '/auth/signup',
     '/auth/forgot-password',
     '/auth/reset-password',
     '/auth/email-verification',
@@ -21,91 +58,83 @@ export async function middleware(req: NextRequest) {
     '/auth/accept-invitation',
     '/main',
     '/',
-    '/api'
+    '/api',
   ]
-  
-  // Check if current path is public
-  const isPublicPath = publicPaths.some(publicPath => 
-    path === publicPath || path.startsWith(publicPath + '/')
+
+  const isPublicPath = publicPaths.some(
+    (publicPath) => path === publicPath || path.startsWith(publicPath + '/')
   )
-  
-  // Allow public paths without authentication
+
   if (isPublicPath) {
-    return res
+    return supabaseResponse
   }
-  
-  // Require authentication for all other routes
-  if (!session) {
+
+  if (!user) {
     const redirectUrl = new URL('/auth/login', req.url)
     redirectUrl.searchParams.set('redirectTo', path)
-    return NextResponse.redirect(redirectUrl)
+    const redirectResponse = NextResponse.redirect(redirectUrl)
+    copyCookies(supabaseResponse, redirectResponse)
+    return redirectResponse
   }
-  
-  // Get user role for authenticated users
+
   const { data: userRole } = await supabase
     .from('user_roles')
     .select('role')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .single()
-  
+
   const role = userRole?.role
-  
-  // Handle /dashboard redirect based on role
+
   if (path === '/dashboard') {
     if (role === 'trainer') {
-      return NextResponse.redirect(new URL('/trainer/dashboard', req.url))
+      const redirectResponse = NextResponse.redirect(new URL('/trainer/dashboard', req.url))
+      copyCookies(supabaseResponse, redirectResponse)
+      return redirectResponse
+    }
+    if (role === 'client') {
+      const redirectResponse = NextResponse.redirect(new URL('/client/dashboard', req.url))
+      copyCookies(supabaseResponse, redirectResponse)
+      return redirectResponse
+    }
+    if (role === 'admin') {
+      const redirectResponse = NextResponse.redirect(new URL('/admin', req.url))
+      copyCookies(supabaseResponse, redirectResponse)
+      return redirectResponse
+    }
+    return supabaseResponse
+  }
+
+  if (path.startsWith('/trainer') && role !== 'trainer') {
+    const redirectResponse = NextResponse.redirect(new URL('/client/dashboard', req.url))
+    copyCookies(supabaseResponse, redirectResponse)
+    return redirectResponse
+  }
+
+  if (path.startsWith('/client') && role !== 'client') {
+    const destination =
+      role === 'trainer' ? '/trainer/dashboard' : '/client/dashboard'
+    const redirectResponse = NextResponse.redirect(new URL(destination, req.url))
+    copyCookies(supabaseResponse, redirectResponse)
+    return redirectResponse
+  }
+
+  if (path.startsWith('/admin') && role !== 'admin') {
+    let destination = '/'
+    if (role === 'trainer') {
+      destination = '/trainer/dashboard'
     } else if (role === 'client') {
-      return NextResponse.redirect(new URL('/client/dashboard', req.url))
-    } else if (role === 'admin') {
-      return NextResponse.redirect(new URL('/admin', req.url))
+      destination = '/client/dashboard'
     }
-    // If no role yet, stay on /dashboard (shouldn't happen but safe fallback)
-    return res
+    const redirectResponse = NextResponse.redirect(new URL(destination, req.url))
+    copyCookies(supabaseResponse, redirectResponse)
+    return redirectResponse
   }
-  
-  // Protect trainer routes
-  if (path.startsWith('/trainer')) {
-    if (role !== 'trainer') {
-      return NextResponse.redirect(new URL('/client/dashboard', req.url))
-    }
-  }
-  
-  // Protect client routes
-  if (path.startsWith('/client')) {
-    if (role !== 'client') {
-      // If trainer tries to access client routes, redirect to trainer dashboard
-      if (role === 'trainer') {
-        return NextResponse.redirect(new URL('/trainer/dashboard', req.url))
-      }
-      return NextResponse.redirect(new URL('/client/dashboard', req.url))
-    }
-  }
-  
-  // Protect admin routes
-  if (path.startsWith('/admin')) {
-    if (role !== 'admin') {
-      // Redirect based on their actual role
-      if (role === 'trainer') {
-        return NextResponse.redirect(new URL('/trainer/dashboard', req.url))
-      } else if (role === 'client') {
-        return NextResponse.redirect(new URL('/client/dashboard', req.url))
-      }
-      return NextResponse.redirect(new URL('/', req.url))
-    }
-  }
-  
-  return res
+
+  return supabaseResponse
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
