@@ -535,6 +535,40 @@ export const progressTrackingApi = {
     }
 
     return data;
+  },
+
+  // Update an existing progress record
+  updateProgressRecord: async (record: ProgressRecord): Promise<ProgressRecord | null> => {
+    const { id, ...recordData } = record;
+
+    const { data, error } = await supabase
+      .from('progress_tracking')
+      .update(recordData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating progress record:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  // Delete a progress record
+  deleteProgressRecord: async (recordId: string): Promise<boolean> => {
+    const { error } = await supabase
+      .from('progress_tracking')
+      .delete()
+      .eq('id', recordId);
+
+    if (error) {
+      console.error('Error deleting progress record:', error);
+      return false;
+    }
+
+    return true;
   }
 };
 

@@ -49,6 +49,31 @@ export type ClientInvitation = {
   used_at?: string;
 };
 
+// Shape returned by the get_invitation_by_token RPC — a read-only preview
+// safe to show before the invitee has signed up or logged in.
+export type InvitationPreview = {
+  id: string;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  personal_message?: string;
+  status: 'pending' | 'accepted' | 'expired' | 'cancelled';
+  expires_at: string;
+  trainer_business_name?: string;
+  trainer_first_name?: string;
+  trainer_last_name?: string;
+};
+
+export type AcceptInvitationResult =
+  | 'success'
+  | 'not_authenticated'
+  | 'not_found'
+  | 'already_accepted'
+  | 'invalid_status'
+  | 'expired'
+  | 'email_mismatch'
+  | 'error';
+
 export type ClientNote = {
   id?: string;
   trainer_id: string;
@@ -306,69 +331,35 @@ export const invitationApi = {
     return data || [];
   },
 
-  // Get invitation by token
-  getInvitationByToken: async (token: string): Promise<ClientInvitation | null> => {
+  // Get invitation by token. Uses a SECURITY DEFINER RPC (see
+  // invitation-flow.sql) because the invited client isn't the trainer and
+  // RLS on client_invitations only allows the trainer to SELECT their own
+  // rows — a plain table query would be blocked for the invitee.
+  getInvitationByToken: async (token: string): Promise<InvitationPreview | null> => {
     const { data, error } = await supabase
-      .from('client_invitations')
-      .select('*')
-      .eq('token', token)
-      .single();
+      .rpc('get_invitation_by_token', { p_token: token })
+      .maybeSingle();
 
     if (error) {
       console.error('Error fetching invitation:', error);
       return null;
     }
 
-    return data;
+    return data as InvitationPreview | null;
   },
 
-  // Accept an invitation
-  acceptInvitation: async (token: string, clientId: string): Promise<boolean> => {
-    // Get the invitation
-    const invitation = await invitationApi.getInvitationByToken(token);
-    if (!invitation || invitation.status !== 'pending') {
-      return false;
+  // Accept an invitation as the currently signed-in user. Delegates to a
+  // SECURITY DEFINER RPC that atomically creates the trainer-client
+  // relationship and marks the invitation accepted (see invitation-flow.sql).
+  acceptInvitation: async (token: string): Promise<AcceptInvitationResult> => {
+    const { data, error } = await supabase.rpc('accept_client_invitation', { p_token: token });
+
+    if (error) {
+      console.error('Error accepting invitation:', error);
+      return 'error';
     }
 
-    // Check if expired
-    if (new Date(invitation.expires_at!) < new Date()) {
-      await supabase
-        .from('client_invitations')
-        .update({ status: 'expired' })
-        .eq('token', token);
-      return false;
-    }
-
-    // Create trainer-client relationship
-    const { error: relationshipError } = await supabase
-      .from('trainer_clients')
-      .insert([{
-        trainer_id: invitation.trainer_id,
-        client_id: clientId,
-        status: 'active',
-        accepted_at: new Date().toISOString()
-      }]);
-
-    if (relationshipError) {
-      console.error('Error creating trainer-client relationship:', relationshipError);
-      return false;
-    }
-
-    // Mark invitation as accepted
-    const { error: updateError } = await supabase
-      .from('client_invitations')
-      .update({
-        status: 'accepted',
-        used_at: new Date().toISOString()
-      })
-      .eq('token', token);
-
-    if (updateError) {
-      console.error('Error updating invitation status:', updateError);
-      return false;
-    }
-
-    return true;
+    return (data as AcceptInvitationResult) || 'error';
   },
 
   // Cancel an invitation

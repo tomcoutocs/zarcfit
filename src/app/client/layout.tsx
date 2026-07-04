@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { MessageSquare, Dumbbell, Utensils, Calendar, User, LogOut, Menu, X, Moon, LayoutDashboard } from 'lucide-react';
+import { MessageSquare, Dumbbell, Utensils, Calendar, User, LogOut, Menu, X, Moon, LayoutDashboard, Target, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/context/auth-context';
@@ -41,6 +41,8 @@ const navItems = [
   { href: '/client/workout', icon: Dumbbell, label: 'Workout Tracking' },
   { href: '/client/meal-plan', icon: Utensils, label: 'Meal Plan' },
   { href: '/client/sleep', icon: Moon, label: 'Sleep Tracking' },
+  { href: '/client/goals', icon: Target, label: 'Goals' },
+  { href: '/client/progress', icon: TrendingUp, label: 'Progress' },
   { href: '/client/calendar', icon: Calendar, label: 'Calendar' },
   { href: '/client/profile', icon: User, label: 'Profile' },
 ];
