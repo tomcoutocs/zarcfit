@@ -9,6 +9,7 @@ import {
   Meal,
 } from '@/lib/supabase/dashboard-api';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
+import { DailyFoodDiary } from '@/components/nutrition/daily-food-diary';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -433,6 +434,17 @@ export default function MealPlanPage() {
         </Alert>
       )}
 
+      <Tabs defaultValue="diary" className="w-full">
+        <TabsList className="mb-6">
+          <TabsTrigger value="diary">Daily Diary</TabsTrigger>
+          <TabsTrigger value="plan">Weekly Plan</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="diary">
+          <DailyFoodDiary />
+        </TabsContent>
+
+        <TabsContent value="plan" className="space-y-8">
       {/* Nutrition Summary for selected day */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -600,6 +612,8 @@ export default function MealPlanPage() {
             )}
           </TabsContent>
         ))}
+      </Tabs>
+        </TabsContent>
       </Tabs>
     </div>
   );

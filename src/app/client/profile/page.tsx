@@ -12,6 +12,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { userProfilesApi } from '@/lib/supabase/dashboard-api';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
 import { ImageUpload } from '@/components/ui/image-upload';
+import { HealthImportSettings } from '@/components/integrations/health-import-settings';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -369,7 +370,8 @@ export default function ProfilePage() {
               </TabsContent>
               
               <TabsContent value="preferences">
-                <div className="space-y-4">
+                <div className="space-y-6">
+                  <HealthImportSettings />
                   <div>
                     <h3 className="font-medium mb-2">Notification Preferences</h3>
                     <p className="text-sm text-muted-foreground mb-4">
