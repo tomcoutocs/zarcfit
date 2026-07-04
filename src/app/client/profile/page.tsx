@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,6 +11,7 @@ import { useAuth } from '@/context/auth-context';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { userProfilesApi } from '@/lib/supabase/dashboard-api';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
+import { ImageUpload } from '@/components/ui/image-upload';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -27,6 +27,7 @@ export default function ProfilePage() {
     phone: '',
     bio: '',
   });
+  const [avatarUrl, setAvatarUrl] = useState('');
 
   // Password change state (Security tab)
   const [passwordLoading, setPasswordLoading] = useState(false);
@@ -58,6 +59,7 @@ export default function ProfilePage() {
         phone: user.user_metadata?.phone || '',
         bio: profile?.bio || user.user_metadata?.bio || '',
       });
+      setAvatarUrl(profile?.avatar_url || '');
       setProfileLoading(false);
     }
 
@@ -157,6 +159,16 @@ export default function ProfilePage() {
     }
   };
 
+  const handleAvatarUploaded = async (url: string) => {
+    if (!user) return;
+    setAvatarUrl(url);
+    await userProfilesApi.updateProfile({
+      id: user.id,
+      avatar_url: url,
+    });
+    setSuccess('Profile photo updated');
+  };
+
   const getInitials = () => {
     const firstName = formData.firstName || '';
     const lastName = formData.lastName || '';
@@ -172,10 +184,16 @@ export default function ProfilePage() {
         <Card className="md:col-span-1">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4">
-              <Avatar className="h-24 w-24">
-                <AvatarImage src="" />
-                <AvatarFallback className="text-xl">{getInitials()}</AvatarFallback>
-              </Avatar>
+              {user && (
+                <ImageUpload
+                  userId={user.id}
+                  folder="avatars"
+                  currentUrl={avatarUrl}
+                  fallback={getInitials()}
+                  onUploaded={handleAvatarUploaded}
+                  size="lg"
+                />
+              )}
             </div>
             <CardTitle>{formData.firstName} {formData.lastName}</CardTitle>
             <CardDescription>{formData.email}</CardDescription>

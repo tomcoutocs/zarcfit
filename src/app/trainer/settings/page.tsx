@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ImageUpload } from '@/components/ui/image-upload';
 
 const emptyProfileForm = {
   business_name: '',
@@ -41,6 +42,7 @@ export default function TrainerSettingsPage() {
   const [profileSuccess, setProfileSuccess] = useState('');
   const [settingsSuccess, setSettingsSuccess] = useState('');
   const [error, setError] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
 
   useEffect(() => {
     async function loadData() {
@@ -62,6 +64,7 @@ export default function TrainerSettingsPage() {
           specializations: (profile.specializations || []).join(', '),
           certifications: (profile.certifications || []).join(', '),
         });
+        setAvatarUrl(profile.avatar_url || '');
       }
 
       if (settings) {
@@ -110,6 +113,13 @@ export default function TrainerSettingsPage() {
     } else {
       setError('Failed to update business profile. Please try again.');
     }
+  };
+
+  const handleAvatarUploaded = async (url: string) => {
+    if (!user?.id) return;
+    setAvatarUrl(url);
+    await trainerProfileApi.updateProfile({ id: user.id, avatar_url: url });
+    setProfileSuccess('Profile photo updated');
   };
 
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -169,6 +179,18 @@ export default function TrainerSettingsPage() {
               <Alert>
                 <AlertDescription>{profileSuccess}</AlertDescription>
               </Alert>
+            )}
+
+            {user && (
+              <div className="flex justify-center pb-2">
+                <ImageUpload
+                  userId={user.id}
+                  folder="avatars"
+                  currentUrl={avatarUrl}
+                  fallback={(profileForm.business_name || 'TR').substring(0, 2).toUpperCase()}
+                  onUploaded={handleAvatarUploaded}
+                />
+              </div>
             )}
 
             <div className="space-y-2">

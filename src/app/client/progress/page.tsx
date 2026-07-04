@@ -20,7 +20,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { TrendingUp, Plus, Pencil, Trash2, Scale } from 'lucide-react';
+import { TrendingUp, Plus, Pencil, Trash2, Scale, Camera } from 'lucide-react';
+import { uploadUserImage } from '@/lib/supabase/storage';
 import {
   LineChart,
   Line,
@@ -40,6 +41,7 @@ const emptyForm = {
   arms_cm: '',
   legs_cm: '',
   notes: '',
+  photo_url: '',
 };
 
 export default function ProgressPage() {
@@ -50,6 +52,7 @@ export default function ProgressPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<ProgressRecord | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
   const fetchRecords = useCallback(async () => {
@@ -88,6 +91,7 @@ export default function ProgressPage() {
       arms_cm: record.arms_cm?.toString() || '',
       legs_cm: record.legs_cm?.toString() || '',
       notes: record.notes || '',
+      photo_url: record.photo_url || '',
     });
     setDialogOpen(true);
   };
@@ -107,6 +111,7 @@ export default function ProgressPage() {
       arms_cm: form.arms_cm ? Number(form.arms_cm) : undefined,
       legs_cm: form.legs_cm ? Number(form.legs_cm) : undefined,
       notes: form.notes.trim() || undefined,
+      photo_url: form.photo_url || undefined,
     };
 
     const result = editingRecord
@@ -130,6 +135,19 @@ export default function ProgressPage() {
     if (success) fetchRecords();
   };
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+    setUploadingPhoto(true);
+    const { url, error: uploadError } = await uploadUserImage(user.id, file, 'progress');
+    setUploadingPhoto(false);
+    if (url) {
+      setForm(prev => ({ ...prev, photo_url: url }));
+    } else if (uploadError) {
+      setError(uploadError);
+    }
+  };
+
   const chartData = [...records]
     .filter(r => r.weight_kg != null)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
@@ -143,6 +161,8 @@ export default function ProgressPage() {
   const weightChange = latest?.weight_kg != null && previous?.weight_kg != null
     ? Math.round((latest.weight_kg - previous.weight_kg) * 10) / 10
     : null;
+
+  const photoRecords = records.filter(r => r.photo_url);
 
   return (
     <div className="space-y-6">
@@ -249,6 +269,24 @@ export default function ProgressPage() {
                   rows={2}
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label>Progress Photo</Label>
+                <div className="flex items-center gap-4">
+                  {form.photo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={form.photo_url} alt="Progress" className="h-24 w-24 rounded-lg object-cover border" />
+                  ) : (
+                    <div className="h-24 w-24 rounded-lg border border-dashed flex items-center justify-center text-muted-foreground">
+                      <Camera className="h-6 w-6" />
+                    </div>
+                  )}
+                  <div>
+                    <Input type="file" accept="image/*" onChange={handlePhotoUpload} disabled={uploadingPhoto} />
+                    <p className="text-xs text-muted-foreground mt-1">Optional progress photo (max 5 MB)</p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <DialogFooter>
@@ -342,6 +380,32 @@ export default function ProgressPage() {
                       <Line type="monotone" dataKey="weight" stroke="#4f46e5" strokeWidth={2} dot={{ r: 3 }} />
                     </LineChart>
                   </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {photoRecords.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Progress Photos</CardTitle>
+                <CardDescription>Visual progress over time</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {photoRecords.map((record) => (
+                    <div key={record.id} className="space-y-1">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={record.photo_url}
+                        alt={`Progress ${record.date}`}
+                        className="aspect-square w-full rounded-lg object-cover border"
+                      />
+                      <p className="text-xs text-muted-foreground text-center">
+                        {new Date(record.date).toLocaleDateString()}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
