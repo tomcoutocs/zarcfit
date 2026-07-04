@@ -144,6 +144,31 @@ export type TrainerWithProfile = TrainerClient & {
   trainer_business_name?: string;
 };
 
+// Shape returned by the search_potential_clients RPC (see client-search.sql).
+export type PotentialClient = {
+  client_id: string;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  avatar_url?: string;
+  relationship_status: 'pending' | 'active' | 'paused' | 'terminated' | null;
+};
+
+export type SendConnectionRequestResult =
+  | 'sent'
+  | 'already_pending'
+  | 'already_active'
+  | 'invalid_client'
+  | 'not_a_trainer'
+  | 'error';
+
+export type RespondToTrainerRequestResult =
+  | 'accepted'
+  | 'declined'
+  | 'not_found'
+  | 'invalid_status'
+  | 'error';
+
 type ClientTrainerQueryRow = TrainerClient & {
   trainer?: {
     id: string;
@@ -401,6 +426,55 @@ export const clientManagementApi = {
     }
 
     return data;
+  },
+
+  // Search for existing client accounts by name/email (see
+  // client-search.sql). Used by the "Invite Client" page's "Find Existing
+  // Client" tab, as an alternative to sending an email invitation to
+  // someone who hasn't signed up yet.
+  searchPotentialClients: async (search: string): Promise<PotentialClient[]> => {
+    const { data, error } = await supabase.rpc('search_potential_clients', { p_search: search });
+
+    if (error) {
+      console.error('Error searching for clients:', error);
+      return [];
+    }
+
+    return (data as PotentialClient[]) || [];
+  },
+
+  // Send a direct connection request to an existing client account. Creates
+  // a 'pending' trainer_clients row that the client must accept via
+  // respondToTrainerRequest before the trainer gets full access.
+  sendConnectionRequest: async (clientId: string): Promise<SendConnectionRequestResult> => {
+    const { data, error } = await supabase.rpc('send_client_connection_request', {
+      p_client_id: clientId,
+    });
+
+    if (error) {
+      console.error('Error sending connection request:', error);
+      return 'error';
+    }
+
+    return (data as SendConnectionRequestResult) || 'error';
+  },
+
+  // Accept or decline a pending direct connection request as the client.
+  respondToTrainerRequest: async (
+    trainerId: string,
+    accept: boolean
+  ): Promise<RespondToTrainerRequestResult> => {
+    const { data, error } = await supabase.rpc('respond_to_trainer_request', {
+      p_trainer_id: trainerId,
+      p_accept: accept,
+    });
+
+    if (error) {
+      console.error('Error responding to trainer request:', error);
+      return 'error';
+    }
+
+    return (data as RespondToTrainerRequestResult) || 'error';
   },
 };
 
