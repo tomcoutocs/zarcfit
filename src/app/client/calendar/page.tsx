@@ -20,6 +20,7 @@ import { EventDialog } from '@/components/calendar/event-dialog';
 import { useCalendar } from '@/hooks/use-calendar';
 import { CalendarEvent } from '@/lib/supabase';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
+import { SessionRequestPanel } from '@/components/calendar/session-request-panel';
 
 // Helper function to format date
 function formatMonthYear(year: number, month: number) {
@@ -196,6 +197,7 @@ export default function CalendarPage() {
       </Card>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <SessionRequestPanel />
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Upcoming Events</CardTitle>

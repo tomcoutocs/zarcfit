@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { clientManagementApi, ClientWithProfile } from '@/lib/supabase/trainer-api';
+import { sessionRequestsApi, SessionRequest } from '@/lib/supabase/session-requests-api';
 import { calendarApi, CalendarEvent } from '@/lib/supabase';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Calendar, Plus, Trash2, Clock } from 'lucide-react';
+import { Calendar, Plus, Trash2, Clock, Check, X } from 'lucide-react';
 
 type EventWithClient = CalendarEvent & { client_name: string };
 
@@ -46,6 +47,7 @@ function ScheduleContent() {
 
   const [clients, setClients] = useState<ClientWithProfile[]>([]);
   const [events, setEvents] = useState<EventWithClient[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<SessionRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -61,13 +63,21 @@ function ScheduleContent() {
       const clientList = await clientManagementApi.getClients(user.id);
       setClients(clientList);
 
-      const activeClients = clientList.filter(c => c.status === 'active');
-      const today = new Date().toISOString().split('T')[0];
-      const rawEvents = await calendarApi.getEventsForUsers(
-        activeClients.map(c => c.client_id),
-        today
-      );
+      const [rawEvents, requests] = await Promise.all([
+        (async () => {
+          const activeClients = clientList.filter(c => c.status === 'active');
+          const today = new Date().toISOString().split('T')[0];
+          return calendarApi.getEventsForUsers(
+            activeClients.map(c => c.client_id),
+            today
+          );
+        })(),
+        sessionRequestsApi.getTrainerPendingRequests(user.id),
+      ]);
 
+      setPendingRequests(requests);
+
+      const activeClients = clientList.filter(c => c.status === 'active');
       const clientNameById = new Map(activeClients.map(c => [c.client_id, c.client_name]));
       const withNames = rawEvents
         .map(e => ({ ...e, client_name: clientNameById.get(e.user_id) || 'Client' }))
@@ -128,6 +138,15 @@ function ScheduleContent() {
     if (!confirm('Cancel this session?')) return;
     const success = await calendarApi.deleteEvent(eventId);
     if (success) fetchData();
+  };
+
+  const handleRequestResponse = async (requestId: string, action: 'approve' | 'decline') => {
+    const result = await sessionRequestsApi.respondToRequest(requestId, action);
+    if (result.success) {
+      fetchData();
+    } else {
+      setError(result.error || 'Failed to respond to request');
+    }
   };
 
   const groupedByDate = events.reduce<Record<string, EventWithClient[]>>((acc, event) => {
@@ -228,6 +247,46 @@ function ScheduleContent() {
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
+      )}
+
+      {pendingRequests.length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <h3 className="font-semibold mb-4">Pending Session Requests ({pendingRequests.length})</h3>
+            <div className="space-y-3">
+              {pendingRequests.map((req) => (
+                <div key={req.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg border">
+                  <div>
+                    <p className="font-medium">{req.client_name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(req.requested_date).toLocaleDateString()} · {req.start_time}–{req.end_time}
+                    </p>
+                    {req.message && <p className="text-sm mt-1">{req.message}</p>}
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      className="gap-1"
+                      onClick={() => req.id && handleRequestResponse(req.id, 'approve')}
+                    >
+                      <Check className="h-4 w-4" />
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1"
+                      onClick={() => req.id && handleRequestResponse(req.id, 'decline')}
+                    >
+                      <X className="h-4 w-4" />
+                      Decline
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {loading ? (
