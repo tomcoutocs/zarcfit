@@ -7,6 +7,7 @@ import { useDashboard } from '@/hooks/use-dashboard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import Link from 'next/link';
 import ConnectionReset from '@/components/ConnectionReset';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
 import { clientManagementApi, TrainerWithProfile } from '@/lib/supabase/trainer-api';
@@ -158,6 +159,8 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  const activeGoals = dashboardData.goals.filter((g) => !g.is_completed);
   
   return (
     <div className="space-y-6">
@@ -363,19 +366,31 @@ ON CONFLICT (id) DO NOTHING;`}
           
           {/* Goals Card */}
           <Card>
-            <CardHeader>
-              <CardTitle>Goals</CardTitle>
-              <CardDescription>Your fitness targets</CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between space-y-0">
+              <div>
+                <CardTitle>Goals</CardTitle>
+                <CardDescription>Your active fitness targets</CardDescription>
+              </div>
+              <Link href="/client/goals">
+                <Button variant="ghost" size="sm">View all</Button>
+              </Link>
             </CardHeader>
             <CardContent>
-              {dashboardData.goals.length === 0 ? (
-                <p className="text-muted-foreground">No goals found</p>
+              {activeGoals.length === 0 ? (
+                <div className="text-center py-4">
+                  <p className="text-muted-foreground mb-3">No active goals yet</p>
+                  <Link href="/client/goals">
+                    <Button size="sm">Set a goal</Button>
+                  </Link>
+                </div>
               ) : (
                 <div className="space-y-4">
-                  {dashboardData.goals.slice(0, 3).map(goal => (
-                    <div key={goal.id} className="border-b pb-2">
+                  {activeGoals.slice(0, 3).map(goal => (
+                    <div key={goal.id} className="border-b pb-2 last:border-0">
                       <h3 className="font-medium">{goal.title}</h3>
-                      <p className="text-sm text-muted-foreground truncate">{goal.description}</p>
+                      {goal.description && (
+                        <p className="text-sm text-muted-foreground truncate">{goal.description}</p>
+                      )}
                       <div className="mt-2 flex items-center">
                         <div className="bg-secondary h-2 rounded-full w-full overflow-hidden">
                           <div 
@@ -387,7 +402,9 @@ ON CONFLICT (id) DO NOTHING;`}
                             }}
                           />
                         </div>
-                        <span className="ml-2 text-xs">{goal.current_value}/{goal.target_value} {goal.unit}</span>
+                        <span className="ml-2 text-xs whitespace-nowrap">
+                          {goal.current_value}/{goal.target_value} {goal.unit}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -396,7 +413,7 @@ ON CONFLICT (id) DO NOTHING;`}
             </CardContent>
             <CardFooter>
               <div className="text-sm text-muted-foreground">
-                Total goals: {dashboardData.goals.length}
+                {activeGoals.length} active · {dashboardData.goals.length} total
               </div>
             </CardFooter>
           </Card>

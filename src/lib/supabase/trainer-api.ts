@@ -781,3 +781,46 @@ export const messagingApi = {
     return true;
   },
 };
+
+// ============================================
+// TRAINER DASHBOARD API
+// ============================================
+
+export type TrainerDashboardStats = {
+  workouts_this_week: number;
+  unread_messages: number;
+  sessions_today: number;
+};
+
+export type ClientActivityItem = {
+  activity_type: 'workout' | 'progress' | 'goal' | 'message' | 'sleep';
+  client_id: string;
+  client_name: string;
+  summary: string;
+  occurred_at: string;
+  reference_id: string;
+};
+
+export const trainerDashboardApi = {
+  getStats: async (): Promise<TrainerDashboardStats | null> => {
+    const { data, error } = await supabase.rpc('get_trainer_dashboard_stats').maybeSingle();
+
+    if (error) {
+      console.error('Error fetching trainer dashboard stats:', error);
+      return null;
+    }
+
+    return data as TrainerDashboardStats | null;
+  },
+
+  getClientActivity: async (limit = 20): Promise<ClientActivityItem[]> => {
+    const { data, error } = await supabase.rpc('get_trainer_client_activity', { p_limit: limit });
+
+    if (error) {
+      console.error('Error fetching trainer client activity:', error);
+      return [];
+    }
+
+    return (data as ClientActivityItem[]) || [];
+  },
+};
