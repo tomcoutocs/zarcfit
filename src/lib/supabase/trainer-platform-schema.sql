@@ -249,6 +249,21 @@ CREATE POLICY "Clients can view their conversations"
 ON conversations FOR SELECT
 USING (auth.uid() = client_id);
 
+-- NOTE: the two policies below were missing from the original schema, which
+-- meant `messagingApi.getOrCreateConversation` and `markAsRead` would be
+-- silently blocked by RLS with no INSERT/UPDATE policy to satisfy.
+DROP POLICY IF EXISTS "Trainer-client pairs can start a conversation" ON conversations;
+CREATE POLICY "Trainer-client pairs can start a conversation"
+ON conversations FOR INSERT
+WITH CHECK (
+  (auth.uid() = trainer_id OR auth.uid() = client_id) AND
+  EXISTS (
+    SELECT 1 FROM trainer_clients tc
+    WHERE tc.trainer_id = conversations.trainer_id
+    AND tc.client_id = conversations.client_id
+  )
+);
+
 -- ============================================
 -- 8. MESSAGES
 -- ============================================
@@ -285,6 +300,18 @@ CREATE POLICY "Conversation participants can send messages"
 ON messages FOR INSERT
 WITH CHECK (
   auth.uid() = sender_id AND
+  EXISTS (
+    SELECT 1 FROM conversations c
+    WHERE c.id = messages.conversation_id
+    AND (c.trainer_id = auth.uid() OR c.client_id = auth.uid())
+  )
+);
+
+-- Needed so a recipient can mark the other participant's messages as read.
+DROP POLICY IF EXISTS "Conversation participants can mark messages read" ON messages;
+CREATE POLICY "Conversation participants can mark messages read"
+ON messages FOR UPDATE
+USING (
   EXISTS (
     SELECT 1 FROM conversations c
     WHERE c.id = messages.conversation_id

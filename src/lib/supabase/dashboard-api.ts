@@ -456,6 +456,33 @@ export const workoutSessionsApi = {
   }
 };
 
+// Workout Logs API
+export const workoutLogsApi = {
+  // Get recent workout logs for a user (used by both the client's own
+  // workout page and the trainer's client-detail view — RLS on
+  // `workout_logs` grants trainers read access to their active clients' logs)
+  getUserLogs: async (userId: string, limit: number = 20): Promise<WorkoutLog[]> => {
+    const { data, error } = await supabase
+      .from('workout_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false })
+      .limit(limit);
+
+    if (error && (error.message?.includes('relation') || error.message?.includes('does not exist'))) {
+      console.warn('Table workout_logs does not exist yet. Please run the schema.sql file in Supabase SQL Editor.');
+      return [];
+    }
+
+    if (error) {
+      console.error('Error fetching workout logs:', error);
+      return [];
+    }
+
+    return data || [];
+  }
+};
+
 // Progress Tracking API
 export const progressTrackingApi = {
   // Get all progress records for a user

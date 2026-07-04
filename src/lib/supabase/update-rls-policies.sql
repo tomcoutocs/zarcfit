@@ -333,6 +333,30 @@ WITH CHECK (
   )
 );
 
+DROP POLICY IF EXISTS "Trainers can update their clients' calendar events" ON calendar_events;
+CREATE POLICY "Trainers can update their clients' calendar events"
+ON calendar_events FOR UPDATE
+USING (
+  EXISTS (
+    SELECT 1 FROM trainer_clients tc
+    WHERE tc.trainer_id = auth.uid()
+    AND tc.client_id = calendar_events.user_id
+    AND tc.status = 'active'
+  )
+);
+
+DROP POLICY IF EXISTS "Trainers can delete their clients' calendar events" ON calendar_events;
+CREATE POLICY "Trainers can delete their clients' calendar events"
+ON calendar_events FOR DELETE
+USING (
+  EXISTS (
+    SELECT 1 FROM trainer_clients tc
+    WHERE tc.trainer_id = auth.uid()
+    AND tc.client_id = calendar_events.user_id
+    AND tc.status = 'active'
+  )
+);
+
 -- ============================================
 -- USER PROFILES
 -- ============================================

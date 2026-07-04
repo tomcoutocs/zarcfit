@@ -88,6 +88,34 @@ export const calendarApi = {
     return data?.[0] || null;
   },
 
+  // Fetch events across multiple users (e.g. a trainer viewing all of
+  // their clients' scheduled sessions). Relies on the trainer-view RLS
+  // policy on calendar_events to scope results to active clients only.
+  getEventsForUsers: async (
+    userIds: string[],
+    fromDate?: string,
+    toDate?: string
+  ): Promise<CalendarEvent[]> => {
+    if (userIds.length === 0) return [];
+
+    let query = supabase
+      .from('calendar_events')
+      .select('*')
+      .in('user_id', userIds);
+
+    if (fromDate) query = query.gte('date', fromDate);
+    if (toDate) query = query.lte('date', toDate);
+
+    const { data, error } = await query.order('date', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching events for users:', error.message ?? error);
+      return [];
+    }
+
+    return data || [];
+  },
+
   deleteEvent: async (eventId: string): Promise<boolean> => {
     const { error } = await supabase
       .from('calendar_events')

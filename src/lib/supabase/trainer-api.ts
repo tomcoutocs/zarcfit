@@ -74,6 +74,18 @@ export type AcceptInvitationResult =
   | 'email_mismatch'
   | 'error';
 
+export type TrainerSettings = {
+  trainer_id: string;
+  timezone?: string;
+  default_session_duration?: number;
+  booking_buffer?: number;
+  working_hours?: Record<string, unknown>;
+  auto_accept_clients?: boolean;
+  notification_preferences?: { email?: boolean; push?: boolean };
+  created_at?: string;
+  updated_at?: string;
+};
+
 export type ClientNote = {
   id?: string;
   trainer_id: string;
@@ -168,6 +180,46 @@ export const trainerProfileApi = {
 
     if (error) {
       console.error('Error updating trainer profile:', error);
+      return null;
+    }
+
+    return data;
+  },
+};
+
+// ============================================
+// TRAINER SETTINGS API
+// ============================================
+
+export const trainerSettingsApi = {
+  getSettings: async (trainerId: string): Promise<TrainerSettings | null> => {
+    const { data, error } = await supabase
+      .from('trainer_settings')
+      .select('*')
+      .eq('trainer_id', trainerId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching trainer settings:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  // Upsert since a settings row may not exist yet for this trainer.
+  updateSettings: async (settings: TrainerSettings): Promise<TrainerSettings | null> => {
+    const { data, error } = await supabase
+      .from('trainer_settings')
+      .upsert(
+        { ...settings, updated_at: new Date().toISOString() },
+        { onConflict: 'trainer_id' }
+      )
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating trainer settings:', error);
       return null;
     }
 
