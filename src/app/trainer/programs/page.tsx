@@ -29,7 +29,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Dumbbell, Plus, Trash2, Pencil } from 'lucide-react';
+import { Dumbbell, Plus, Trash2, Pencil, Layers } from 'lucide-react';
+import Link from 'next/link';
 
 type ProgramWithClient = WorkoutProgram & { client_name: string };
 
@@ -324,6 +325,12 @@ function ProgramsContent() {
                   {program.sessions_per_week && <Badge variant="outline">{program.sessions_per_week}x/week</Badge>}
                 </div>
                 <div className="flex justify-end gap-1">
+                  <Link href={`/trainer/programs/${program.id}/builder`}>
+                    <Button size="sm" variant="outline" className="gap-1">
+                      <Layers className="h-4 w-4" />
+                      Builder
+                    </Button>
+                  </Link>
                   <Button size="icon" variant="ghost" onClick={() => openEditDialog(program)}>
                     <Pencil className="h-4 w-4" />
                   </Button>

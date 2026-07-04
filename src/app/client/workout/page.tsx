@@ -47,8 +47,10 @@ import {
   ChevronDown,
   ChevronUp,
   Star,
+  Pencil,
   Clock,
   ClipboardList,
+  Play,
 } from 'lucide-react';
 
 const emptyLogForm = {
@@ -76,8 +78,10 @@ export default function WorkoutPage() {
   const [error, setError] = useState('');
 
   const [logDialogOpen, setLogDialogOpen] = useState(false);
+  const [editingLog, setEditingLog] = useState<WorkoutLog | null>(null);
   const [logForm, setLogForm] = useState(emptyLogForm);
   const [savingLog, setSavingLog] = useState(false);
+  const [startingSession, setStartingSession] = useState<string | null>(null);
 
   const [entryForm, setEntryForm] = useState(emptyEntryForm);
   const [savingEntry, setSavingEntry] = useState(false);
@@ -125,7 +129,19 @@ export default function WorkoutPage() {
   }, [fetchLogs, fetchPrograms]);
 
   const openCreateLogDialog = () => {
+    setEditingLog(null);
     setLogForm(emptyLogForm);
+    setLogDialogOpen(true);
+  };
+
+  const openEditLogDialog = (log: WorkoutLog) => {
+    setEditingLog(log);
+    setLogForm({
+      date: log.date,
+      duration_minutes: log.duration_minutes?.toString() || '',
+      notes: log.notes || '',
+      rating: log.rating?.toString() || '',
+    });
     setLogDialogOpen(true);
   };
 
@@ -134,22 +150,70 @@ export default function WorkoutPage() {
     setSavingLog(true);
 
     const payload: WorkoutLog = {
+      id: editingLog?.id,
       user_id: user.id,
+      workout_session_id: editingLog?.workout_session_id,
       date: logForm.date,
       duration_minutes: logForm.duration_minutes ? Number(logForm.duration_minutes) : undefined,
       notes: logForm.notes.trim() || undefined,
       rating: logForm.rating ? Number(logForm.rating) : undefined,
     };
 
-    const result = await workoutLogsApi.createLog(payload);
+    const result = editingLog
+      ? await workoutLogsApi.updateLog(payload)
+      : await workoutLogsApi.createLog(payload);
     setSavingLog(false);
 
     if (result) {
       setLogDialogOpen(false);
+      setEditingLog(null);
       await fetchLogs();
       if (result.id) setExpandedLogId(result.id);
     } else {
       setError('Failed to save workout log. Please try again.');
+    }
+  };
+
+  const handleStartFromSession = async (session: WorkoutSession) => {
+    if (!user?.id || !session.id) return;
+    setStartingSession(session.id);
+    setError('');
+
+    const detail = await workoutSessionsApi.getSessionWithExercises(session.id);
+    const log = await workoutLogsApi.createLog({
+      user_id: user.id,
+      workout_session_id: session.id,
+      date: new Date().toISOString().split('T')[0],
+      notes: `Started from: ${session.name}`,
+    });
+
+    if (log?.id && detail?.exercises) {
+      for (const we of detail.exercises) {
+        await exerciseLogsApi.createLog({
+          workout_log_id: log.id,
+          exercise_id: we.exercise_id,
+          sets_completed: we.sets,
+          reps_completed: we.reps,
+        });
+      }
+      setExpandedLogId(log.id);
+      const entries = await exerciseLogsApi.getLogsForWorkout(log.id);
+      setEntriesByLog(prev => ({ ...prev, [log.id as string]: entries }));
+    }
+
+    setStartingSession(null);
+    if (log) {
+      await fetchLogs();
+    } else {
+      setError('Failed to start workout from program.');
+    }
+  };
+
+  const handleUpdateEntry = async (logId: string, entry: ExerciseLog) => {
+    const result = await exerciseLogsApi.updateLog(entry);
+    if (result) {
+      const entries = await exerciseLogsApi.getLogsForWorkout(logId);
+      setEntriesByLog(prev => ({ ...prev, [logId]: entries }));
     }
   };
 
@@ -253,7 +317,7 @@ export default function WorkoutPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Log a Workout</DialogTitle>
+              <DialogTitle>{editingLog ? 'Edit Workout' : 'Log a Workout'}</DialogTitle>
               <DialogDescription>Record a workout session, then add exercises to it below.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -302,7 +366,7 @@ export default function WorkoutPage() {
             <DialogFooter>
               <Button variant="outline" onClick={() => setLogDialogOpen(false)}>Cancel</Button>
               <Button onClick={handleSaveLog} disabled={savingLog}>
-                {savingLog ? 'Saving...' : 'Save & Add Exercises'}
+                {savingLog ? 'Saving...' : editingLog ? 'Save Changes' : 'Save & Add Exercises'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -369,6 +433,9 @@ export default function WorkoutPage() {
                           {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                           {isExpanded ? 'Hide' : 'View'} Exercises
                         </Button>
+                        <Button size="icon" variant="ghost" onClick={() => openEditLogDialog(log)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
                         <Button size="icon" variant="ghost" onClick={() => handleDeleteLog(log.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -381,16 +448,36 @@ export default function WorkoutPage() {
                       {entries.length > 0 && (
                         <div className="space-y-2">
                           {entries.map((entry) => (
-                            <div key={entry.id} className="flex items-center justify-between border rounded-lg p-3">
-                              <div>
-                                <div className="font-medium text-sm">{exerciseName(entry.exercise_id)}</div>
-                                <div className="text-xs text-muted-foreground mt-0.5">
-                                  {entry.sets_completed ? `${entry.sets_completed} sets` : ''}
-                                  {entry.reps_completed ? ` × ${entry.reps_completed} reps` : ''}
-                                  {entry.weight_used ? ` @ ${entry.weight_used}` : ''}
-                                  {entry.notes ? ` — ${entry.notes}` : ''}
-                                </div>
-                              </div>
+                            <div key={entry.id} className="flex flex-col sm:flex-row sm:items-center gap-2 border rounded-lg p-3">
+                              <div className="font-medium text-sm flex-1">{exerciseName(entry.exercise_id)}</div>
+                              <Input
+                                className="w-16 h-8"
+                                type="number"
+                                placeholder="Sets"
+                                defaultValue={entry.sets_completed ?? ''}
+                                onBlur={(e) => handleUpdateEntry(log.id as string, {
+                                  ...entry,
+                                  sets_completed: e.target.value ? Number(e.target.value) : undefined,
+                                })}
+                              />
+                              <Input
+                                className="w-24 h-8"
+                                placeholder="Reps"
+                                defaultValue={entry.reps_completed ?? ''}
+                                onBlur={(e) => handleUpdateEntry(log.id as string, {
+                                  ...entry,
+                                  reps_completed: e.target.value || undefined,
+                                })}
+                              />
+                              <Input
+                                className="w-24 h-8"
+                                placeholder="Weight"
+                                defaultValue={entry.weight_used ?? ''}
+                                onBlur={(e) => handleUpdateEntry(log.id as string, {
+                                  ...entry,
+                                  weight_used: e.target.value || undefined,
+                                })}
+                              />
                               <Button size="icon" variant="ghost" onClick={() => handleDeleteEntry(log.id as string, entry.id)}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -511,6 +598,15 @@ export default function WorkoutPage() {
                                 </div>
                                 <Button variant="ghost" size="sm" onClick={() => toggleExpandSession(session.id)}>
                                   {sessionExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="gap-1"
+                                  disabled={startingSession === session.id}
+                                  onClick={() => handleStartFromSession(session)}
+                                >
+                                  <Play className="h-3 w-3" />
+                                  {startingSession === session.id ? 'Starting...' : 'Start'}
                                 </Button>
                               </div>
                               {sessionExpanded && (

@@ -453,7 +453,55 @@ export const workoutSessionsApi = {
       session,
       exercises: exercises || []
     };
-  }
+  },
+
+  updateSession: async (session: WorkoutSession): Promise<WorkoutSession | null> => {
+    const { id, ...data } = session;
+    const { data: updated, error } = await supabase
+      .from('workout_sessions')
+      .update({ ...data, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating workout session:', error);
+      return null;
+    }
+    return updated;
+  },
+
+  deleteSession: async (sessionId: string): Promise<boolean> => {
+    const { error } = await supabase.from('workout_sessions').delete().eq('id', sessionId);
+    if (error) {
+      console.error('Error deleting workout session:', error);
+      return false;
+    }
+    return true;
+  },
+
+  addExercise: async (exercise: WorkoutExercise): Promise<WorkoutExercise | null> => {
+    const { data, error } = await supabase
+      .from('workout_exercises')
+      .insert([exercise])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding workout exercise:', error);
+      return null;
+    }
+    return data;
+  },
+
+  deleteExercise: async (exerciseId: string): Promise<boolean> => {
+    const { error } = await supabase.from('workout_exercises').delete().eq('id', exerciseId);
+    if (error) {
+      console.error('Error deleting workout exercise:', error);
+      return false;
+    }
+    return true;
+  },
 };
 
 // Workout Logs API
@@ -583,6 +631,22 @@ export const exerciseLogsApi = {
       return null;
     }
 
+    return data;
+  },
+
+  updateLog: async (log: ExerciseLog): Promise<ExerciseLog | null> => {
+    const { id, ...logData } = log;
+    const { data, error } = await supabase
+      .from('exercise_logs')
+      .update(logData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating exercise log:', error);
+      return null;
+    }
     return data;
   },
 
