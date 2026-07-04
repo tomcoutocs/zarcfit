@@ -215,7 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (userRole === 'trainer') {
           router.push('/trainer/dashboard');
         } else if (userRole === 'client') {
-          router.push('/client/dashboard');
+          router.push('/client');
         } else {
           router.push('/dashboard');
         }

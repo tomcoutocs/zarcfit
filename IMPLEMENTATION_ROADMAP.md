@@ -353,53 +353,53 @@ ZarcoFit is a comprehensive fitness and health tracking application built with N
 
 ---
 
-## Recommended Implementation Order
+## Recommended Implementation Order (Revised)
 
-Based on business value and technical dependencies:
+> **Revision note:** This order was updated after a full codebase audit (see below). The original
+> order started with the biggest, riskiest builds (Workout, Meal Planning) before finishing things
+> that are already ~50-90% done. The revised order finishes and de-risks partially implemented
+> features first, fixes routing/data bugs that undermine "done" features, and pushes the two
+> large greenfield builds (Workout, Meal Planning) later once the app's foundation is solid.
 
-### Phase 1: Core Functionality (Weeks 1-4)
-1. **Workout Tracking** (Week 1-2)
-   - Connect UI to database
-   - Implement workout logging
-   - Basic exercise library
-   
-2. **Meal Planning** (Week 3-4)
-   - Connect UI to database
-   - Implement meal logging
-   - Basic nutrition tracking
+### Phase 0: Fix What's Broken (Days 1-3)
+Quick, low-risk fixes that unblock everything else and stop "done" features from silently failing.
+1. **Routing/navigation bugs**
+   - Fix middleware redirect to non-existent `/client/dashboard`
+   - Align `/client/*` layout nav links (currently point to `/dashboard/*`)
+   - Resolve duplicate `/dashboard/*` vs `/client/*` route trees (pick one, redirect the other)
+   - Remove dead `/dashboard/plans` nav link or build the page
+2. **Admin auth consistency**
+   - Unify admin gate on `user_roles` (currently layout checks a hardcoded email while middleware checks roles)
 
-### Phase 2: Enhanced Features (Weeks 5-8)
-3. **Progress Tracking** (Week 5-6)
-   - Create progress page
-   - Body measurements
-   - Progress photos
-   
-4. **Goals Enhancement** (Week 7)
-   - Goals page
-   - Goal tracking UI
-   
-5. **Profile & Calendar Polish** (Week 8)
-   - Fix profile sync
-   - Calendar testing and refinement
+### Phase 1: Finish Partially Implemented Features (Week 1-2)
+Everything here already has schema + API; only UI/wiring work remains.
+3. **Profile page data consistency** — sync updates to `user_profiles` table instead of only auth metadata
+4. **Goals page** — dedicated `/dashboard/goals` page using existing `goalsApi`
+5. **Progress tracking page** — dedicated `/dashboard/progress` page using existing `progressTrackingApi`
+6. **Calendar verification** — test create/edit/delete/recurring events end-to-end, fix any bugs found
+7. **Trainer invitation flow** — build the missing accept-invitation page, wire up `invitationApi.acceptInvitation`
 
-### Phase 3: Advanced Features (Weeks 9-12)
-6. **Analytics & Reports** (Week 9-10)
-   - Workout analytics
-   - Nutrition analytics
-   - Progress reports
-   
-7. **Admin Panel** (Week 11)
-   - Real statistics
-   - User management
-   
-8. **Technical Improvements** (Week 12)
-   - Testing
-   - Performance optimization
-   - Error handling
+### Phase 2: Trainer Platform Completion (Week 3-4)
+Schema and API already exist for most of this; UI is the gap.
+8. **Trainer messages UI** — `messagingApi` + `conversations`/`messages` tables exist; build chat UI for trainer + client
+9. **Trainer client detail tabs** — wire up workouts/nutrition/progress/notes tabs (currently empty placeholders)
+10. **Trainer programs, schedule, settings pages** — currently nav-only dead links
 
-### Phase 4: Community Features (Week 13+)
-9. **Messaging System**
-10. **Social Features**
+### Phase 3: Core Fitness Features (Week 5-8)
+The biggest remaining greenfield work — genuinely new UI + wiring, not just finishing existing work.
+11. **Workout Tracking** (Week 5-6)
+    - Connect UI to database, implement workout logging, basic exercise library
+12. **Meal Planning** (Week 7-8)
+    - Connect UI to database, implement meal logging, basic nutrition tracking
+
+### Phase 4: Advanced Features (Week 9-12)
+13. **Analytics & Reports** — workout analytics, nutrition analytics, progress reports
+14. **Admin Panel enhancements** — real statistics, user management, replace mock blog list data, add `blog_posts` schema
+15. **Technical Improvements** — testing, performance optimization, error handling
+
+### Phase 5: Community Features (Week 13+)
+16. **Client-facing chat/messaging polish** (realtime, notifications)
+17. **Social Features**
 
 ---
 

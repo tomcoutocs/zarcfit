@@ -23,6 +23,18 @@ function copyCookies(from: NextResponse, to: NextResponse) {
   })
 }
 
+/**
+ * Where a user with the given role should land. Falls back to the public
+ * home page for a null/unknown role so we never redirect into a protected
+ * area we'd immediately redirect away from again (avoids redirect loops).
+ */
+function homeForRole(role: string | undefined | null): string {
+  if (role === 'trainer') return '/trainer/dashboard'
+  if (role === 'client') return '/client'
+  if (role === 'admin') return '/admin'
+  return '/'
+}
+
 export async function middleware(req: NextRequest) {
   let supabaseResponse = NextResponse.next({ request: req })
 
@@ -85,47 +97,13 @@ export async function middleware(req: NextRequest) {
 
   const role = userRole?.role
 
-  if (path === '/dashboard') {
-    if (role === 'trainer') {
-      const redirectResponse = NextResponse.redirect(new URL('/trainer/dashboard', req.url))
-      copyCookies(supabaseResponse, redirectResponse)
-      return redirectResponse
-    }
-    if (role === 'client') {
-      const redirectResponse = NextResponse.redirect(new URL('/client/dashboard', req.url))
-      copyCookies(supabaseResponse, redirectResponse)
-      return redirectResponse
-    }
-    if (role === 'admin') {
-      const redirectResponse = NextResponse.redirect(new URL('/admin', req.url))
-      copyCookies(supabaseResponse, redirectResponse)
-      return redirectResponse
-    }
-    return supabaseResponse
-  }
+  const isProtectedForOtherRole =
+    (path.startsWith('/trainer') && role !== 'trainer') ||
+    (path.startsWith('/client') && role !== 'client') ||
+    (path.startsWith('/admin') && role !== 'admin')
 
-  if (path.startsWith('/trainer') && role !== 'trainer') {
-    const redirectResponse = NextResponse.redirect(new URL('/client/dashboard', req.url))
-    copyCookies(supabaseResponse, redirectResponse)
-    return redirectResponse
-  }
-
-  if (path.startsWith('/client') && role !== 'client') {
-    const destination =
-      role === 'trainer' ? '/trainer/dashboard' : '/client/dashboard'
-    const redirectResponse = NextResponse.redirect(new URL(destination, req.url))
-    copyCookies(supabaseResponse, redirectResponse)
-    return redirectResponse
-  }
-
-  if (path.startsWith('/admin') && role !== 'admin') {
-    let destination = '/'
-    if (role === 'trainer') {
-      destination = '/trainer/dashboard'
-    } else if (role === 'client') {
-      destination = '/client/dashboard'
-    }
-    const redirectResponse = NextResponse.redirect(new URL(destination, req.url))
+  if (isProtectedForOtherRole) {
+    const redirectResponse = NextResponse.redirect(new URL(homeForRole(role), req.url))
     copyCookies(supabaseResponse, redirectResponse)
     return redirectResponse
   }

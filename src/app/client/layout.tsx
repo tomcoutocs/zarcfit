@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { MessageSquare, Dumbbell, Utensils, Calendar, User, Clipboard, LogOut, Menu, X, Moon, LayoutDashboard } from 'lucide-react';
+import { MessageSquare, Dumbbell, Utensils, Calendar, User, LogOut, Menu, X, Moon, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/context/auth-context';
@@ -36,17 +36,16 @@ function NavItem({ href, icon, label, isActive = false, onClick }: NavItemProps)
 }
 
 const navItems = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Overview' },
-  { href: '/dashboard/chat', icon: MessageSquare, label: 'Chat' },
-  { href: '/dashboard/workout', icon: Dumbbell, label: 'Workout Tracking' },
-  { href: '/dashboard/meal-plan', icon: Utensils, label: 'Meal Plan' },
-  { href: '/dashboard/sleep', icon: Moon, label: 'Sleep Tracking' },
-  { href: '/dashboard/calendar', icon: Calendar, label: 'Calendar' },
-  { href: '/dashboard/profile', icon: User, label: 'Profile' },
-  { href: '/dashboard/plans', icon: Clipboard, label: 'Plans' },
+  { href: '/client', icon: LayoutDashboard, label: 'Overview' },
+  { href: '/client/chat', icon: MessageSquare, label: 'Chat' },
+  { href: '/client/workout', icon: Dumbbell, label: 'Workout Tracking' },
+  { href: '/client/meal-plan', icon: Utensils, label: 'Meal Plan' },
+  { href: '/client/sleep', icon: Moon, label: 'Sleep Tracking' },
+  { href: '/client/calendar', icon: Calendar, label: 'Calendar' },
+  { href: '/client/profile', icon: User, label: 'Profile' },
 ];
 
-export default function DashboardLayout({
+export default function ClientLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -62,7 +61,7 @@ export default function DashboardLayout({
   };
 
   const isActive = (href: string) => {
-    if (href === '/dashboard') return pathname === '/dashboard';
+    if (href === '/client') return pathname === '/client';
     return pathname === href || pathname.startsWith(href + '/');
   };
 
@@ -116,7 +115,7 @@ export default function DashboardLayout({
                 <span className="text-lg font-bold">ZarcFit</span>
               </Link>
               <div className="flex items-center gap-2">
-                <Link href="/dashboard/profile">
+                <Link href="/client/profile">
                   <Button size="icon" variant="ghost">
                     <User className="h-5 w-5" />
                   </Button>

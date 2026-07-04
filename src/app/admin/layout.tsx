@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
@@ -18,32 +18,20 @@ interface AdminLayoutProps {
 }
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
-  const { user, isLoading, signOut } = useAuth();
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const { user, isLoading, isAdmin, signOut } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    // Check if user is an admin
-    // This is a basic check - in a real app, you'd likely have roles in your database
-    const checkAdmin = async () => {
-      if (!isLoading && user) {
-        // Check if user email is admin (this is just for demo purposes)
-        // In real application, you would check for admin role in user metadata or a separate admin table
-        const adminEmails = ['admin@zarcfit.com']; // Add your admin emails here
-        if (user.email && adminEmails.includes(user.email)) {
-          setIsAdmin(true);
-        } else {
-          // Not an admin, redirect to home
-          router.push('/');
-        }
-      } else if (!isLoading && !user) {
-        // Not logged in
-        router.push('/auth/login');
-      }
-    };
+    if (isLoading) return;
 
-    checkAdmin();
-  }, [user, isLoading, router]);
+    if (!user) {
+      router.push('/auth/login');
+    } else if (!isAdmin) {
+      // Logged in but not an admin (role comes from the `user_roles` table,
+      // same source of truth the middleware uses).
+      router.push('/');
+    }
+  }, [user, isAdmin, isLoading, router]);
 
   if (isLoading) {
     return (

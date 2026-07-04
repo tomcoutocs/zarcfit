@@ -7,6 +7,15 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'i.pravatar.cc' },
     ],
   },
+  async redirects() {
+    return [
+      // Legacy dashboard routes were duplicated under /client during the
+      // trainer-platform restructure. /client is now canonical; keep old
+      // links working by redirecting here.
+      { source: '/dashboard', destination: '/client', permanent: false },
+      { source: '/dashboard/:path*', destination: '/client/:path*', permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;
