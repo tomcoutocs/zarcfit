@@ -1,72 +1,78 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Plus, PenSquare, Trash2, Search } from 'lucide-react';
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 
-// Mock data for demo
-const mockBlogPosts = [
-  {
-    id: '1',
-    title: 'The Ultimate Guide to High-Intensity Interval Training',
-    status: 'Published',
-    author: 'John Smith',
-    category: 'Workouts',
-    date: '2023-06-15',
-  },
-  {
-    id: '2',
-    title: 'Nutrition Tips for Building Muscle',
-    status: 'Published',
-    author: 'Sarah Johnson',
-    category: 'Nutrition',
-    date: '2023-05-28',
-  },
-  {
-    id: '3',
-    title: 'How to Stay Motivated in Your Fitness Journey',
-    status: 'Draft',
-    author: 'Maria Garcia',
-    category: 'Motivation',
-    date: '2023-07-03',
-  },
-  {
-    id: '4',
-    title: 'The Benefits of Strength Training for Women',
-    status: 'Published',
-    author: 'John Smith',
-    category: 'Workouts',
-    date: '2023-06-22',
-  },
-  {
-    id: '5',
-    title: 'Post-Workout Recovery Strategies',
-    status: 'Draft',
-    author: 'David Wilson',
-    category: 'Recovery',
-    date: '2023-07-10',
-  },
-];
+interface BlogPost {
+  id: string;
+  title: string;
+  status: string;
+  author_name: string;
+  category: string;
+  created_at: string;
+}
 
 export default function BlogAdminPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [blogPosts, setBlogPosts] = useState(mockBlogPosts);
-  
-  const filteredPosts = blogPosts.filter(post => 
-    post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    post.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    post.category.toLowerCase().includes(searchTerm.toLowerCase())
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const fetchPosts = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error: fetchError } = await supabase
+        .from('blog_posts')
+        .select('id, title, status, author_name, category, created_at')
+        .order('created_at', { ascending: false });
+
+      if (fetchError) throw new Error(fetchError.message);
+      setBlogPosts(data || []);
+    } catch (err) {
+      console.error('Error fetching blog posts:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load blog posts');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [fetchPosts]);
+
+  const filteredPosts = blogPosts.filter(post =>
+    post.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    post.author_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    post.category?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const deletePost = (id: string) => {
-    // In a real app, this would call an API to delete the post
-    setBlogPosts(blogPosts.filter(post => post.id !== id));
+  const deletePost = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this post?')) return;
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { error: deleteError } = await supabase
+        .from('blog_posts')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) throw new Error(deleteError.message);
+      setBlogPosts(prev => prev.filter(post => post.id !== id));
+    } catch (err) {
+      console.error('Error deleting blog post:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete blog post');
+    }
   };
-  
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -77,7 +83,13 @@ export default function BlogAdminPage() {
           </Link>
         </Button>
       </div>
-      
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Manage Blog Posts</CardTitle>
@@ -97,7 +109,7 @@ export default function BlogAdminPage() {
               />
             </div>
           </div>
-          
+
           <div className="rounded-md border">
             <Table>
               <TableHeader>
@@ -111,36 +123,38 @@ export default function BlogAdminPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPosts.length > 0 ? (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      Loading blog posts...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredPosts.length > 0 ? (
                   filteredPosts.map((post) => (
                     <TableRow key={post.id}>
                       <TableCell>{post.title}</TableCell>
-                      <TableCell>{post.category}</TableCell>
+                      <TableCell className="capitalize">{post.category}</TableCell>
                       <TableCell>
                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                          post.status === 'Published' 
-                            ? 'bg-green-100 text-green-800' 
+                          post.status === 'published'
+                            ? 'bg-green-100 text-green-800'
                             : 'bg-yellow-100 text-yellow-800'
                         }`}>
-                          {post.status}
+                          {post.status === 'published' ? 'Published' : 'Draft'}
                         </span>
                       </TableCell>
-                      <TableCell>{post.author}</TableCell>
-                      <TableCell>{new Date(post.date).toLocaleDateString()}</TableCell>
+                      <TableCell>{post.author_name}</TableCell>
+                      <TableCell>{new Date(post.created_at).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" asChild>
                           <Link href={`/admin/blog/edit/${post.id}`}>
                             <PenSquare className="h-4 w-4" />
                           </Link>
                         </Button>
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="icon"
-                          onClick={() => {
-                            if (window.confirm('Are you sure you want to delete this post?')) {
-                              deletePost(post.id);
-                            }
-                          }}
+                          onClick={() => deletePost(post.id)}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -161,4 +175,4 @@ export default function BlogAdminPage() {
       </Card>
     </div>
   );
-} 
+}

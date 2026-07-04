@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
+import React, { createContext, useState, useEffect, useContext, useMemo, useCallback } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import {
@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const configError = getSupabaseConfigError();
 
-  const fetchUserRole = async (userId: string) => {
+  const fetchUserRole = useCallback(async (userId: string) => {
     try {
       const { data } = await supabase
         .from('user_roles')
@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error fetching user role:', error);
       return null;
     }
-  };
+  }, [supabase]);
 
   const refreshRole = async () => {
     if (user) {
@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, [supabase, fetchUserRole]);
 
   const signUp = async (email: string, password: string, metadata?: UserMetadata, role: UserRole = 'client') => {
     if (configError) {

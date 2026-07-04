@@ -30,10 +30,11 @@ ZarcoFit is a comprehensive fitness and health tracking application built with N
    - ✅ About, Blog, FAQ, Contact, Programs, Coaching pages
    - ✅ Modern, responsive design
 
-4. **Admin Panel** (Blog Management)
-   - ✅ Blog post CRUD operations
-   - ✅ Admin dashboard layout
-   - ⚠️ Hardcoded statistics (needs real data integration)
+4. **Admin Panel**
+   - ✅ Blog post CRUD operations (now backed by a real `blog_posts` table + RLS)
+   - ✅ Admin dashboard layout with real statistics (`get_admin_stats()` RPC)
+   - ✅ User management page (`/admin/users`) — view users, grant/revoke roles
+   - ✅ Settings page (`/admin/settings`) — password change
 
 ### 🟡 Partially Implemented Features
 
@@ -402,10 +403,23 @@ The biggest remaining greenfield work — genuinely new UI + wiring, not just fi
     - Daily macro/calorie totals computed from logged meals and compared against plan targets
     - Meal library / copy-to-other-days intentionally out of scope for this pass
 
-### Phase 4: Advanced Features (Week 9-12)
-13. **Analytics & Reports** — workout analytics, nutrition analytics, progress reports
-14. **Admin Panel enhancements** — real statistics, user management, replace mock blog list data, add `blog_posts` schema
-15. **Technical Improvements** — testing, performance optimization, error handling
+### ✅ Phase 4: Advanced Features (Week 9-12) — DONE (scoped)
+13. **Admin Panel enhancements** — ✅ Done
+    - Added the missing `blog_posts` schema + RLS (`blog-schema.sql`) — the admin blog new/edit/view
+      pages were already querying this table with no migration ever creating it
+    - Admin blog list page now reads real posts instead of a hardcoded mock array
+    - Admin dashboard overview now shows real stats (total users, trainers, clients, blog posts,
+      active coaching pairs) via a new `get_admin_stats()` RPC (`admin-schema.sql`)
+    - Built the previously-dead `/admin/users` nav link into a real user management page:
+      lists every user (via `get_all_users_for_admin()` RPC) with their roles, and lets an admin
+      grant/revoke `admin`/`trainer`/`client` roles
+    - Built the previously-dead `/admin/settings` nav link into a working password-change page
+14. **Technical Improvements** — Done (scoped)
+    - Fixed the `react-hooks/exhaustive-deps` warning in `auth-context.tsx`
+    - Added a global error boundary (`src/app/error.tsx`, `src/app/global-error.tsx`) so unhandled
+      errors show a recovery UI instead of a blank crash screen
+    - Full analytics dashboards, automated testing, and API-route-per-feature are intentionally
+      out of scope for this pass — see "Not done" in the final audit below
 
 ### Phase 5: Community Features (Week 13+)
 16. **Client-facing chat/messaging polish** (realtime, notifications)
