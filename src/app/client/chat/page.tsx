@@ -1,218 +1,318 @@
-import React from 'react';
+'use client';
+
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useAuth } from '@/context/auth-context';
+import { clientManagementApi, TrainerWithProfile, messagingApi, Conversation, Message } from '@/lib/supabase/trainer-api';
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, Search, Phone, Video, Info, Paperclip } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
+import { Send, MessageSquare } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-export default function ChatPage() {
+type ConversationWithTrainer = Conversation & { trainer: TrainerWithProfile | undefined };
+
+function initials(name: string) {
+  return name
+    .split(' ')
+    .map(part => part.charAt(0))
+    .join('')
+    .substring(0, 2)
+    .toUpperCase();
+}
+
+function trainerDisplayName(trainer: TrainerWithProfile | undefined) {
+  if (!trainer) return 'Trainer';
+  return trainer.trainer_business_name || trainer.trainer_name || 'Trainer';
+}
+
+export default function ClientChatPage() {
+  const { user } = useAuth();
+
+  const [trainers, setTrainers] = useState<TrainerWithProfile[]>([]);
+  const [conversations, setConversations] = useState<ConversationWithTrainer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [newMessage, setNewMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const loadConversations = useCallback(async () => {
+    if (!user?.id) return;
+    setLoading(true);
+
+    const [trainerList, conversationList] = await Promise.all([
+      clientManagementApi.getMyTrainers(user.id),
+      messagingApi.getClientConversations(user.id),
+    ]);
+
+    setTrainers(trainerList);
+    setConversations(
+      conversationList.map(c => ({
+        ...c,
+        trainer: trainerList.find(t => t.trainer_id === c.trainer_id),
+      }))
+    );
+    setLoading(false);
+
+    // If there's exactly one conversation (the common case), open it
+    // automatically instead of showing an empty state.
+    if (conversationList.length > 0 && !selectedConversationId) {
+      setSelectedConversationId(conversationList[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
+
+  const loadMessages = useCallback(async (conversationId: string) => {
+    setMessagesLoading(true);
+    const data = await messagingApi.getMessages(conversationId, 100);
+    setMessages(data);
+    setMessagesLoading(false);
+    if (user?.id) {
+      messagingApi.markAsRead(conversationId, user.id);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (selectedConversationId) {
+      loadMessages(selectedConversationId);
+    }
+  }, [selectedConversationId, loadMessages]);
+
+  // Realtime subscription so new messages in the open conversation appear
+  // without a manual refresh.
+  useEffect(() => {
+    if (!selectedConversationId) return;
+
+    const supabase = createSupabaseBrowserClient();
+    const channel = supabase
+      .channel(`messages-${selectedConversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${selectedConversationId}`,
+        },
+        (payload) => {
+          setMessages(prev => {
+            const incoming = payload.new as Message;
+            if (prev.some(m => m.id === incoming.id)) return prev;
+            return [...prev, incoming];
+          });
+          if (user?.id) {
+            messagingApi.markAsRead(selectedConversationId, user.id);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedConversationId, user?.id]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.id || !selectedConversationId || !newMessage.trim()) return;
+
+    setSending(true);
+    const content = newMessage.trim();
+    setNewMessage('');
+
+    const sent = await messagingApi.sendMessage({
+      conversation_id: selectedConversationId,
+      sender_id: user.id,
+      content,
+    });
+
+    if (sent) {
+      setMessages(prev => (prev.some(m => m.id === sent.id) ? prev : [...prev, sent]));
+      setConversations(prev =>
+        prev.map(c => (c.id === selectedConversationId ? { ...c, last_message_at: sent.created_at || new Date().toISOString() } : c))
+          .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime())
+      );
+    } else {
+      setNewMessage(content);
+    }
+    setSending(false);
+  };
+
+  const startConversationWithTrainer = async (trainerId: string) => {
+    if (!user?.id) return;
+    const existing = conversations.find(c => c.trainer_id === trainerId);
+    if (existing) {
+      setSelectedConversationId(existing.id);
+      return;
+    }
+    const created = await messagingApi.getOrCreateConversation(trainerId, user.id);
+    if (created) {
+      const trainer = trainers.find(t => t.trainer_id === trainerId);
+      setConversations(prev => [{ ...created, trainer }, ...prev]);
+      setSelectedConversationId(created.id);
+    }
+  };
+
+  const selectedConversation = conversations.find(c => c.id === selectedConversationId);
+  const trainersWithoutConversation = trainers.filter(
+    t => !conversations.some(c => c.trainer_id === t.trainer_id)
+  );
+
   return (
-    <div className="h-[calc(100vh-80px)] flex flex-col">
-      <div className="flex h-full">
-        {/* Sidebar */}
-        <div className="w-80 border-r flex flex-col bg-background">
-          <div className="p-4 border-b">
-            <h2 className="text-xl font-bold">Messages</h2>
-            <div className="relative mt-2">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search conversations..."
-                className="pl-9"
-              />
-            </div>
+    <div className="space-y-6">
+      <DashboardPageHeader title="Messages" description="Chat with your trainer" />
+
+      <Card className="overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] h-[600px]">
+          {/* Conversation list */}
+          <div className="border-r overflow-y-auto">
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
+              </div>
+            ) : (
+              <>
+                {conversations.map((conv) => {
+                  const name = trainerDisplayName(conv.trainer);
+                  return (
+                    <button
+                      key={conv.id}
+                      onClick={() => setSelectedConversationId(conv.id)}
+                      className={cn(
+                        'flex w-full items-center gap-3 border-b p-3 text-left transition-colors hover:bg-accent/50',
+                        selectedConversationId === conv.id && 'bg-accent'
+                      )}
+                    >
+                      <Avatar>
+                        <AvatarFallback>{initials(name)}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(conv.last_message_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+
+                {trainersWithoutConversation.length > 0 && (
+                  <div className="p-3">
+                    <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">
+                      Start a conversation
+                    </p>
+                    <div className="space-y-1">
+                      {trainersWithoutConversation.map((t) => (
+                        <button
+                          key={t.trainer_id}
+                          onClick={() => startConversationWithTrainer(t.trainer_id)}
+                          className="flex w-full items-center gap-3 rounded-md p-2 text-left text-sm transition-colors hover:bg-accent/50"
+                        >
+                          <Avatar className="h-7 w-7">
+                            <AvatarFallback className="text-xs">{initials(trainerDisplayName(t))}</AvatarFallback>
+                          </Avatar>
+                          <span className="truncate">{trainerDisplayName(t)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {conversations.length === 0 && trainersWithoutConversation.length === 0 && !loading && (
+                  <div className="flex flex-col items-center justify-center gap-2 py-12 text-center px-4">
+                    <MessageSquare className="h-8 w-8 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      You don&apos;t have a trainer yet
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
           </div>
-          
-          <div className="overflow-y-auto flex-grow">
-            <div className="p-2">
-              <h3 className="text-sm font-semibold text-muted-foreground px-2 py-2">Your Coaches</h3>
-              
-              {/* Active Conversation */}
-              <div className="px-2 py-3 rounded-lg bg-accent/50 mb-1">
-                <div className="flex items-center space-x-3">
-                  <Avatar className="h-10 w-10 border">
-                    <AvatarImage src="/assets/images/coach-john.jpg" alt="John Zarco" />
-                    <AvatarFallback>JZ</AvatarFallback>
+
+          {/* Message thread */}
+          <div className="flex flex-col">
+            {selectedConversation ? (
+              <>
+                <div className="flex items-center gap-3 border-b p-4">
+                  <Avatar>
+                    <AvatarFallback>{initials(trainerDisplayName(selectedConversation.trainer))}</AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">John Zarco</p>
-                      <span className="text-xs text-muted-foreground">9:41 AM</span>
-                    </div>
-                    <p className="text-xs truncate text-muted-foreground">Perfect! Let me know how the new workout plan goes.</p>
-                  </div>
+                  <p className="font-medium">{trainerDisplayName(selectedConversation.trainer)}</p>
                 </div>
-              </div>
-              
-              {/* Other Conversations */}
-              <div className="px-2 py-3 rounded-lg hover:bg-accent/30 transition-colors mb-1">
-                <div className="flex items-center space-x-3">
-                  <Avatar className="h-10 w-10 border">
-                    <AvatarImage src="/assets/images/coach-sarah.jpg" alt="Sarah Miller" />
-                    <AvatarFallback>SM</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">Sarah Miller</p>
-                      <span className="text-xs text-muted-foreground">Yesterday</span>
+
+                <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
+                  {messagesLoading ? (
+                    <div className="flex justify-center py-8">
+                      <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
                     </div>
-                    <p className="text-xs truncate text-muted-foreground">Your nutrition plan is ready! Check it out when you can.</p>
-                  </div>
+                  ) : messages.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-muted-foreground">
+                      No messages yet. Say hello!
+                    </p>
+                  ) : (
+                    messages.map((msg) => {
+                      const isMine = msg.sender_id === user?.id;
+                      return (
+                        <div key={msg.id} className={cn('flex', isMine ? 'justify-end' : 'justify-start')}>
+                          <div
+                            className={cn(
+                              'max-w-[75%] rounded-2xl px-4 py-2 text-sm',
+                              isMine ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                            )}
+                          >
+                            <p>{msg.content}</p>
+                            <p
+                              className={cn(
+                                'mt-1 text-[10px] opacity-70',
+                                isMine ? 'text-primary-foreground' : 'text-muted-foreground'
+                              )}
+                            >
+                              {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
+
+                <form onSubmit={handleSend} className="flex items-center gap-2 border-t p-4">
+                  <Input
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="Type a message..."
+                    disabled={sending}
+                  />
+                  <Button type="submit" size="icon" disabled={sending || !newMessage.trim()}>
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </form>
+              </>
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+                <MessageSquare className="h-10 w-10 text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  {trainers.length === 0 ? 'You don\u2019t have a trainer yet' : 'Select a conversation to start chatting'}
+                </p>
               </div>
-              
-              <div className="px-2 py-3 rounded-lg hover:bg-accent/30 transition-colors mb-1">
-                <div className="flex items-center space-x-3">
-                  <Avatar className="h-10 w-10 border">
-                    <AvatarImage src="/assets/images/coach-mike.jpg" alt="Mike Johnson" />
-                    <AvatarFallback>MJ</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">Mike Johnson</p>
-                      <span className="text-xs text-muted-foreground">Tuesday</span>
-                    </div>
-                    <p className="text-xs truncate text-muted-foreground">How was your recovery day? Ready for leg day tomorrow?</p>
-                  </div>
-                </div>
-              </div>
-              
-              <h3 className="text-sm font-semibold text-muted-foreground px-2 py-2 mt-4">Support</h3>
-              
-              <div className="px-2 py-3 rounded-lg hover:bg-accent/30 transition-colors">
-                <div className="flex items-center space-x-3">
-                  <Avatar className="h-10 w-10 border">
-                    <AvatarImage src="/assets/images/support.jpg" alt="Support Team" />
-                    <AvatarFallback>ST</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">Support Team</p>
-                      <span className="text-xs text-muted-foreground">Monday</span>
-                    </div>
-                    <p className="text-xs truncate text-muted-foreground">Thanks for contacting us! Let us know if you need anything else.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
-        
-        {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col bg-background/50">
-          {/* Chat Header */}
-          <div className="border-b p-4 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Avatar className="h-10 w-10 border">
-                <AvatarImage src="/assets/images/coach-john.jpg" alt="John Zarco" />
-                <AvatarFallback>JZ</AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="font-medium">John Zarco</p>
-                <p className="text-xs text-muted-foreground">Head Coach • Online</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <Button variant="ghost" size="icon" title="Phone Call">
-                <Phone className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" title="Video Call">
-                <Video className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" title="Info">
-                <Info className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-          
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-6">
-            <div className="flex flex-col space-y-1.5 max-w-[75%]">
-              <div className="flex items-end gap-2">
-                <Avatar className="h-8 w-8 border">
-                  <AvatarImage src="/assets/images/coach-john.jpg" alt="John Zarco" />
-                  <AvatarFallback>JZ</AvatarFallback>
-                </Avatar>
-                <div className="bg-accent p-3 rounded-lg rounded-bl-none">
-                  <p>Good morning! How are you feeling after yesterday&apos;s workout?</p>
-                </div>
-              </div>
-              <span className="text-xs text-muted-foreground ml-10">9:30 AM</span>
-            </div>
-            
-            <div className="flex flex-col space-y-1.5 items-end ml-auto max-w-[75%]">
-              <div className="bg-primary text-primary-foreground p-3 rounded-lg rounded-br-none">
-                <p>Hey John! I&apos;m feeling pretty good. Some soreness in my quads, but nothing too bad.</p>
-              </div>
-              <span className="text-xs text-muted-foreground">9:35 AM</span>
-            </div>
-            
-            <div className="flex flex-col space-y-1.5 max-w-[75%]">
-              <div className="flex items-end gap-2">
-                <Avatar className="h-8 w-8 border">
-                  <AvatarImage src="/assets/images/coach-john.jpg" alt="John Zarco" />
-                  <AvatarFallback>JZ</AvatarFallback>
-                </Avatar>
-                <div className="bg-accent p-3 rounded-lg rounded-bl-none">
-                  <p>Great to hear! That&apos;s normal after increasing the squat weight. Make sure you&apos;re getting enough protein for recovery.</p>
-                </div>
-              </div>
-              <span className="text-xs text-muted-foreground ml-10">9:37 AM</span>
-            </div>
-            
-            <div className="flex flex-col space-y-1.5 max-w-[75%]">
-              <div className="flex items-end gap-2">
-                <Avatar className="h-8 w-8 border">
-                  <AvatarImage src="/assets/images/coach-john.jpg" alt="John Zarco" />
-                  <AvatarFallback>JZ</AvatarFallback>
-                </Avatar>
-                <div className="bg-accent p-3 rounded-lg rounded-bl-none">
-                  <p>I&apos;ve prepared a new workout plan for next week that focuses more on compound movements. Would you like me to send it over?</p>
-                </div>
-              </div>
-              <span className="text-xs text-muted-foreground ml-10">9:38 AM</span>
-            </div>
-            
-            <div className="flex flex-col space-y-1.5 items-end ml-auto max-w-[75%]">
-              <div className="bg-primary text-primary-foreground p-3 rounded-lg rounded-br-none">
-                <p>Yes, absolutely! I&apos;ve been enjoying the compound lifts and would love to see what you&apos;ve got planned.</p>
-              </div>
-              <span className="text-xs text-muted-foreground">9:40 AM</span>
-            </div>
-            
-            <div className="flex flex-col space-y-1.5 max-w-[75%]">
-              <div className="flex items-end gap-2">
-                <Avatar className="h-8 w-8 border">
-                  <AvatarImage src="/assets/images/coach-john.jpg" alt="John Zarco" />
-                  <AvatarFallback>JZ</AvatarFallback>
-                </Avatar>
-                <div className="bg-accent p-3 rounded-lg rounded-bl-none">
-                  <p>Perfect! Let me know how the new workout plan goes.</p>
-                </div>
-              </div>
-              <span className="text-xs text-muted-foreground ml-10">9:41 AM</span>
-            </div>
-          </div>
-          
-          {/* Message Input */}
-          <div className="p-4 border-t">
-            <div className="flex items-end gap-2">
-              <Button variant="ghost" size="icon" title="Attach File">
-                <Paperclip className="h-5 w-5" />
-              </Button>
-              <div className="flex-1 bg-background border rounded-lg overflow-hidden">
-                <Input 
-                  className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0" 
-                  placeholder="Type your message..." 
-                />
-              </div>
-              <Button className="rounded-full h-10 w-10 p-0" title="Send Message">
-                <Send className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      </Card>
     </div>
   );
-} 
+}

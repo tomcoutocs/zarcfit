@@ -74,11 +74,8 @@ ZarcoFit is a comprehensive fitness and health tracking application built with N
    - ✅ Database schema exists
    - ✅ API functions exist in dashboard-api.ts
 
-3. **Chat/Messaging Page** (`/dashboard/chat`)
-   - ❌ UI mockup only
-   - ❌ No messaging functionality
-   - ❌ No database schema for messages
-   - ❌ No API functions
+3. **Chat/Messaging Page** (`/client/chat`)
+   - ✅ Now fully functional — see Phase 5 below (real conversations, realtime messages)
 
 ---
 
@@ -422,8 +419,22 @@ The biggest remaining greenfield work — genuinely new UI + wiring, not just fi
       out of scope for this pass — see "Not done" in the final audit below
 
 ### Phase 5: Community Features (Week 13+)
-16. **Client-facing chat/messaging polish** (realtime, notifications)
-17. **Social Features**
+16. **Client-facing chat/messaging** — ✅ Done
+    - `/client/chat` was a fully static mockup with fake conversations; it now uses the same
+      `conversations`/`messages` tables and realtime subscription as the Phase 2 trainer messages
+      page, via two new symmetric API functions (`clientManagementApi.getMyTrainers`,
+      `messagingApi.getClientConversations`)
+    - Clients can now message any active/pending trainer, see real message history, and get new
+      messages live without a refresh
+17. **Social Features** — ❌ Intentionally not started
+    - User feeds, following, workout sharing, community challenges, and leaderboards are entirely
+      new product surfaces with no existing schema, UI, or precedent anywhere in the codebase
+    - Per the roadmap's own complexity note this requires "significant new infrastructure" — it's a
+      multi-week product feature in its own right, not a fix/completion of existing work like every
+      other item in Phases 0-5
+    - Recommend scoping this as its own dedicated project (with product/design input on what
+      "social" should mean for a coach-client fitness app) rather than retrofitting it in as part of
+      this cleanup pass
 
 ---
 

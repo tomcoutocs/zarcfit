@@ -138,6 +138,26 @@ type TrainerClientQueryRow = TrainerClient & {
   };
 };
 
+export type TrainerWithProfile = TrainerClient & {
+  trainer_email: string;
+  trainer_name: string;
+  trainer_business_name?: string;
+};
+
+type ClientTrainerQueryRow = TrainerClient & {
+  trainer?: {
+    id: string;
+    email?: string;
+    user_profiles?: {
+      first_name?: string;
+      last_name?: string;
+    };
+    trainer_profiles?: {
+      business_name?: string;
+    };
+  };
+};
+
 // ============================================
 // TRAINER PROFILE API
 // ============================================
@@ -265,6 +285,44 @@ export const clientManagementApi = {
         ? `${item.client.user_profiles.first_name} ${item.client.user_profiles.last_name}`
         : item.client?.email || 'Unknown',
       client_profile: item.client?.user_profiles
+    }));
+  },
+
+  // Get all trainers for a client (the symmetric counterpart to getClients,
+  // used by the client-facing messages page to know who they can chat with)
+  getMyTrainers: async (clientId: string): Promise<TrainerWithProfile[]> => {
+    const { data, error } = await supabase
+      .from('trainer_clients')
+      .select(`
+        *,
+        trainer:trainer_id (
+          id,
+          email,
+          user_profiles (
+            first_name,
+            last_name
+          ),
+          trainer_profiles (
+            business_name
+          )
+        )
+      `)
+      .eq('client_id', clientId)
+      .in('status', ['active', 'pending'])
+      .order('accepted_at', { ascending: false, nullsFirst: false });
+
+    if (error) {
+      console.error('Error fetching trainers:', error);
+      return [];
+    }
+
+    return (data || []).map((item: ClientTrainerQueryRow) => ({
+      ...item,
+      trainer_email: item.trainer?.email || '',
+      trainer_name: item.trainer?.user_profiles?.first_name && item.trainer?.user_profiles?.last_name
+        ? `${item.trainer.user_profiles.first_name} ${item.trainer.user_profiles.last_name}`
+        : item.trainer?.email || 'Trainer',
+      trainer_business_name: item.trainer?.trainer_profiles?.business_name,
     }));
   },
 
@@ -569,6 +627,23 @@ export const messagingApi = {
       .from('conversations')
       .select('*')
       .eq('trainer_id', trainerId)
+      .order('last_message_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching conversations:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  // Get all conversations for a client (symmetric counterpart to
+  // getTrainerConversations, used by the client-facing messages page)
+  getClientConversations: async (clientId: string): Promise<Conversation[]> => {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('*')
+      .eq('client_id', clientId)
       .order('last_message_at', { ascending: false });
 
     if (error) {
