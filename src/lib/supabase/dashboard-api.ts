@@ -480,6 +480,124 @@ export const workoutLogsApi = {
     }
 
     return data || [];
+  },
+
+  createLog: async (log: WorkoutLog): Promise<WorkoutLog | null> => {
+    const { data, error } = await supabase
+      .from('workout_logs')
+      .insert([log])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating workout log:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  updateLog: async (log: WorkoutLog): Promise<WorkoutLog | null> => {
+    const { id, ...logData } = log;
+
+    const { data, error } = await supabase
+      .from('workout_logs')
+      .update(logData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating workout log:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  deleteLog: async (logId: string): Promise<boolean> => {
+    const { error } = await supabase
+      .from('workout_logs')
+      .delete()
+      .eq('id', logId);
+
+    if (error) {
+      console.error('Error deleting workout log:', error);
+      return false;
+    }
+
+    return true;
+  }
+};
+
+// Exercise Library API (shared, read-only reference data)
+export const exercisesApi = {
+  getAll: async (): Promise<Exercise[]> => {
+    const { data, error } = await supabase
+      .from('exercises')
+      .select('*')
+      .order('muscle_group', { ascending: true })
+      .order('name', { ascending: true });
+
+    if (error && (error.message?.includes('relation') || error.message?.includes('does not exist'))) {
+      console.warn('Table exercises does not exist yet. Please run the schema.sql file in Supabase SQL Editor.');
+      return [];
+    }
+
+    if (error) {
+      console.error('Error fetching exercises:', error);
+      return [];
+    }
+
+    return data || [];
+  }
+};
+
+// Exercise Logs API — the individual sets/reps/weight entries within a
+// single workout log
+export const exerciseLogsApi = {
+  getLogsForWorkout: async (workoutLogId: string): Promise<ExerciseLog[]> => {
+    const { data, error } = await supabase
+      .from('exercise_logs')
+      .select('*')
+      .eq('workout_log_id', workoutLogId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching exercise logs:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  createLog: async (log: ExerciseLog): Promise<ExerciseLog | null> => {
+    const { data, error } = await supabase
+      .from('exercise_logs')
+      .insert([log])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating exercise log:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  deleteLog: async (logId: string): Promise<boolean> => {
+    const { error } = await supabase
+      .from('exercise_logs')
+      .delete()
+      .eq('id', logId);
+
+    if (error) {
+      console.error('Error deleting exercise log:', error);
+      return false;
+    }
+
+    return true;
   }
 };
 
@@ -745,6 +863,159 @@ export const nutritionPlansApi = {
     }
 
     return data;
+  },
+
+  updateNutritionPlan: async (plan: NutritionPlan): Promise<NutritionPlan | null> => {
+    const { id, ...planData } = plan;
+
+    const { data, error } = await supabase
+      .from('nutrition_plans')
+      .update({ ...planData, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating nutrition plan:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  deleteNutritionPlan: async (planId: string): Promise<boolean> => {
+    const { error } = await supabase
+      .from('nutrition_plans')
+      .delete()
+      .eq('id', planId);
+
+    if (error) {
+      console.error('Error deleting nutrition plan:', error);
+      return false;
+    }
+
+    return true;
+  }
+};
+
+// Meals API — meals belong to a `meal_plans` row (one per nutrition plan +
+// day of week), but the UI only ever thinks in terms of "log a meal for
+// Tuesday" — these helpers hide that indirection.
+export const mealsApi = {
+  // Get every meal across all of a nutrition plan's days, with the day of
+  // week attached so the UI can group them.
+  getMealsForNutritionPlan: async (nutritionPlanId: string): Promise<(Meal & { day_of_week: number; meal_plan_id: string })[]> => {
+    const { data: plans, error: plansError } = await supabase
+      .from('meal_plans')
+      .select('id, day_of_week')
+      .eq('nutrition_plan_id', nutritionPlanId);
+
+    if (plansError) {
+      console.error('Error fetching meal plans:', plansError);
+      return [];
+    }
+
+    if (!plans || plans.length === 0) return [];
+
+    const planIds = plans.map(p => p.id);
+    const dayByPlanId = new Map(plans.map(p => [p.id, p.day_of_week]));
+
+    const { data: meals, error: mealsError } = await supabase
+      .from('meals')
+      .select('*')
+      .in('meal_plan_id', planIds)
+      .order('created_at', { ascending: true });
+
+    if (mealsError) {
+      console.error('Error fetching meals:', mealsError);
+      return [];
+    }
+
+    return (meals || []).map(meal => ({
+      ...meal,
+      day_of_week: dayByPlanId.get(meal.meal_plan_id) ?? 0,
+    }));
+  },
+
+  // Ensure a meal_plans row exists for (nutritionPlanId, dayOfWeek), then
+  // insert the meal into it.
+  createMeal: async (
+    nutritionPlanId: string,
+    dayOfWeek: number,
+    meal: Omit<Meal, 'id' | 'meal_plan_id' | 'created_at'>
+  ): Promise<Meal | null> => {
+    const { data: existingPlan } = await supabase
+      .from('meal_plans')
+      .select('id')
+      .eq('nutrition_plan_id', nutritionPlanId)
+      .eq('day_of_week', dayOfWeek)
+      .maybeSingle();
+
+    let mealPlanId = existingPlan?.id;
+
+    if (!mealPlanId) {
+      const { data: createdPlan, error: createPlanError } = await supabase
+        .from('meal_plans')
+        .insert([{
+          nutrition_plan_id: nutritionPlanId,
+          day_of_week: dayOfWeek,
+          name: `Day ${dayOfWeek}`,
+        }])
+        .select('id')
+        .single();
+
+      if (createPlanError || !createdPlan) {
+        console.error('Error creating meal plan for day:', createPlanError);
+        return null;
+      }
+
+      mealPlanId = createdPlan.id;
+    }
+
+    const { data, error } = await supabase
+      .from('meals')
+      .insert([{ ...meal, meal_plan_id: mealPlanId }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating meal:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  updateMeal: async (meal: Meal): Promise<Meal | null> => {
+    const { id, ...mealData } = meal;
+
+    const { data, error } = await supabase
+      .from('meals')
+      .update(mealData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating meal:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  deleteMeal: async (mealId: string): Promise<boolean> => {
+    const { error } = await supabase
+      .from('meals')
+      .delete()
+      .eq('id', mealId);
+
+    if (error) {
+      console.error('Error deleting meal:', error);
+      return false;
+    }
+
+    return true;
   }
 };
 

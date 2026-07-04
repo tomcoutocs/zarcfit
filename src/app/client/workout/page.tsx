@@ -1,405 +1,546 @@
-import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  CalendarDays, 
-  BarChart3, 
-  ListChecks, 
-  Clock, 
-  TrendingUp, 
-  Trophy, 
-  Dumbbell, 
-  Plus,
-  MoreVertical
-} from 'lucide-react';
+'use client';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/context/auth-context';
+import {
+  workoutLogsApi,
+  exercisesApi,
+  exerciseLogsApi,
+  workoutProgramsApi,
+  workoutSessionsApi,
+  WorkoutLog,
+  Exercise,
+  ExerciseLog,
+  WorkoutProgram,
+  WorkoutSession,
+  WorkoutExercise,
+} from '@/lib/supabase/dashboard-api';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dumbbell,
+  Plus,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  Star,
+  Clock,
+  ClipboardList,
+} from 'lucide-react';
+
+const emptyLogForm = {
+  date: new Date().toISOString().split('T')[0],
+  duration_minutes: '',
+  notes: '',
+  rating: '',
+};
+
+const emptyEntryForm = {
+  exercise_id: '',
+  sets_completed: '',
+  reps_completed: '',
+  weight_used: '',
+  notes: '',
+};
 
 export default function WorkoutPage() {
+  const { user } = useAuth();
+  const [logs, setLogs] = useState<WorkoutLog[]>([]);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [entriesByLog, setEntriesByLog] = useState<Record<string, ExerciseLog[]>>({});
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const [logDialogOpen, setLogDialogOpen] = useState(false);
+  const [logForm, setLogForm] = useState(emptyLogForm);
+  const [savingLog, setSavingLog] = useState(false);
+
+  const [entryForm, setEntryForm] = useState(emptyEntryForm);
+  const [savingEntry, setSavingEntry] = useState(false);
+
+  // "My Programs" state
+  const [programs, setPrograms] = useState<WorkoutProgram[]>([]);
+  const [programsLoading, setProgramsLoading] = useState(true);
+  const [expandedProgramId, setExpandedProgramId] = useState<string | null>(null);
+  const [sessionsByProgram, setSessionsByProgram] = useState<Record<string, WorkoutSession[]>>({});
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
+  const [exercisesBySession, setExercisesBySession] = useState<Record<string, (WorkoutExercise & { exercises?: Exercise })[]>>({});
+
+  const fetchLogs = useCallback(async () => {
+    if (!user?.id) return;
+    setLoading(true);
+    setError('');
+    try {
+      const data = await workoutLogsApi.getUserLogs(user.id, 50);
+      setLogs(data);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to load workout logs. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  const fetchPrograms = useCallback(async () => {
+    if (!user?.id) return;
+    setProgramsLoading(true);
+    try {
+      const data = await workoutProgramsApi.getUserPrograms(user.id);
+      setPrograms(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setProgramsLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchLogs();
+    fetchPrograms();
+    exercisesApi.getAll().then(setExercises);
+  }, [fetchLogs, fetchPrograms]);
+
+  const openCreateLogDialog = () => {
+    setLogForm(emptyLogForm);
+    setLogDialogOpen(true);
+  };
+
+  const handleSaveLog = async () => {
+    if (!user?.id) return;
+    setSavingLog(true);
+
+    const payload: WorkoutLog = {
+      user_id: user.id,
+      date: logForm.date,
+      duration_minutes: logForm.duration_minutes ? Number(logForm.duration_minutes) : undefined,
+      notes: logForm.notes.trim() || undefined,
+      rating: logForm.rating ? Number(logForm.rating) : undefined,
+    };
+
+    const result = await workoutLogsApi.createLog(payload);
+    setSavingLog(false);
+
+    if (result) {
+      setLogDialogOpen(false);
+      await fetchLogs();
+      if (result.id) setExpandedLogId(result.id);
+    } else {
+      setError('Failed to save workout log. Please try again.');
+    }
+  };
+
+  const handleDeleteLog = async (logId: string | undefined) => {
+    if (!logId) return;
+    if (!confirm('Delete this workout log and all its logged exercises? This cannot be undone.')) return;
+    const success = await workoutLogsApi.deleteLog(logId);
+    if (success) {
+      fetchLogs();
+      if (expandedLogId === logId) setExpandedLogId(null);
+    }
+  };
+
+  const toggleExpand = async (logId: string | undefined) => {
+    if (!logId) return;
+    if (expandedLogId === logId) {
+      setExpandedLogId(null);
+      return;
+    }
+    setExpandedLogId(logId);
+    if (!entriesByLog[logId]) {
+      const entries = await exerciseLogsApi.getLogsForWorkout(logId);
+      setEntriesByLog(prev => ({ ...prev, [logId]: entries }));
+    }
+  };
+
+  const handleAddEntry = async (logId: string) => {
+    if (!entryForm.exercise_id) return;
+    setSavingEntry(true);
+
+    const payload: ExerciseLog = {
+      workout_log_id: logId,
+      exercise_id: entryForm.exercise_id,
+      sets_completed: entryForm.sets_completed ? Number(entryForm.sets_completed) : undefined,
+      reps_completed: entryForm.reps_completed.trim() || undefined,
+      weight_used: entryForm.weight_used.trim() || undefined,
+      notes: entryForm.notes.trim() || undefined,
+    };
+
+    const result = await exerciseLogsApi.createLog(payload);
+    setSavingEntry(false);
+
+    if (result) {
+      setEntryForm(emptyEntryForm);
+      const entries = await exerciseLogsApi.getLogsForWorkout(logId);
+      setEntriesByLog(prev => ({ ...prev, [logId]: entries }));
+    }
+  };
+
+  const handleDeleteEntry = async (logId: string, entryId: string | undefined) => {
+    if (!entryId) return;
+    const success = await exerciseLogsApi.deleteLog(entryId);
+    if (success) {
+      const entries = await exerciseLogsApi.getLogsForWorkout(logId);
+      setEntriesByLog(prev => ({ ...prev, [logId]: entries }));
+    }
+  };
+
+  const exerciseName = (exerciseId?: string) => exercises.find(e => e.id === exerciseId)?.name || 'Unknown exercise';
+
+  const toggleExpandProgram = async (programId: string | undefined) => {
+    if (!programId) return;
+    if (expandedProgramId === programId) {
+      setExpandedProgramId(null);
+      return;
+    }
+    setExpandedProgramId(programId);
+    if (!sessionsByProgram[programId]) {
+      const sessions = await workoutProgramsApi.getProgramSessions(programId);
+      setSessionsByProgram(prev => ({ ...prev, [programId]: sessions }));
+    }
+  };
+
+  const toggleExpandSession = async (sessionId: string | undefined) => {
+    if (!sessionId) return;
+    if (expandedSessionId === sessionId) {
+      setExpandedSessionId(null);
+      return;
+    }
+    setExpandedSessionId(sessionId);
+    if (!exercisesBySession[sessionId]) {
+      const detail = await workoutSessionsApi.getSessionWithExercises(sessionId);
+      setExercisesBySession(prev => ({ ...prev, [sessionId]: detail?.exercises || [] }));
+    }
+  };
+
+  const dayName = (day?: number) => {
+    const names = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return day ? names[day] || `Day ${day}` : 'Unscheduled';
+  };
+
   return (
     <div className="space-y-8">
-      <DashboardPageHeader title="Workout Tracking" description="Track exercises, sets, and progress">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2">
-            <CalendarDays className="h-4 w-4" />
-            <span>Calendar</span>
-          </Button>
-          <Button variant="outline" className="gap-2">
-            <BarChart3 className="h-4 w-4" />
-            <span>Analytics</span>
-          </Button>
-          <Button className="gap-2 glow-primary">
-            <Plus className="h-4 w-4" />
-            <span>New Workout</span>
-          </Button>
-        </div>
+      <DashboardPageHeader title="Workout Tracking" description="Log your exercises, sets, and progress">
+        <Dialog open={logDialogOpen} onOpenChange={setLogDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2 glow-primary" onClick={openCreateLogDialog}>
+              <Plus className="h-4 w-4" />
+              <span>Log Workout</span>
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Log a Workout</DialogTitle>
+              <DialogDescription>Record a workout session, then add exercises to it below.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="date">Date</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    value={logForm.date}
+                    onChange={(e) => setLogForm(prev => ({ ...prev, date: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="duration">Duration (minutes)</Label>
+                  <Input
+                    id="duration"
+                    type="number"
+                    value={logForm.duration_minutes}
+                    onChange={(e) => setLogForm(prev => ({ ...prev, duration_minutes: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="rating">How did it feel? (1-5)</Label>
+                <Input
+                  id="rating"
+                  type="number"
+                  min={1}
+                  max={5}
+                  value={logForm.rating}
+                  onChange={(e) => setLogForm(prev => ({ ...prev, rating: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  rows={3}
+                  value={logForm.notes}
+                  onChange={(e) => setLogForm(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Optional notes about the workout"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setLogDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSaveLog} disabled={savingLog}>
+                {savingLog ? 'Saving...' : 'Save & Add Exercises'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </DashboardPageHeader>
-      
-      <Tabs defaultValue="today" className="w-full">
-        <TabsList className="grid w-full md:w-auto grid-cols-3 mb-8">
-          <TabsTrigger value="today">Today</TabsTrigger>
-          <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      <Tabs defaultValue="logs" className="w-full">
+        <TabsList className="grid w-full md:w-auto grid-cols-2 mb-8">
+          <TabsTrigger value="logs">Workout Logs</TabsTrigger>
+          <TabsTrigger value="programs">My Programs</TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="today" className="space-y-6">
-          {/* Today's Workout */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex justify-between items-center">
-                <div>
-                  <div className="text-sm font-medium text-muted-foreground">Monday, June 24</div>
-                  <CardTitle className="text-2xl">Push Day - Upper Body</CardTitle>
-                </div>
-                <Button variant="ghost" size="icon">
-                  <MoreVertical className="h-4 w-4" />
+
+        <TabsContent value="logs" className="space-y-4">
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
+            </div>
+          ) : logs.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Dumbbell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground mb-4">You haven&apos;t logged any workouts yet</p>
+                <Button onClick={openCreateLogDialog} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Log Your First Workout
                 </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col lg:flex-row justify-between gap-6">
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">Exercises</h3>
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <Clock className="mr-1 h-4 w-4" />
-                      <span>60-75 min</span>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {/* Completed Exercise */}
-                    <div className="border rounded-lg p-4 bg-muted/30">
-                      <div className="flex items-start gap-3">
-                        <Checkbox id="ex1" checked />
-                        <div className="flex-1">
-                          <label htmlFor="ex1" className="text-base font-medium line-through cursor-pointer">
-                            Bench Press
-                          </label>
-                          <div className="mt-1 flex flex-wrap gap-2">
-                            <div className="text-xs bg-muted px-2 py-1 rounded line-through">Set 1: 135lb × 12</div>
-                            <div className="text-xs bg-muted px-2 py-1 rounded line-through">Set 2: 155lb × 10</div>
-                            <div className="text-xs bg-muted px-2 py-1 rounded line-through">Set 3: 175lb × 8</div>
-                            <div className="text-xs bg-muted px-2 py-1 rounded line-through">Set 4: 185lb × 6</div>
-                          </div>
+              </CardContent>
+            </Card>
+          ) : (
+            logs.map((log) => {
+              const isExpanded = expandedLogId === log.id;
+              const entries = log.id ? entriesByLog[log.id] || [] : [];
+              return (
+                <Card key={log.id}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <CardTitle className="text-base">
+                          {new Date(log.date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                        </CardTitle>
+                        <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
+                          {log.duration_minutes && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3.5 w-3.5" />
+                              {log.duration_minutes} min
+                            </span>
+                          )}
+                          {log.rating && (
+                            <span className="flex items-center gap-1">
+                              <Star className="h-3.5 w-3.5" />
+                              {log.rating}/5
+                            </span>
+                          )}
                         </div>
                       </div>
+                      <div className="flex items-center gap-1">
+                        <Button variant="outline" size="sm" onClick={() => toggleExpand(log.id)} className="gap-1">
+                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          {isExpanded ? 'Hide' : 'View'} Exercises
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => handleDeleteLog(log.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    
-                    {/* Current Exercise */}
-                    <div className="border border-primary rounded-lg p-4 bg-primary/5">
-                      <div className="flex items-start gap-3">
-                        <Checkbox id="ex2" />
-                        <div className="flex-1">
-                          <label htmlFor="ex2" className="text-base font-medium cursor-pointer">
-                            Incline Dumbbell Press
-                          </label>
-                          <div className="mt-1 flex flex-wrap gap-2">
-                            <div className="text-xs bg-muted px-2 py-1 rounded">Set 1: 50lb × 12</div>
-                            <div className="text-xs bg-muted px-2 py-1 rounded">Set 2: 55lb × 10</div>
-                            <div className="text-xs bg-muted px-2 py-1 rounded">Set 3: 60lb × 8</div>
-                            <div className="text-xs bg-primary/20 px-2 py-1 rounded font-medium">Set 4: 65lb × ?</div>
-                          </div>
-                          <div className="mt-3 flex items-center gap-3">
-                            <div className="flex-1">
-                              <Input type="number" placeholder="Weight (lbs)" className="text-right" />
+                    {log.notes && <p className="text-sm text-muted-foreground mt-2">{log.notes}</p>}
+                  </CardHeader>
+                  {isExpanded && (
+                    <CardContent className="space-y-4 border-t pt-4">
+                      {entries.length > 0 && (
+                        <div className="space-y-2">
+                          {entries.map((entry) => (
+                            <div key={entry.id} className="flex items-center justify-between border rounded-lg p-3">
+                              <div>
+                                <div className="font-medium text-sm">{exerciseName(entry.exercise_id)}</div>
+                                <div className="text-xs text-muted-foreground mt-0.5">
+                                  {entry.sets_completed ? `${entry.sets_completed} sets` : ''}
+                                  {entry.reps_completed ? ` × ${entry.reps_completed} reps` : ''}
+                                  {entry.weight_used ? ` @ ${entry.weight_used}` : ''}
+                                  {entry.notes ? ` — ${entry.notes}` : ''}
+                                </div>
+                              </div>
+                              <Button size="icon" variant="ghost" onClick={() => handleDeleteEntry(log.id as string, entry.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
-                            <span>×</span>
-                            <div className="flex-1">
-                              <Input type="number" placeholder="Reps" />
-                            </div>
-                            <Button size="sm">Log</Button>
-                          </div>
+                          ))}
                         </div>
-                      </div>
-                    </div>
-                    
-                    {/* Upcoming Exercises */}
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-start gap-3">
-                        <Checkbox id="ex3" />
-                        <div className="flex-1">
-                          <label htmlFor="ex3" className="text-base font-medium cursor-pointer">
-                            Chest Flyes
-                          </label>
-                          <div className="mt-1 flex flex-wrap gap-2">
-                            <div className="text-xs bg-muted px-2 py-1 rounded">4 sets × 12 reps</div>
+                      )}
+
+                      <div className="border rounded-lg p-3 bg-muted/30 space-y-3">
+                        <div className="text-sm font-medium">Add Exercise</div>
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                          <div className="md:col-span-2">
+                            <Select
+                              value={entryForm.exercise_id}
+                              onValueChange={(value) => setEntryForm(prev => ({ ...prev, exercise_id: value }))}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select exercise" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {exercises.map((ex) => (
+                                  <SelectItem key={ex.id} value={ex.id as string}>{ex.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
+                          <Input
+                            placeholder="Sets"
+                            type="number"
+                            value={entryForm.sets_completed}
+                            onChange={(e) => setEntryForm(prev => ({ ...prev, sets_completed: e.target.value }))}
+                          />
+                          <Input
+                            placeholder="Reps (e.g. 8-10)"
+                            value={entryForm.reps_completed}
+                            onChange={(e) => setEntryForm(prev => ({ ...prev, reps_completed: e.target.value }))}
+                          />
+                          <Input
+                            placeholder="Weight (e.g. 135lb)"
+                            value={entryForm.weight_used}
+                            onChange={(e) => setEntryForm(prev => ({ ...prev, weight_used: e.target.value }))}
+                          />
                         </div>
-                      </div>
-                    </div>
-                    
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-start gap-3">
-                        <Checkbox id="ex4" />
-                        <div className="flex-1">
-                          <label htmlFor="ex4" className="text-base font-medium cursor-pointer">
-                            Shoulder Press
-                          </label>
-                          <div className="mt-1 flex flex-wrap gap-2">
-                            <div className="text-xs bg-muted px-2 py-1 rounded">4 sets × 10-12 reps</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-start gap-3">
-                        <Checkbox id="ex5" />
-                        <div className="flex-1">
-                          <label htmlFor="ex5" className="text-base font-medium cursor-pointer">
-                            Tricep Pushdowns
-                          </label>
-                          <div className="mt-1 flex flex-wrap gap-2">
-                            <div className="text-xs bg-muted px-2 py-1 rounded">3 sets × 15 reps</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-start gap-3">
-                        <Checkbox id="ex6" />
-                        <div className="flex-1">
-                          <label htmlFor="ex6" className="text-base font-medium cursor-pointer">
-                            Overhead Tricep Extensions
-                          </label>
-                          <div className="mt-1 flex flex-wrap gap-2">
-                            <div className="text-xs bg-muted px-2 py-1 rounded">3 sets × 12 reps</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="lg:w-80 space-y-6">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">Workout Progress</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        <div>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className="text-muted-foreground">Completion</span>
-                            <span className="font-medium">17%</span>
-                          </div>
-                          <div className="h-2 rounded-full bg-muted overflow-hidden">
-                            <div className="h-full bg-primary rounded-full w-[17%]"></div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-3 text-sm">
-                          <div className="flex-1 flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                            <span>Completed</span>
-                          </div>
-                          <span className="font-medium">1/6</span>
-                        </div>
-                        
-                        <div className="flex items-center gap-3 text-sm">
-                          <div className="flex-1 flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-primary"></div>
-                            <span>In Progress</span>
-                          </div>
-                          <span className="font-medium">1/6</span>
-                        </div>
-                        
-                        <div className="flex items-center gap-3 text-sm">
-                          <div className="flex-1 flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-muted"></div>
-                            <span>Remaining</span>
-                          </div>
-                          <span className="font-medium">4/6</span>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Notes (optional)"
+                            value={entryForm.notes}
+                            onChange={(e) => setEntryForm(prev => ({ ...prev, notes: e.target.value }))}
+                          />
+                          <Button
+                            onClick={() => handleAddEntry(log.id as string)}
+                            disabled={savingEntry || !entryForm.exercise_id}
+                          >
+                            {savingEntry ? 'Adding...' : 'Add'}
+                          </Button>
                         </div>
                       </div>
                     </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">Workout Notes</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <textarea 
-                        className="w-full min-h-[120px] text-sm p-3 border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        placeholder="Add notes about your workout..."
-                      ></textarea>
-                      <Button size="sm" className="mt-2 w-full">Save Notes</Button>
+                  )}
+                </Card>
+              );
+            })
+          )}
+        </TabsContent>
+
+        <TabsContent value="programs" className="space-y-4">
+          {programsLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
+            </div>
+          ) : programs.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <ClipboardList className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No programs have been assigned to you yet</p>
+                <p className="text-sm text-muted-foreground mt-1">Your trainer can build you a program from their dashboard</p>
+              </CardContent>
+            </Card>
+          ) : (
+            programs.map((program) => {
+              const isExpanded = expandedProgramId === program.id;
+              const sessions = program.id ? sessionsByProgram[program.id] || [] : [];
+              return (
+                <Card key={program.id}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <CardTitle className="text-base">{program.name}</CardTitle>
+                        {program.description && <CardDescription className="mt-1">{program.description}</CardDescription>}
+                        <div className="flex items-center gap-2 mt-2">
+                          {program.difficulty && <Badge variant="secondary">{program.difficulty}</Badge>}
+                          {program.is_active && <Badge>Active</Badge>}
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => toggleExpandProgram(program.id)} className="gap-1">
+                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        {isExpanded ? 'Hide' : 'View'} Sessions
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  {isExpanded && (
+                    <CardContent className="space-y-3 border-t pt-4">
+                      {sessions.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No sessions have been added to this program yet.</p>
+                      ) : (
+                        sessions.map((session) => {
+                          const sessionExpanded = expandedSessionId === session.id;
+                          const sessionExercises = session.id ? exercisesBySession[session.id] || [] : [];
+                          return (
+                            <div key={session.id} className="border rounded-lg p-3">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="font-medium text-sm">{session.name}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {dayName(session.day_of_week)}
+                                    {session.week_number ? ` • Week ${session.week_number}` : ''}
+                                  </div>
+                                </div>
+                                <Button variant="ghost" size="sm" onClick={() => toggleExpandSession(session.id)}>
+                                  {sessionExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                              {sessionExpanded && (
+                                <div className="mt-3 space-y-2">
+                                  {sessionExercises.length === 0 ? (
+                                    <p className="text-xs text-muted-foreground">No exercises added to this session yet.</p>
+                                  ) : (
+                                    sessionExercises.map((we) => (
+                                      <div key={we.id} className="text-sm flex items-center justify-between bg-muted/30 rounded px-3 py-2">
+                                        <span>{we.exercises?.name || 'Exercise'}</span>
+                                        <span className="text-xs text-muted-foreground">
+                                          {we.sets ? `${we.sets} sets` : ''}{we.reps ? ` × ${we.reps} reps` : ''}
+                                        </span>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
                     </CardContent>
-                  </Card>
-                </div>
-              </div>
-              
-              <div className="mt-6 flex justify-between">
-                <Button variant="outline">Previous Workout</Button>
-                <Button>Complete Workout</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="upcoming" className="space-y-6">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Upcoming Workouts</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="border rounded-lg p-4 flex items-center justify-between hover:border-primary/50 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
-                      <Dumbbell className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Pull Day - Back & Biceps</h3>
-                      <p className="text-sm text-muted-foreground">Tuesday, June 25 • 8 Exercises</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">View</Button>
-                </div>
-                
-                <div className="border rounded-lg p-4 flex items-center justify-between hover:border-primary/50 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
-                      <Dumbbell className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Leg Day</h3>
-                      <p className="text-sm text-muted-foreground">Thursday, June 27 • 7 Exercises</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">View</Button>
-                </div>
-                
-                <div className="border rounded-lg p-4 flex items-center justify-between hover:border-primary/50 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
-                      <Dumbbell className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Push Day - Upper Body</h3>
-                      <p className="text-sm text-muted-foreground">Monday, July 1 • 6 Exercises</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">View</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="history" className="space-y-6">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Workout History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="border rounded-lg p-4 flex items-center justify-between hover:border-primary/50 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
-                      <ListChecks className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Pull Day - Back & Biceps</h3>
-                      <p className="text-sm text-muted-foreground">Friday, June 21 • Completed</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">View Details</Button>
-                </div>
-                
-                <div className="border rounded-lg p-4 flex items-center justify-between hover:border-primary/50 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
-                      <ListChecks className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Leg Day</h3>
-                      <p className="text-sm text-muted-foreground">Wednesday, June 19 • Completed</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">View Details</Button>
-                </div>
-                
-                <div className="border rounded-lg p-4 flex items-center justify-between hover:border-primary/50 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
-                      <ListChecks className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Push Day - Upper Body</h3>
-                      <p className="text-sm text-muted-foreground">Monday, June 17 • Completed</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">View Details</Button>
-                </div>
-                
-                <div className="border rounded-lg p-4 flex items-center justify-between hover:border-primary/50 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
-                      <ListChecks className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Pull Day - Back & Biceps</h3>
-                      <p className="text-sm text-muted-foreground">Friday, June 14 • Completed</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">View Details</Button>
-                </div>
-              </div>
-              
-              <div className="mt-6 flex justify-center">
-                <Button variant="outline">Load More</Button>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-primary" />
-                  <span>Progress Tracking</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">Track your performance over time</p>
-                <Button variant="outline" className="w-full">View Progress</Button>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-primary" />
-                  <span>Personal Records</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">See your best lifts and achievements</p>
-                <Button variant="outline" className="w-full">View PRs</Button>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-primary" />
-                  <span>Analytics</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">Analyze your workout data and trends</p>
-                <Button variant="outline" className="w-full">View Analytics</Button>
-              </CardContent>
-            </Card>
-          </div>
+                  )}
+                </Card>
+              );
+            })
+          )}
         </TabsContent>
       </Tabs>
     </div>
   );
-} 
+}

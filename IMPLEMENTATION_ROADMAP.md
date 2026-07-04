@@ -385,12 +385,22 @@ Schema and API already exist for most of this; UI is the gap.
 9. **Trainer client detail tabs** — wire up workouts/nutrition/progress/notes tabs (currently empty placeholders)
 10. **Trainer programs, schedule, settings pages** — currently nav-only dead links
 
-### Phase 3: Core Fitness Features (Week 5-8)
+### ✅ Phase 3: Core Fitness Features (Week 5-8) — DONE
 The biggest remaining greenfield work — genuinely new UI + wiring, not just finishing existing work.
-11. **Workout Tracking** (Week 5-6)
-    - Connect UI to database, implement workout logging, basic exercise library
-12. **Meal Planning** (Week 7-8)
-    - Connect UI to database, implement meal logging, basic nutrition tracking
+11. **Workout Tracking** (Week 5-6) — ✅ Done
+    - Fixed critical RLS gaps blocking all access (`exercises`, `exercise_logs`, `workout_sessions`,
+      `workout_exercises`, `meal_plans` — see `workout-nutrition-rls.sql`)
+    - Seeded a 40+ exercise reference library (`exercise-library-seed.sql`)
+    - `/client/workout` now logs real workouts against Supabase: create/delete workout logs,
+      add/remove exercise entries (sets/reps/weight/notes) per log, and a read-only "My Programs"
+      tab showing trainer-assigned programs/sessions/exercises
+    - Full program builder UI intentionally out of scope (trainers already have this via
+      `/trainer/programs`)
+12. **Meal Planning** (Week 7-8) — ✅ Done
+    - `/client/meal-plan` now creates/edits a real nutrition plan (calorie + macro targets) and
+      logs real meals against it, grouped by day of week and meal type
+    - Daily macro/calorie totals computed from logged meals and compared against plan targets
+    - Meal library / copy-to-other-days intentionally out of scope for this pass
 
 ### Phase 4: Advanced Features (Week 9-12)
 13. **Analytics & Reports** — workout analytics, nutrition analytics, progress reports
