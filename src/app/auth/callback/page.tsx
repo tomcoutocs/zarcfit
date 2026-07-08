@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { completeAuthFromUrl } from '@/lib/supabase/auth-callback';
+import { homeForRole, type AppUserRole } from '@/lib/auth-routes';
 
 function AuthCallbackContent() {
   const [message, setMessage] = useState('Processing your sign-in...');
@@ -13,6 +14,21 @@ function AuthCallbackContent() {
   const router = useRouter();
 
   useEffect(() => {
+    const redirectAfterAuth = async (supabase: ReturnType<typeof createSupabaseBrowserClient>) => {
+      const { data: roleRow } = await supabase
+        .from('user_roles')
+        .select('role')
+        .maybeSingle();
+
+      let role = roleRow?.role as AppUserRole | undefined;
+      if (!role) {
+        const { data: ensuredRole } = await supabase.rpc('ensure_client_role');
+        role = (ensuredRole as AppUserRole | null) ?? 'client';
+      }
+
+      router.replace(homeForRole(role));
+    };
+
     const handleCallback = async () => {
       try {
         const supabase = createSupabaseBrowserClient();
@@ -26,7 +42,7 @@ function AuthCallbackContent() {
           }
           if (session) {
             setMessage('Sign-in successful! Redirecting...');
-            router.replace('/dashboard');
+            await redirectAfterAuth(supabase);
             return;
           }
           setError('No authentication data found. Please try signing in again.');
@@ -40,7 +56,7 @@ function AuthCallbackContent() {
 
         setMessage('Sign-in successful! Redirecting...');
         window.history.replaceState({}, '', '/auth/callback');
-        router.replace('/dashboard');
+        await redirectAfterAuth(supabase);
       } catch (err) {
         console.error('Error during auth callback:', err);
         setError('An unexpected error occurred. Please try again.');

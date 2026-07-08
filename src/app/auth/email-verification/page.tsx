@@ -55,7 +55,7 @@ function EmailVerificationContent() {
   }, []);
 
   const handleContinue = () => {
-    router.push(isVerified ? '/dashboard' : '/auth/login');
+    router.push(isVerified ? '/client' : '/auth/login');
   };
 
   return (

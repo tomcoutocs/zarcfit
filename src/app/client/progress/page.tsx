@@ -99,6 +99,7 @@ export default function ProgressPage() {
   const handleSave = async () => {
     if (!user?.id || !form.date) return;
     setSaving(true);
+    setError('');
 
     const payload: ProgressRecord = {
       id: editingRecord?.id,
@@ -114,17 +115,21 @@ export default function ProgressPage() {
       photo_url: form.photo_url || undefined,
     };
 
-    const result = editingRecord
-      ? await progressTrackingApi.updateProgressRecord(payload)
-      : await progressTrackingApi.createProgressRecord(payload);
+    try {
+      const result = editingRecord
+        ? await progressTrackingApi.updateProgressRecord(payload)
+        : await progressTrackingApi.createProgressRecord(payload);
 
-    setSaving(false);
-
-    if (result) {
-      setDialogOpen(false);
-      fetchRecords();
-    } else {
-      setError('Failed to save progress record. Please try again.');
+      if (result) {
+        setDialogOpen(false);
+        fetchRecords();
+      } else {
+        setError('Failed to save progress record. Please try again.');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save progress record. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 

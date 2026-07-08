@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { homeForRole, type AppUserRole } from '@/lib/auth-routes'
 
 const PLACEHOLDER_URL = 'https://placeholder.supabase.co'
 const PLACEHOLDER_KEY =
@@ -23,16 +24,11 @@ function copyCookies(from: NextResponse, to: NextResponse) {
   })
 }
 
-/**
- * Where a user with the given role should land. Falls back to the public
- * home page for a null/unknown role so we never redirect into a protected
- * area we'd immediately redirect away from again (avoids redirect loops).
- */
-function homeForRole(role: string | undefined | null): string {
-  if (role === 'trainer') return '/trainer/dashboard'
-  if (role === 'client') return '/client'
-  if (role === 'admin') return '/admin'
-  return '/'
+function effectiveRole(role: string | undefined | null): AppUserRole {
+  if (role === 'trainer' || role === 'admin' || role === 'client') {
+    return role
+  }
+  return 'client'
 }
 
 export async function middleware(req: NextRequest) {
@@ -95,13 +91,13 @@ export async function middleware(req: NextRequest) {
     .from('user_roles')
     .select('role')
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
-  const role = userRole?.role
+  const role = effectiveRole(userRole?.role)
 
   const isProtectedForOtherRole =
     (path.startsWith('/trainer') && role !== 'trainer') ||
-    (path.startsWith('/client') && role !== 'client') ||
+    (path.startsWith('/client') && role !== 'client' && role !== 'admin') ||
     (path.startsWith('/admin') && role !== 'admin')
 
   if (isProtectedForOtherRole) {

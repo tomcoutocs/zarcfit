@@ -65,10 +65,10 @@ export default function Header() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard">Dashboard</Link>
+                  <Link href="/client">Dashboard</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard/profile">Profile</Link>
+                  <Link href="/client/profile">Profile</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
@@ -118,7 +118,7 @@ export default function Header() {
             <div className="mt-4 flex flex-col gap-2 border-t border-border/40 pt-4">
               {user ? (
                 <>
-                  <Button className="w-full gap-2" onClick={() => { setIsOpen(false); router.push('/dashboard'); }}>
+                  <Button className="w-full gap-2" onClick={() => { setIsOpen(false); router.push('/client'); }}>
                     Dashboard
                     <ArrowRight className="h-4 w-4" />
                   </Button>

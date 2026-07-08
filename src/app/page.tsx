@@ -32,7 +32,7 @@ export default function HomePage() {
                 <Button
                   size="lg"
                   className="glow-primary font-semibold"
-                  onClick={() => router.push('/dashboard')}
+                  onClick={() => router.push('/client')}
                 >
                   Go to Dashboard
                 </Button>

@@ -1,5 +1,14 @@
 import { supabase } from '@/lib/supabase';
 
+function throwMutationError(
+  error: { message?: string; code?: string } | null,
+  action: string
+): never {
+  const message = error?.message || `Failed to ${action}`;
+  console.error(`${action}:`, error);
+  throw new Error(message);
+}
+
 // User Profile Types
 export type UserProfile = {
   id: string;
@@ -538,8 +547,7 @@ export const workoutLogsApi = {
       .single();
 
     if (error) {
-      console.error('Error creating workout log:', error);
-      return null;
+      throwMutationError(error, 'create workout log');
     }
 
     return data;
@@ -627,8 +635,7 @@ export const exerciseLogsApi = {
       .single();
 
     if (error) {
-      console.error('Error creating exercise log:', error);
-      return null;
+      throwMutationError(error, 'create exercise log');
     }
 
     return data;
@@ -739,8 +746,7 @@ export const progressTrackingApi = {
       .single();
 
     if (error) {
-      console.error('Error creating progress record:', error);
-      return null;
+      throwMutationError(error, 'create progress record');
     }
 
     return data;
@@ -821,8 +827,7 @@ export const goalsApi = {
       .single();
 
     if (error) {
-      console.error('Error creating goal:', error);
-      return null;
+      throwMutationError(error, 'create goal');
     }
 
     return data;
@@ -1174,8 +1179,7 @@ export const sleepTrackingApi = {
       .single();
 
     if (error) {
-      console.error('Error creating sleep record:', error);
-      return null;
+      throwMutationError(error, 'create sleep record');
     }
 
     return data;

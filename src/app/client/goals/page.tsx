@@ -99,6 +99,7 @@ export default function GoalsPage() {
   const handleSave = async () => {
     if (!user?.id || !form.title.trim()) return;
     setSaving(true);
+    setError('');
 
     const payload: Goal = {
       id: editingGoal?.id,
@@ -113,17 +114,21 @@ export default function GoalsPage() {
       is_completed: editingGoal?.is_completed ?? false,
     };
 
-    const result = editingGoal
-      ? await goalsApi.updateGoal(payload)
-      : await goalsApi.createGoal(payload);
+    try {
+      const result = editingGoal
+        ? await goalsApi.updateGoal(payload)
+        : await goalsApi.createGoal(payload);
 
-    setSaving(false);
-
-    if (result) {
-      setDialogOpen(false);
-      fetchGoals();
-    } else {
-      setError('Failed to save goal. Please try again.');
+      if (result) {
+        setDialogOpen(false);
+        fetchGoals();
+      } else {
+        setError('Failed to save goal. Please try again.');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save goal. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 

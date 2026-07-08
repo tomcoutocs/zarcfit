@@ -148,6 +148,7 @@ export default function WorkoutPage() {
   const handleSaveLog = async () => {
     if (!user?.id) return;
     setSavingLog(true);
+    setError('');
 
     const payload: WorkoutLog = {
       id: editingLog?.id,
@@ -159,18 +160,23 @@ export default function WorkoutPage() {
       rating: logForm.rating ? Number(logForm.rating) : undefined,
     };
 
-    const result = editingLog
-      ? await workoutLogsApi.updateLog(payload)
-      : await workoutLogsApi.createLog(payload);
-    setSavingLog(false);
+    try {
+      const result = editingLog
+        ? await workoutLogsApi.updateLog(payload)
+        : await workoutLogsApi.createLog(payload);
 
-    if (result) {
-      setLogDialogOpen(false);
-      setEditingLog(null);
-      await fetchLogs();
-      if (result.id) setExpandedLogId(result.id);
-    } else {
-      setError('Failed to save workout log. Please try again.');
+      if (result) {
+        setLogDialogOpen(false);
+        setEditingLog(null);
+        await fetchLogs();
+        if (result.id) setExpandedLogId(result.id);
+      } else {
+        setError('Failed to save workout log. Please try again.');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save workout log. Please try again.');
+    } finally {
+      setSavingLog(false);
     }
   };
 

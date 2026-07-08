@@ -53,7 +53,7 @@ export default function ZarcFitHero() {
   const router = useRouter();
 
   const primaryCta = user
-    ? { label: 'Go to Dashboard', href: '/dashboard' }
+    ? { label: 'Go to Dashboard', href: '/client' }
     : { label: 'Start training', href: '/auth/signup' };
 
   return (
