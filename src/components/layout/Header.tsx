@@ -83,7 +83,7 @@ export default function Header() {
                 Sign in
               </Button>
               <Button className="glow-primary font-semibold" onClick={() => router.push('/auth/signup')}>
-                Get started
+                Become a trainer
               </Button>
             </>
           )}
@@ -132,7 +132,7 @@ export default function Header() {
                     Sign in
                   </Button>
                   <Button className="glow-primary w-full font-semibold" onClick={() => { setIsOpen(false); router.push('/auth/signup'); }}>
-                    Get started
+                    Become a trainer
                   </Button>
                 </>
               )}

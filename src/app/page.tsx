@@ -25,8 +25,8 @@ export default function HomePage() {
         <section className="border-t border-border/40 py-20 md:py-24">
           <div className="container mx-auto max-w-3xl px-4">
             <CTABanner
-              title="Ready to start your fitness journey?"
-              description="Join ZarcFit today — structured programs, progress tracking, and coaching that meets you where you are."
+              title="Ready to coach on ZarcFit?"
+              description="Create your trainer account to manage clients, build programs, and track their progress. Clients join through your invitation."
             >
               {user ? (
                 <Button
@@ -42,7 +42,7 @@ export default function HomePage() {
                   className="glow-primary font-semibold"
                   onClick={() => router.push('/auth/signup')}
                 >
-                  Join ZarcFit — it&apos;s free to start
+                  Become a trainer
                 </Button>
               )}
             </CTABanner>

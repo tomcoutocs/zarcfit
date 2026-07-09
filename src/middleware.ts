@@ -24,11 +24,11 @@ function copyCookies(from: NextResponse, to: NextResponse) {
   })
 }
 
-function effectiveRole(role: string | undefined | null): AppUserRole {
+function parseRole(role: string | undefined | null): AppUserRole | null {
   if (role === 'trainer' || role === 'admin' || role === 'client') {
     return role
   }
-  return 'client'
+  return null
 }
 
 export async function middleware(req: NextRequest) {
@@ -93,7 +93,18 @@ export async function middleware(req: NextRequest) {
     .eq('user_id', user.id)
     .maybeSingle()
 
-  const role = effectiveRole(userRole?.role)
+  const role = parseRole(userRole?.role)
+
+  const isRoleProtectedPath =
+    path.startsWith('/trainer') ||
+    path.startsWith('/client') ||
+    path.startsWith('/admin')
+
+  if (isRoleProtectedPath && !role) {
+    const redirectResponse = NextResponse.redirect(new URL('/', req.url))
+    copyCookies(supabaseResponse, redirectResponse)
+    return redirectResponse
+  }
 
   const isProtectedForOtherRole =
     (path.startsWith('/trainer') && role !== 'trainer') ||

@@ -60,6 +60,12 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <Alert className="mb-4">
+            <AlertDescription>
+              Clients need an invitation from their trainer to join ZarcFit. If you received an invite, use the link in your email to create your account.
+            </AlertDescription>
+          </Alert>
+
           <form onSubmit={handleSignIn} className="space-y-4">
             {error && (
               <Alert variant="destructive">
@@ -102,11 +108,11 @@ export default function LoginPage() {
             </Button>
           </form>
           
-          <div className="mt-4 text-center text-sm">
+          <div className="mt-4 text-center text-sm space-y-1">
             <p>
-              Don&apos;t have an account?{' '}
+              Are you a trainer?{' '}
               <Link href="/auth/signup" className="text-primary hover:underline">
-                Sign up
+                Create a trainer account
               </Link>
             </p>
           </div>

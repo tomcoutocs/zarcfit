@@ -15,18 +15,32 @@ function AuthCallbackContent() {
 
   useEffect(() => {
     const redirectAfterAuth = async (supabase: ReturnType<typeof createSupabaseBrowserClient>) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.replace('/auth/login');
+        return;
+      }
+
       const { data: roleRow } = await supabase
         .from('user_roles')
         .select('role')
+        .eq('user_id', user.id)
         .maybeSingle();
 
       let role = roleRow?.role as AppUserRole | undefined;
-      if (!role) {
-        const { data: ensuredRole } = await supabase.rpc('ensure_client_role');
-        role = (ensuredRole as AppUserRole | null) ?? 'client';
+
+      const signupIntent = new URLSearchParams(window.location.search).get('signup');
+      if (!role && signupIntent === 'trainer') {
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert([{ user_id: user.id, role: 'trainer' }]);
+
+        if (!roleError) {
+          role = 'trainer';
+        }
       }
 
-      router.replace(homeForRole(role));
+      router.replace(homeForRole(role ?? null));
     };
 
     const handleCallback = async () => {

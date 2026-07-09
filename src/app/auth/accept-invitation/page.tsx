@@ -143,7 +143,7 @@ function AcceptInvitationContent() {
     const { error } = await signUp(
       invitation!.email,
       password,
-      { firstName, lastName },
+      { firstName, lastName, invitationSignup: 'true' },
       'client'
     );
     setAuthLoading(false);

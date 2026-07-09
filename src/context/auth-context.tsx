@@ -15,6 +15,8 @@ type UserMetadata = {
   lastName?: string;
   phone?: string;
   bio?: string;
+  /** Set to 'true' when signing up via a trainer invitation link */
+  invitationSignup?: string;
   [key: string]: string | undefined;
 };
 
@@ -34,7 +36,10 @@ interface AuthContextType {
   forgotPassword: (email: string) => Promise<{ error: AuthError | null }>;
   resetPassword: (password: string) => Promise<{ error: AuthError | null }>;
   updateProfile: (metadata: UserMetadata) => Promise<{ data: User | null; error: AuthError | null }>;
-  signInWithProvider: (provider: 'github' | 'google' | 'apple') => Promise<void>;
+  signInWithProvider: (
+    provider: 'github' | 'google' | 'apple',
+    options?: { signupRole?: 'trainer' }
+  ) => Promise<void>;
   verifyOtp: (email: string, token: string) => Promise<{ error: AuthError | null }>;
   refreshRole: () => Promise<void>;
 }
@@ -65,26 +70,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return (data?.role as UserRole | undefined) ?? null;
   }, [supabase]);
 
-  const ensureClientRole = useCallback(async (): Promise<UserRole | null> => {
-    const { data, error } = await supabase.rpc('ensure_client_role');
-
-    if (error) {
-      console.warn('ensure_client_role failed:', error);
-      return null;
-    }
-
-    return (data as UserRole | null) ?? 'client';
-  }, [supabase]);
-
-  const resolveUserRole = useCallback(async (userId: string): Promise<UserRole | null> => {
-    const existingRole = await fetchUserRole(userId);
-    if (existingRole) return existingRole;
-    return ensureClientRole();
-  }, [fetchUserRole, ensureClientRole]);
-
   const refreshRole = async () => {
     if (user) {
-      const userRole = await resolveUserRole(user.id);
+      const userRole = await fetchUserRole(user.id);
       setRole(userRole);
     }
   };
@@ -97,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(data.session?.user || null);
         
         if (data.session?.user) {
-          const userRole = await resolveUserRole(data.session.user.id);
+          const userRole = await fetchUserRole(data.session.user.id);
           setRole(userRole);
         }
       } catch (error) {
@@ -115,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user || null);
         
         if (session?.user) {
-          const userRole = await resolveUserRole(session.user.id);
+          const userRole = await fetchUserRole(session.user.id);
           setRole(userRole);
         } else {
           setRole(null);
@@ -128,23 +116,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase, resolveUserRole]);
+  }, [supabase, fetchUserRole]);
 
-  const signUp = async (email: string, password: string, metadata?: UserMetadata, role: UserRole = 'client') => {
+  const signUp = async (email: string, password: string, metadata?: UserMetadata, role: UserRole = 'trainer') => {
     if (configError) {
       return { error: { message: configError, name: 'ConfigError', status: 500 } as AuthError };
     }
 
+    if (role === 'client' && metadata?.invitationSignup !== 'true') {
+      return {
+        error: {
+          message: 'Client accounts can only be created through a trainer invitation.',
+          name: 'InviteOnly',
+          status: 403,
+        } as AuthError,
+      };
+    }
+
     try {
-      console.log('Attempting to sign up user:', email);
-      console.log('With metadata:', metadata);
-      console.log('With role:', role);
-      
-      // Format metadata properly for Supabase
       const formattedMetadata = {
         first_name: metadata?.firstName || '',
         last_name: metadata?.lastName || '',
-        ...metadata
+        signup_role: role,
+        invitation_signup: metadata?.invitationSignup === 'true' ? 'true' : undefined,
+        ...metadata,
       };
       
       const { data, error } = await supabase.auth.signUp({
@@ -156,12 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       });
       
-      console.log('Sign up response:', { data, error });
-      
       if (data?.user) {
-        console.log('User created successfully, awaiting email verification');
-        
-        // Assign role
         try {
           const { error: roleError } = await supabase
             .from('user_roles')
@@ -172,14 +162,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             
           if (roleError) {
             console.warn('Role assignment failed:', roleError);
-          } else {
-            console.log('Role assigned successfully:', role);
           }
         } catch (roleErr) {
           console.warn('Error assigning role:', roleErr);
         }
         
-        // As a fallback, try to manually create the profile if the trigger failed
         try {
           const { error: profileError } = await supabase
             .from('user_profiles')
@@ -187,7 +174,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               id: data.user.id,
               first_name: metadata?.firstName || '',
               last_name: metadata?.lastName || '',
-              bio: 'New ZarcFit user',
+              bio: role === 'trainer' ? 'ZarcFit trainer' : 'ZarcFit client',
               height_cm: 170
             }])
             .select()
@@ -195,8 +182,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             
           if (profileError) {
             console.warn('Manual profile creation fallback attempt failed:', profileError);
-          } else {
-            console.log('Manual profile creation fallback successful');
           }
         } catch (profileErr) {
           console.warn('Error in manual profile creation fallback:', profileErr);
@@ -225,7 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!error && data.user) {
-        const userRole = await resolveUserRole(data.user.id);
+        const userRole = await fetchUserRole(data.user.id);
         setRole(userRole);
         router.push(homeForRole(userRole));
       }
@@ -272,12 +257,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
-  const signInWithProvider = async (provider: 'github' | 'google' | 'apple') => {
+  const signInWithProvider = async (
+    provider: 'github' | 'google' | 'apple',
+    options?: { signupRole?: 'trainer' }
+  ) => {
+    const redirectTo = options?.signupRole
+      ? `${window.location.origin}/auth/callback?signup=trainer`
+      : `${window.location.origin}/auth/callback`;
+
     await supabase.auth.signInWithOAuth({
       provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`
-      }
+      options: { redirectTo },
     });
   };
 

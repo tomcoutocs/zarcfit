@@ -6,14 +6,116 @@ import { useAuth } from '@/context/auth-context';
 import { useDashboard } from '@/hooks/use-dashboard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
 import ConnectionReset from '@/components/ConnectionReset';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
 import { clientManagementApi, TrainerWithProfile } from '@/lib/supabase/trainer-api';
-import { Check, X } from 'lucide-react';
+import { Check, X, MessageSquare, UserRound } from 'lucide-react';
 
-function TrainerRequestsCard({ userId }: { userId: string }) {
+function trainerDisplayName(trainer: TrainerWithProfile) {
+  return trainer.trainer_business_name || trainer.trainer_name || 'Your trainer';
+}
+
+function MyTrainerCard({ userId }: { userId: string }) {
+  const [trainers, setTrainers] = useState<TrainerWithProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadTrainers = useCallback(async () => {
+    const data = await clientManagementApi.getMyTrainers(userId);
+    setTrainers(data.filter((trainer) => trainer.status === 'active'));
+    setLoading(false);
+  }, [userId]);
+
+  useEffect(() => {
+    loadTrainers();
+  }, [loadTrainers]);
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          Loading your trainer...
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (trainers.length === 0) {
+    return (
+      <Card className="border-dashed">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserRound className="h-5 w-5 text-muted-foreground" />
+            Your Trainer
+          </CardTitle>
+          <CardDescription>
+            Once you accept a trainer invitation, they&apos;ll appear here.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{trainers.length === 1 ? 'Your Trainer' : 'Your Trainers'}</CardTitle>
+        <CardDescription>
+          {trainers.length === 1
+            ? 'The coach managing your fitness program'
+            : `${trainers.length} coaches connected to your account`}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {trainers.map((trainer) => {
+          const name = trainerDisplayName(trainer);
+          const since = trainer.accepted_at
+            ? new Date(trainer.accepted_at).toLocaleDateString()
+            : null;
+
+          return (
+            <div
+              key={trainer.id}
+              className="flex items-center justify-between gap-4 rounded-lg border p-4"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <Avatar className="h-12 w-12">
+                  <AvatarImage src={trainer.trainer_avatar_url} alt={name} />
+                  <AvatarFallback>{name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="font-semibold truncate">{name}</p>
+                  {trainer.trainer_business_name && (
+                    <p className="text-sm text-muted-foreground truncate">{trainer.trainer_name}</p>
+                  )}
+                  <p className="text-sm text-muted-foreground truncate">{trainer.trainer_email}</p>
+                  {since && (
+                    <p className="text-xs text-muted-foreground mt-1">Coaching since {since}</p>
+                  )}
+                </div>
+              </div>
+              <Link href="/client/chat">
+                <Button variant="outline" size="sm" className="gap-2 shrink-0">
+                  <MessageSquare className="h-4 w-4" />
+                  Message
+                </Button>
+              </Link>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
+function TrainerRequestsCard({
+  userId,
+  onUpdated,
+}: {
+  userId: string;
+  onUpdated?: () => void;
+}) {
   const [requests, setRequests] = useState<TrainerWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [respondingId, setRespondingId] = useState<string | null>(null);
@@ -38,6 +140,7 @@ function TrainerRequestsCard({ userId }: { userId: string }) {
 
       if (result === 'accepted' || result === 'declined') {
         setRequests((prev) => prev.filter((r) => r.trainer_id !== trainerId));
+        if (result === 'accepted') onUpdated?.();
       } else {
         setRespondError('Could not respond to this request. Please try again.');
       }
@@ -112,6 +215,7 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const dashboardData = useDashboard(user?.id);
   const [showConnectionReset, setShowConnectionReset] = useState(false);
+  const [trainerRefreshKey, setTrainerRefreshKey] = useState(0);
   
   // Extract warnings and errors from dashboardData
   const { warnings, errors } = useMemo(() => {
@@ -169,7 +273,13 @@ export default function DashboardPage() {
         description="Your fitness overview at a glance"
       />
 
-      {user?.id && <TrainerRequestsCard userId={user.id} />}
+      {user?.id && (
+        <TrainerRequestsCard
+          userId={user.id}
+          onUpdated={() => setTrainerRefreshKey((key) => key + 1)}
+        />
+      )}
+      {user?.id && <MyTrainerCard key={trainerRefreshKey} userId={user.id} />}
 
       {/* Display the connection troubleshooter if needed */}
       {showConnectionReset && (

@@ -1,5 +1,7 @@
 -- Assign a default "client" role to every new user and backfill existing users
 -- without a role. Run via Supabase SQL Editor or migration tooling.
+--
+-- SUPERSEDED BY invite-only-clients.sql — clients now join via trainer invitation only.
 
 -- 1. Auto-assign client role on signup (runs as SECURITY DEFINER, bypasses RLS)
 CREATE OR REPLACE FUNCTION assign_default_client_role()

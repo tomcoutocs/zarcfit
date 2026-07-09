@@ -49,6 +49,21 @@ export type ClientInvitation = {
   used_at?: string;
 };
 
+export function buildInvitationUrl(token: string): string {
+  const base = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${base}/auth/accept-invitation?token=${encodeURIComponent(token)}`;
+}
+
+export function getInvitationDisplayStatus(
+  invitation: Pick<ClientInvitation, 'status' | 'expires_at'>
+): ClientInvitation['status'] {
+  if (invitation.status !== 'pending') return invitation.status;
+  if (invitation.expires_at && new Date(invitation.expires_at) < new Date()) {
+    return 'expired';
+  }
+  return 'pending';
+}
+
 // Shape returned by the get_invitation_by_token RPC — a read-only preview
 // safe to show before the invitee has signed up or logged in.
 export type InvitationPreview = {
@@ -142,6 +157,7 @@ export type TrainerWithProfile = TrainerClient & {
   trainer_email: string;
   trainer_name: string;
   trainer_business_name?: string;
+  trainer_avatar_url?: string;
 };
 
 // Shape returned by the search_potential_clients RPC (see client-search.sql).
@@ -179,6 +195,7 @@ type ClientTrainerQueryRow = TrainerClient & {
     };
     trainer_profiles?: {
       business_name?: string;
+      avatar_url?: string;
     };
   };
 };
@@ -328,7 +345,8 @@ export const clientManagementApi = {
             last_name
           ),
           trainer_profiles (
-            business_name
+            business_name,
+            avatar_url
           )
         )
       `)
@@ -348,6 +366,7 @@ export const clientManagementApi = {
         ? `${item.trainer.user_profiles.first_name} ${item.trainer.user_profiles.last_name}`
         : item.trainer?.email || 'Trainer',
       trainer_business_name: item.trainer?.trainer_profiles?.business_name,
+      trainer_avatar_url: item.trainer?.trainer_profiles?.avatar_url,
     }));
   },
 

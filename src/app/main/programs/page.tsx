@@ -77,7 +77,7 @@ export default function ProgramsPage() {
                   className="w-full font-semibold" 
                   onClick={navigateToSignup}
                 >
-                  Get Started
+                  Become a Trainer
                 </Button>
               </CardFooter>
             </Card>
@@ -128,7 +128,7 @@ export default function ProgramsPage() {
                   className="w-full font-semibold" 
                   onClick={navigateToSignup}
                 >
-                  Get Started
+                  Become a Trainer
                 </Button>
               </CardFooter>
             </Card>
@@ -176,7 +176,7 @@ export default function ProgramsPage() {
                   className="w-full font-semibold" 
                   onClick={navigateToSignup}
                 >
-                  Get Started
+                  Become a Trainer
                 </Button>
               </CardFooter>
             </Card>

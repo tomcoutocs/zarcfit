@@ -17,7 +17,6 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<'client' | 'trainer'>('client');
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -55,19 +54,13 @@ export default function SignupPage() {
       const { error: signUpError } = await signUp(email, password, {
         firstName,
         lastName,
-      }, role);
+      }, 'trainer');
       
       if (signUpError) {
-        console.error('Sign up error:', signUpError);
-        
         let errorMessage = signUpError.message;
         
         if (errorMessage.includes('Database error')) {
           errorMessage = 'Database error while creating user. Please contact support or try again later.';
-          
-          if (process.env.NODE_ENV === 'development') {
-            errorMessage += ' (This may be due to a trigger issue or database misconfiguration. Try running the fix-auth-trigger.sql script.)';
-          }
         } else if (errorMessage.includes('User already registered')) {
           errorMessage = 'An account with this email already exists. Please log in instead.';
         }
@@ -85,7 +78,7 @@ export default function SignupPage() {
       }
     } catch (err) {
       console.error('Unexpected error during signup:', err);
-      setError('An unexpected error occurred. Please try again. If the problem persists, please contact support.');
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -100,8 +93,7 @@ export default function SignupPage() {
       
       setSocialLoading(provider);
       setError('');
-      await signInWithProvider(provider);
-      // The OAuth flow will handle redirection
+      await signInWithProvider(provider, { signupRole: 'trainer' });
     } catch (err) {
       setError('An error occurred with social sign-up. Please try again.');
       console.error(err);
@@ -110,15 +102,21 @@ export default function SignupPage() {
   };
 
   return (
-    <AuthShell title="Create your account" subtitle="Start your fitness transformation today">
+    <AuthShell title="Become a trainer" subtitle="Create your coaching account on ZarcFit">
       <Card className="glass-card w-full border-border/60 shadow-xl">
         <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
+          <CardTitle className="text-2xl font-bold">Trainer registration</CardTitle>
           <CardDescription>
-            Enter your information to create a ZarcFit account
+            Sign up as a coach to manage clients and training programs
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <Alert className="mb-4">
+            <AlertDescription>
+              Looking to train with a coach? Clients join ZarcFit through an invitation from their trainer — you cannot create a client account here.
+            </AlertDescription>
+          </Alert>
+
           <form onSubmit={handleSignUp} className="space-y-4">
             {error && (
               <Alert variant="destructive">
@@ -153,33 +151,6 @@ export default function SignupPage() {
                   required
                 />
               </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label>I am a...</Label>
-              <div className="grid grid-cols-2 gap-4">
-                <Button
-                  type="button"
-                  variant={role === 'client' ? 'default' : 'outline'}
-                  onClick={() => setRole('client')}
-                  className="w-full"
-                >
-                  <span className="mr-2">👤</span> Client
-                </Button>
-                <Button
-                  type="button"
-                  variant={role === 'trainer' ? 'default' : 'outline'}
-                  onClick={() => setRole('trainer')}
-                  className="w-full"
-                >
-                  <span className="mr-2">💪</span> Trainer/Coach
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {role === 'client' 
-                  ? 'Track your fitness journey and work with trainers' 
-                  : 'Manage clients and create training programs'}
-              </p>
             </div>
             
             <div className="space-y-2">
@@ -239,7 +210,7 @@ export default function SignupPage() {
               type="submit" 
               disabled={isLoading}
             >
-              {isLoading ? 'Creating Account...' : 'Create Account'}
+              {isLoading ? 'Creating Account...' : 'Create Trainer Account'}
             </Button>
           </form>
           
@@ -283,4 +254,4 @@ export default function SignupPage() {
       </Card>
     </AuthShell>
   );
-} 
+}

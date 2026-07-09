@@ -22,6 +22,7 @@ export default function InviteClientPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [sentToEmail, setSentToEmail] = useState('');
 
   const [formData, setFormData] = useState({
     email: '',
@@ -63,6 +64,7 @@ export default function InviteClientPage() {
       });
 
       if (invitation) {
+        setSentToEmail(formData.email);
         setSuccess(true);
         // Reset form
         setFormData({
@@ -74,7 +76,7 @@ export default function InviteClientPage() {
 
         // Redirect after 2 seconds
         setTimeout(() => {
-          router.push('/trainer/clients');
+          router.push('/trainer/clients?tab=invitations');
         }, 2000);
       } else {
         setError('Failed to send invitation. Please try again.');
@@ -123,10 +125,10 @@ export default function InviteClientPage() {
                 Invitation Sent!
               </h3>
               <p className="text-muted-foreground mb-4">
-                An invitation email has been sent to {formData.email}
+                An invitation email has been sent to {sentToEmail}
               </p>
               <p className="text-sm text-muted-foreground">
-                Redirecting to clients page...
+                Redirecting to sent invitations...
               </p>
             </div>
           </CardContent>

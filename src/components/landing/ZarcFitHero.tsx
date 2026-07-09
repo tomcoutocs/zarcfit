@@ -54,7 +54,7 @@ export default function ZarcFitHero() {
 
   const primaryCta = user
     ? { label: 'Go to Dashboard', href: '/client' }
-    : { label: 'Start training', href: '/auth/signup' };
+    : { label: 'Become a trainer', href: '/auth/signup' };
 
   return (
     <section className="relative overflow-hidden pb-8 pt-8 md:pt-12">

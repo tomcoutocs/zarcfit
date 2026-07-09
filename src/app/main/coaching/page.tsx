@@ -133,7 +133,7 @@ export default function CoachingPage() {
                   className="w-full font-semibold" 
                   onClick={() => router.push('/auth/signup')}
                 >
-                  Get Started <ChevronRight className="ml-1 h-4 w-4" />
+                  Get Started as Trainer <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
               </CardFooter>
             </Card>
@@ -183,7 +183,7 @@ export default function CoachingPage() {
                   className="w-full font-semibold" 
                   onClick={() => router.push('/auth/signup')}
                 >
-                  Get Started <ChevronRight className="ml-1 h-4 w-4" />
+                  Get Started as Trainer <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
               </CardFooter>
             </Card>
@@ -226,7 +226,7 @@ export default function CoachingPage() {
                   className="w-full font-semibold" 
                   onClick={() => router.push('/auth/signup')}
                 >
-                  Get Started <ChevronRight className="ml-1 h-4 w-4" />
+                  Get Started as Trainer <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
               </CardFooter>
             </Card>
@@ -292,7 +292,7 @@ export default function CoachingPage() {
             size="lg" 
             onClick={() => router.push('/auth/signup')}
           >
-            Apply for Coaching
+            Become a Trainer
           </Button>
         </div>
       </div>
