@@ -5,16 +5,15 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { clientManagementApi, ClientWithProfile } from '@/lib/supabase/trainer-api';
 import {
-  workoutProgramsApi,
+  nutritionPlansApi,
   planTemplatesApi,
-  WorkoutProgram,
+  NutritionPlan,
 } from '@/lib/supabase/dashboard-api';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -34,36 +33,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Dumbbell, Plus, Trash2, Pencil, Layers, UserPlus } from 'lucide-react';
+import { Utensils, Plus, Trash2, Pencil, Layers, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 
-type ProgramWithClient = WorkoutProgram & { client_name: string };
+type PlanWithClient = NutritionPlan & { client_name: string };
 
 const emptyForm = {
   name: '',
-  description: '',
-  difficulty: 'beginner' as WorkoutProgram['difficulty'],
-  goal: '',
-  duration_weeks: '',
-  sessions_per_week: '',
+  daily_calories: '',
+  protein_grams: '',
+  carbs_grams: '',
+  fat_grams: '',
 };
 
-function ProgramsContent() {
+function MealPlansContent() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const preselectClientId = searchParams.get('client');
 
   const [clients, setClients] = useState<ClientWithProfile[]>([]);
-  const [templates, setTemplates] = useState<WorkoutProgram[]>([]);
-  const [clientPrograms, setClientPrograms] = useState<ProgramWithClient[]>([]);
+  const [templates, setTemplates] = useState<NutritionPlan[]>([]);
+  const [clientPlans, setClientPlans] = useState<PlanWithClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
-  const [assigningTemplate, setAssigningTemplate] = useState<WorkoutProgram | null>(null);
+  const [assigningTemplate, setAssigningTemplate] = useState<NutritionPlan | null>(null);
   const [assignClientId, setAssignClientId] = useState('');
-  const [editingTemplate, setEditingTemplate] = useState<WorkoutProgram | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<NutritionPlan | null>(null);
   const [saving, setSaving] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -76,23 +74,23 @@ function ProgramsContent() {
       const clientList = await clientManagementApi.getClients(user.id);
       setClients(clientList);
 
-      const templateList = await planTemplatesApi.getTrainerWorkoutTemplates(user.id);
+      const templateList = await planTemplatesApi.getTrainerNutritionTemplates(user.id);
       setTemplates(templateList);
 
       const results = await Promise.all(
         clientList.map(async (client) => {
-          const programs = await workoutProgramsApi.getUserPrograms(client.client_id);
-          return programs.map((p) => ({ ...p, client_name: client.client_name }));
+          const plans = await nutritionPlansApi.getUserNutritionPlans(client.client_id);
+          return plans.map((p) => ({ ...p, client_name: client.client_name }));
         })
       );
-      setClientPrograms(
+      setClientPlans(
         results.flat().sort(
           (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
         )
       );
     } catch (err) {
       console.error(err);
-      setError('Failed to load programs. Please try again.');
+      setError('Failed to load meal plans. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -114,15 +112,14 @@ function ProgramsContent() {
     setTemplateDialogOpen(true);
   };
 
-  const openEditTemplateDialog = (template: WorkoutProgram) => {
+  const openEditTemplateDialog = (template: NutritionPlan) => {
     setEditingTemplate(template);
     setForm({
       name: template.name,
-      description: template.description || '',
-      difficulty: template.difficulty || 'beginner',
-      goal: template.goal || '',
-      duration_weeks: template.duration_weeks?.toString() || '',
-      sessions_per_week: template.sessions_per_week?.toString() || '',
+      daily_calories: template.daily_calories?.toString() || '',
+      protein_grams: template.protein_grams?.toString() || '',
+      carbs_grams: template.carbs_grams?.toString() || '',
+      fat_grams: template.fat_grams?.toString() || '',
     });
     setTemplateDialogOpen(true);
   };
@@ -132,36 +129,35 @@ function ProgramsContent() {
     setSaving(true);
     setError('');
 
-    const payload: WorkoutProgram = {
+    const payload: NutritionPlan = {
       id: editingTemplate?.id,
       user_id: user.id,
       name: form.name.trim(),
-      description: form.description.trim() || undefined,
-      difficulty: form.difficulty,
-      goal: form.goal.trim() || undefined,
-      duration_weeks: form.duration_weeks ? Number(form.duration_weeks) : undefined,
-      sessions_per_week: form.sessions_per_week ? Number(form.sessions_per_week) : undefined,
+      daily_calories: form.daily_calories ? Number(form.daily_calories) : undefined,
+      protein_grams: form.protein_grams ? Number(form.protein_grams) : undefined,
+      carbs_grams: form.carbs_grams ? Number(form.carbs_grams) : undefined,
+      fat_grams: form.fat_grams ? Number(form.fat_grams) : undefined,
       is_active: true,
       is_template: true,
       created_by_trainer_id: user.id,
     };
 
     const result = editingTemplate
-      ? await workoutProgramsApi.updateProgram(payload)
-      : await workoutProgramsApi.createProgram(payload);
+      ? await nutritionPlansApi.updateNutritionPlan(payload)
+      : await nutritionPlansApi.createNutritionPlan(payload);
 
     setSaving(false);
 
     if (result) {
       setTemplateDialogOpen(false);
-      setSuccess(editingTemplate ? 'Template updated.' : 'Template created. Open the builder to add workouts.');
+      setSuccess(editingTemplate ? 'Template updated.' : 'Template created. Open the builder to add meals.');
       fetchData();
     } else {
       setError('Failed to save template. Please try again.');
     }
   };
 
-  const openAssignDialog = (template: WorkoutProgram) => {
+  const openAssignDialog = (template: NutritionPlan) => {
     setAssigningTemplate(template);
     setAssignClientId(preselectClientId || '');
     setAssignDialogOpen(true);
@@ -172,7 +168,7 @@ function ProgramsContent() {
     setAssigning(true);
     setError('');
 
-    const result = await planTemplatesApi.assignWorkoutToClient(
+    const result = await planTemplatesApi.assignNutritionToClient(
       assigningTemplate.id,
       assignClientId
     );
@@ -184,22 +180,22 @@ function ProgramsContent() {
       setSuccess(`"${assigningTemplate.name}" applied to client.`);
       fetchData();
     } else {
-      setError('Failed to apply program to client. Please try again.');
+      setError('Failed to apply meal plan to client. Please try again.');
     }
   };
 
-  const handleDeleteTemplate = async (programId: string | undefined) => {
-    if (!programId) return;
+  const handleDeleteTemplate = async (planId: string | undefined) => {
+    if (!planId) return;
     if (!confirm('Delete this template? This cannot be undone.')) return;
-    const ok = await workoutProgramsApi.deleteProgram(programId);
+    const ok = await nutritionPlansApi.deleteNutritionPlan(planId);
     if (ok) fetchData();
   };
 
   return (
     <div className="space-y-6">
       <DashboardPageHeader
-        title="Workout Plans"
-        description="Build reusable templates and apply them to clients"
+        title="Meal Plans"
+        description="Build reusable nutrition templates and apply them to clients"
       >
         <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
           <DialogTrigger asChild>
@@ -210,9 +206,9 @@ function ProgramsContent() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editingTemplate ? 'Edit Template' : 'New Workout Template'}</DialogTitle>
+              <DialogTitle>{editingTemplate ? 'Edit Template' : 'New Meal Plan Template'}</DialogTitle>
               <DialogDescription>
-                Create a reusable plan, then use the builder to add sessions and exercises.
+                Set macro targets, then use the builder to add meals for each day.
               </DialogDescription>
             </DialogHeader>
 
@@ -223,63 +219,44 @@ function ProgramsContent() {
                   id="name"
                   value={form.name}
                   onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g. 8-Week Strength Foundation"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={form.description}
-                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-                  rows={3}
+                  placeholder="e.g. Lean Bulk 2800"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="difficulty">Difficulty</Label>
-                  <Select
-                    value={form.difficulty}
-                    onValueChange={(value) =>
-                      setForm((prev) => ({ ...prev, difficulty: value as WorkoutProgram['difficulty'] }))
-                    }
-                  >
-                    <SelectTrigger id="difficulty">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="beginner">Beginner</SelectItem>
-                      <SelectItem value="intermediate">Intermediate</SelectItem>
-                      <SelectItem value="advanced">Advanced</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="goal">Goal</Label>
+                  <Label htmlFor="daily_calories">Daily Calories</Label>
                   <Input
-                    id="goal"
-                    value={form.goal}
-                    onChange={(e) => setForm((prev) => ({ ...prev, goal: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="duration_weeks">Duration (weeks)</Label>
-                  <Input
-                    id="duration_weeks"
+                    id="daily_calories"
                     type="number"
-                    value={form.duration_weeks}
-                    onChange={(e) => setForm((prev) => ({ ...prev, duration_weeks: e.target.value }))}
+                    value={form.daily_calories}
+                    onChange={(e) => setForm((prev) => ({ ...prev, daily_calories: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="sessions_per_week">Sessions / Week</Label>
+                  <Label htmlFor="protein_grams">Protein (g)</Label>
                   <Input
-                    id="sessions_per_week"
+                    id="protein_grams"
                     type="number"
-                    value={form.sessions_per_week}
-                    onChange={(e) => setForm((prev) => ({ ...prev, sessions_per_week: e.target.value }))}
+                    value={form.protein_grams}
+                    onChange={(e) => setForm((prev) => ({ ...prev, protein_grams: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="carbs_grams">Carbs (g)</Label>
+                  <Input
+                    id="carbs_grams"
+                    type="number"
+                    value={form.carbs_grams}
+                    onChange={(e) => setForm((prev) => ({ ...prev, carbs_grams: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fat_grams">Fat (g)</Label>
+                  <Input
+                    id="fat_grams"
+                    type="number"
+                    value={form.fat_grams}
+                    onChange={(e) => setForm((prev) => ({ ...prev, fat_grams: e.target.value }))}
                   />
                 </div>
               </div>
@@ -311,7 +288,7 @@ function ProgramsContent() {
       <Tabs defaultValue="templates">
         <TabsList>
           <TabsTrigger value="templates">My Templates ({templates.length})</TabsTrigger>
-          <TabsTrigger value="applied">Applied to Clients ({clientPrograms.length})</TabsTrigger>
+          <TabsTrigger value="applied">Applied to Clients ({clientPlans.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="templates" className="mt-4">
@@ -322,8 +299,8 @@ function ProgramsContent() {
           ) : templates.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
-                <Dumbbell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground mb-4">No workout templates yet</p>
+                <Utensils className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground mb-4">No meal plan templates yet</p>
                 <Button onClick={openCreateTemplateDialog} className="gap-2">
                   <Plus className="h-4 w-4" />
                   Create Your First Template
@@ -344,16 +321,18 @@ function ProgramsContent() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {template.description && (
-                      <p className="text-sm text-muted-foreground">{template.description}</p>
-                    )}
                     <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      {template.difficulty && <Badge variant="outline">{template.difficulty}</Badge>}
-                      {template.duration_weeks && (
-                        <Badge variant="outline">{template.duration_weeks} weeks</Badge>
+                      {template.daily_calories && (
+                        <Badge variant="outline">{template.daily_calories} kcal</Badge>
                       )}
-                      {template.sessions_per_week && (
-                        <Badge variant="outline">{template.sessions_per_week}x/week</Badge>
+                      {template.protein_grams && (
+                        <Badge variant="outline">P: {template.protein_grams}g</Badge>
+                      )}
+                      {template.carbs_grams && (
+                        <Badge variant="outline">C: {template.carbs_grams}g</Badge>
+                      )}
+                      {template.fat_grams && (
+                        <Badge variant="outline">F: {template.fat_grams}g</Badge>
                       )}
                     </div>
                     <div className="flex flex-wrap justify-end gap-1">
@@ -367,7 +346,7 @@ function ProgramsContent() {
                         <UserPlus className="h-4 w-4" />
                         Apply to Client
                       </Button>
-                      <Link href={`/trainer/programs/${template.id}/builder`}>
+                      <Link href={`/trainer/meal-plans/${template.id}`}>
                         <Button size="sm" variant="outline" className="gap-1">
                           <Layers className="h-4 w-4" />
                           Builder
@@ -392,29 +371,31 @@ function ProgramsContent() {
             <div className="flex justify-center py-12">
               <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
             </div>
-          ) : clientPrograms.length === 0 ? (
+          ) : clientPlans.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
                 <p className="text-muted-foreground">
-                  No programs applied yet. Create a template and apply it to a client.
+                  No meal plans applied yet. Create a template and apply it to a client.
                 </p>
               </CardContent>
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {clientPrograms.map((program) => (
-                <Card key={program.id}>
+              {clientPlans.map((plan) => (
+                <Card key={plan.id}>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">{program.name}</CardTitle>
-                    <CardDescription>{program.client_name}</CardDescription>
+                    <CardTitle className="text-base">{plan.name}</CardTitle>
+                    <CardDescription>{plan.client_name}</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Link href={`/trainer/programs/${program.id}/builder`}>
-                      <Button size="sm" variant="outline" className="gap-1">
-                        <Layers className="h-4 w-4" />
-                        View Builder
-                      </Button>
-                    </Link>
+                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mb-3">
+                      {plan.daily_calories && (
+                        <Badge variant="outline">{plan.daily_calories} kcal</Badge>
+                      )}
+                      <Badge variant={plan.is_active ? 'default' : 'secondary'}>
+                        {plan.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -460,7 +441,7 @@ function ProgramsContent() {
   );
 }
 
-export default function TrainerProgramsPage() {
+export default function TrainerMealPlansPage() {
   return (
     <Suspense
       fallback={
@@ -469,7 +450,7 @@ export default function TrainerProgramsPage() {
         </div>
       }
     >
-      <ProgramsContent />
+      <MealPlansContent />
     </Suspense>
   );
 }

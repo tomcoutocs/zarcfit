@@ -10,6 +10,9 @@ import {
 } from '@/lib/supabase/dashboard-api';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
 import { DailyFoodDiary } from '@/components/nutrition/daily-food-diary';
+import { MacroProgressBars } from '@/components/nutrition/macro-progress-bars';
+import { FoodSearch } from '@/components/nutrition/food-search';
+import type { FoodSearchResult } from '@/lib/nutrition/food-types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -36,9 +39,6 @@ import {
 import {
   Plus,
   Utensils,
-  Droplet,
-  Flame,
-  Beef,
   Pencil,
   Trash2,
   Settings,
@@ -98,6 +98,29 @@ export default function MealPlanPage() {
   const [editingMeal, setEditingMeal] = useState<MealWithDay | null>(null);
   const [mealForm, setMealForm] = useState(emptyMealForm);
   const [savingMeal, setSavingMeal] = useState(false);
+  const [diaryTotals, setDiaryTotals] = useState({
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fat: 0,
+  });
+
+  const handleDiaryTotalsChange = useCallback(
+    (totals: { calories: number; protein: number; carbs: number; fat: number }) => {
+      setDiaryTotals(totals);
+    },
+    []
+  );
+
+  const macroTargets = useMemo(
+    () => ({
+      calories: plan?.daily_calories,
+      protein: plan?.protein_grams,
+      carbs: plan?.carbs_grams,
+      fat: plan?.fat_grams,
+    }),
+    [plan]
+  );
 
   const fetchData = useCallback(async () => {
     if (!user?.id) return;
@@ -214,6 +237,20 @@ export default function MealPlanPage() {
     }
   };
 
+  const handleSelectFoodForMeal = (food: FoodSearchResult) => {
+    setMealForm((prev) => ({
+      ...prev,
+      name: food.name,
+      calories: food.calories?.toString() || '',
+      protein_grams: food.protein_grams?.toString() || '',
+      carbs_grams: food.carbs_grams?.toString() || '',
+      fat_grams: food.fat_grams?.toString() || '',
+      recipe: food.serving_description
+        ? `Serving: ${food.serving_description}${food.brand ? ` (${food.brand})` : ''}`
+        : prev.recipe,
+    }));
+  };
+
   const handleDeleteMeal = async (mealId: string | undefined) => {
     if (!mealId) return;
     if (!confirm('Delete this meal? This cannot be undone.')) return;
@@ -244,11 +281,6 @@ export default function MealPlanPage() {
     });
     return groups;
   }, [mealsForDay]);
-
-  const pct = (value: number, target?: number) => {
-    if (!target || target === 0) return 0;
-    return Math.min(100, Math.round((value / target) * 100));
-  };
 
   if (loading) {
     return (
@@ -331,6 +363,13 @@ export default function MealPlanPage() {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
+                {!editingMeal && (
+                  <FoodSearch
+                    onSelect={handleSelectFoodForMeal}
+                    label="Search food to auto-fill macros"
+                    placeholder="Search USDA & Open Food Facts..."
+                  />
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="meal_name">Name</Label>
@@ -434,6 +473,13 @@ export default function MealPlanPage() {
         </Alert>
       )}
 
+      <MacroProgressBars
+        title="Today's Macro Tracking"
+        subtitle={`Plan: ${plan.name} — logged food vs daily targets`}
+        totals={diaryTotals}
+        targets={macroTargets}
+      />
+
       <Tabs defaultValue="diary" className="w-full">
         <TabsList className="mb-6">
           <TabsTrigger value="diary">Daily Diary</TabsTrigger>
@@ -441,87 +487,16 @@ export default function MealPlanPage() {
         </TabsList>
 
         <TabsContent value="diary">
-          <DailyFoodDiary />
+          <DailyFoodDiary onTotalsChange={handleDiaryTotalsChange} />
         </TabsContent>
 
         <TabsContent value="plan" className="space-y-8">
-      {/* Nutrition Summary for selected day */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Calories</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline">
-              <span className="text-3xl font-bold">{dayTotals.calories}</span>
-              <span className="text-muted-foreground text-sm ml-2">/ {plan.daily_calories || '—'} kcal</span>
-            </div>
-            <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
-              <div className="h-full bg-primary rounded-full" style={{ width: `${pct(dayTotals.calories, plan.daily_calories)}%` }}></div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Protein</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <Beef className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <div className="flex items-baseline">
-                  <span className="text-2xl font-bold">{dayTotals.protein}g</span>
-                  <span className="text-muted-foreground text-sm ml-2">/ {plan.protein_grams || '—'}g</span>
-                </div>
-                <span className="text-sm text-muted-foreground">{pct(dayTotals.protein, plan.protein_grams)}% of goal</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Carbs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <div className="h-10 w-10 bg-amber-100 rounded-full flex items-center justify-center">
-                <Flame className="h-5 w-5 text-amber-600" />
-              </div>
-              <div>
-                <div className="flex items-baseline">
-                  <span className="text-2xl font-bold">{dayTotals.carbs}g</span>
-                  <span className="text-muted-foreground text-sm ml-2">/ {plan.carbs_grams || '—'}g</span>
-                </div>
-                <span className="text-sm text-muted-foreground">{pct(dayTotals.carbs, plan.carbs_grams)}% of goal</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Fats</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <div className="h-10 w-10 bg-violet-100 rounded-full flex items-center justify-center">
-                <Droplet className="h-5 w-5 text-violet-600" />
-              </div>
-              <div>
-                <div className="flex items-baseline">
-                  <span className="text-2xl font-bold">{dayTotals.fat}g</span>
-                  <span className="text-muted-foreground text-sm ml-2">/ {plan.fat_grams || '—'}g</span>
-                </div>
-                <span className="text-sm text-muted-foreground">{pct(dayTotals.fat, plan.fat_grams)}% of goal</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <MacroProgressBars
+        title={`${DAYS.find((d) => d.value === activeDay)?.full} Planned Macros`}
+        subtitle="Meals planned for this day vs your targets"
+        totals={dayTotals}
+        targets={macroTargets}
+      />
 
       <Tabs value={activeDay.toString()} onValueChange={(v) => setActiveDay(Number(v))} className="w-full">
         <TabsList className="grid w-full md:w-auto grid-cols-7 mb-8">

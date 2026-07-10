@@ -10,7 +10,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
 import ConnectionReset from '@/components/ConnectionReset';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
-import { clientManagementApi, TrainerWithProfile } from '@/lib/supabase/trainer-api';
+import { clientManagementApi, notificationsApi, TrainerWithProfile, UserNotification } from '@/lib/supabase/trainer-api';
+import NotificationsFeed from '@/components/NotificationsFeed';
 import { MessageSquare, UserRound } from 'lucide-react';
 
 function trainerDisplayName(trainer: TrainerWithProfile) {
@@ -113,6 +114,40 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const dashboardData = useDashboard(user?.id);
   const [showConnectionReset, setShowConnectionReset] = useState(false);
+  const [notifications, setNotifications] = useState<UserNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    async function loadNotifications() {
+      if (!user?.id) return;
+      const [items, unread] = await Promise.all([
+        notificationsApi.getNotifications(10),
+        notificationsApi.getUnreadCount(),
+      ]);
+      setNotifications(items);
+      setUnreadCount(unread);
+    }
+
+    loadNotifications();
+  }, [user?.id]);
+
+  const handleMarkRead = async (notificationId: string) => {
+    const ok = await notificationsApi.markRead(notificationId);
+    if (!ok) return;
+
+    setNotifications((prev) =>
+      prev.map((item) =>
+        item.id === notificationId ? { ...item, is_read: true } : item
+      )
+    );
+    setUnreadCount((count) => Math.max(0, count - 1));
+  };
+
+  const handleMarkAllRead = async () => {
+    await notificationsApi.markAllRead();
+    setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
+    setUnreadCount(0);
+  };
   
   // Extract warnings and errors from dashboardData
   const { warnings, errors } = useMemo(() => {
@@ -171,6 +206,18 @@ export default function DashboardPage() {
       />
 
       {user?.id && <MyTrainerCard userId={user.id} />}
+
+      {user?.id && (
+        <NotificationsFeed
+          title="Updates"
+          description="New workouts, meal plans, and messages from your trainer"
+          notifications={notifications}
+          unreadCount={unreadCount}
+          emptyMessage="You're all caught up. New program and message updates will appear here."
+          onMarkRead={handleMarkRead}
+          onMarkAllRead={handleMarkAllRead}
+        />
+      )}
 
       {/* Display the connection troubleshooter if needed */}
       {showConnectionReset && (

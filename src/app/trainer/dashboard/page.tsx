@@ -6,9 +6,12 @@ import {
   clientManagementApi,
   ClientWithProfile,
   trainerDashboardApi,
+  notificationsApi,
+  UserNotification,
   ClientActivityItem,
   TrainerDashboardStats,
 } from '@/lib/supabase/trainer-api';
+import NotificationsFeed from '@/components/NotificationsFeed';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -21,6 +24,7 @@ import {
   Plus,
   AlertCircle,
   Dumbbell,
+  Bell,
   Activity,
   Moon,
   Target,
@@ -37,25 +41,45 @@ function formatRelativeTime(iso: string) {
   if (diffHours < 24) return `${diffHours}h ago`;
   const diffDays = Math.floor(diffHours / 24);
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
+  return date.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 function activityIcon(type: ClientActivityItem['activity_type']) {
   switch (type) {
-    case 'workout': return Dumbbell;
-    case 'progress': return TrendingUp;
-    case 'goal': return Target;
-    case 'message': return MessageSquare;
-    case 'sleep': return Moon;
-    default: return Activity;
+    case 'workout':
+      return Dumbbell;
+    case 'progress':
+      return TrendingUp;
+    case 'goal':
+      return Target;
+    case 'message':
+      return MessageSquare;
+    case 'sleep':
+      return Moon;
+    default:
+      return Activity;
   }
+}
+
+function activityLink(item: ClientActivityItem) {
+  if (item.activity_type === 'message') {
+    return `/trainer/messages?client=${item.client_id}`;
+  }
+  return `/trainer/clients/${item.client_id}`;
 }
 
 export default function TrainerDashboardPage() {
   const { user, isTrainer } = useAuth();
   const [clients, setClients] = useState<ClientWithProfile[]>([]);
   const [stats, setStats] = useState<TrainerDashboardStats | null>(null);
-  const [activity, setActivity] = useState<ClientActivityItem[]>([]);
+  const [notifications, setNotifications] = useState<UserNotification[]>([]);
+  const [clientActivity, setClientActivity] = useState<ClientActivityItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -67,14 +91,18 @@ export default function TrainerDashboardPage() {
       }
 
       try {
-        const [clientsData, statsData, activityData] = await Promise.all([
+        const [clientsData, statsData, notificationsData, unread, activityData] = await Promise.all([
           clientManagementApi.getClients(user.id),
           trainerDashboardApi.getStats(),
-          trainerDashboardApi.getClientActivity(15),
+          notificationsApi.getNotifications(15),
+          notificationsApi.getUnreadCount(),
+          trainerDashboardApi.getClientActivity(50),
         ]);
         setClients(clientsData);
         setStats(statsData);
-        setActivity(activityData);
+        setNotifications(notificationsData);
+        setUnreadCount(unread);
+        setClientActivity(activityData);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
         setError('Failed to load dashboard data');
@@ -85,6 +113,24 @@ export default function TrainerDashboardPage() {
 
     fetchData();
   }, [user?.id, isTrainer]);
+
+  const handleMarkRead = async (notificationId: string) => {
+    const ok = await notificationsApi.markRead(notificationId);
+    if (!ok) return;
+
+    setNotifications((prev) =>
+      prev.map((item) =>
+        item.id === notificationId ? { ...item, is_read: true } : item
+      )
+    );
+    setUnreadCount((count) => Math.max(0, count - 1));
+  };
+
+  const handleMarkAllRead = async () => {
+    await notificationsApi.markAllRead();
+    setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
+    setUnreadCount(0);
+  };
 
   if (loading) {
     return (
@@ -149,11 +195,22 @@ export default function TrainerDashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">This Week</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <Dumbbell className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats?.workouts_this_week ?? 0}</div>
             <p className="text-xs text-muted-foreground">Workouts logged</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Updates</CardTitle>
+            <Bell className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{unreadCount}</div>
+            <p className="text-xs text-muted-foreground">Unread notifications</p>
           </CardContent>
         </Card>
 
@@ -240,44 +297,15 @@ export default function TrainerDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest updates from your clients</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {activity.length === 0 ? (
-              <div className="text-center py-8">
-                <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">
-                  No recent client activity yet
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {activity.map((item) => {
-                  const Icon = activityIcon(item.activity_type);
-                  return (
-                    <Link key={`${item.activity_type}-${item.reference_id}`} href={`/trainer/clients/${item.client_id}`}>
-                      <div className="flex items-start gap-3 p-3 rounded-lg border hover:bg-accent transition-colors">
-                        <div className="mt-0.5 rounded-full bg-primary/10 p-2">
-                          <Icon className="h-4 w-4 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{item.client_name}</p>
-                          <p className="text-sm text-muted-foreground truncate">{item.summary}</p>
-                        </div>
-                        <span className="text-xs text-muted-foreground shrink-0">
-                          {formatRelativeTime(item.occurred_at)}
-                        </span>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <NotificationsFeed
+          title="Latest Updates"
+          description="New messages and client activity"
+          notifications={notifications}
+          unreadCount={unreadCount}
+          emptyMessage="No updates yet. You'll see messages and client activity here."
+          onMarkRead={handleMarkRead}
+          onMarkAllRead={handleMarkAllRead}
+        />
       </div>
 
       {pendingClients.length > 0 && (
@@ -335,6 +363,61 @@ export default function TrainerDashboardPage() {
               </Button>
             </Link>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>All Client Updates</CardTitle>
+          <CardDescription>
+            Complete activity history from your clients, newest first
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {clientActivity.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+              <Activity className="h-10 w-10 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                No client activity yet. Updates will appear here as clients log workouts, progress, and more.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {clientActivity.map((item) => {
+                const Icon = activityIcon(item.activity_type);
+                return (
+                  <Link
+                    key={`${item.activity_type}-${item.reference_id}`}
+                    href={activityLink(item)}
+                    className="flex items-start gap-4 py-4 first:pt-0 last:pb-0 hover:bg-accent/40 -mx-2 px-2 rounded-lg transition-colors"
+                  >
+                    <div className="mt-0.5 rounded-full bg-primary/10 p-2 shrink-0">
+                      <Icon className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                        <p className="font-medium">{item.client_name}</p>
+                        <span className="text-xs text-muted-foreground">
+                          {formatRelativeTime(item.occurred_at)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{item.summary}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {new Date(item.occurred_at).toLocaleString([], {
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

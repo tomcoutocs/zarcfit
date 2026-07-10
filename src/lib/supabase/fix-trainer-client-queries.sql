@@ -51,6 +51,10 @@ BEGIN
   LEFT JOIN user_profiles up ON up.id = tc.client_id
   WHERE tc.trainer_id = trainer_uuid
     AND tc.status IN ('active', 'pending')
+    AND NOT EXISTS (
+      SELECT 1 FROM user_roles ur
+      WHERE ur.user_id = tc.client_id AND ur.role = 'trainer'
+    )
   ORDER BY tc.accepted_at DESC NULLS LAST;
 END;
 $$;
@@ -80,6 +84,13 @@ SET search_path = public
 AS $$
 BEGIN
   IF auth.uid() IS NULL OR auth.uid() <> client_uuid THEN
+    RETURN;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM user_roles ur
+    WHERE ur.user_id = client_uuid AND ur.role = 'trainer'
+  ) THEN
     RETURN;
   END IF;
 

@@ -25,6 +25,12 @@ BEGIN
     INSERT INTO user_roles (user_id, role)
     VALUES (NEW.id, 'trainer')
     ON CONFLICT (user_id, role) DO NOTHING;
+
+    UPDATE trainer_clients
+    SET status = 'terminated',
+        terminated_at = COALESCE(terminated_at, NOW())
+    WHERE client_id = NEW.id
+      AND status IN ('pending', 'active');
   ELSIF v_signup_role = 'client' AND v_invitation_signup THEN
     INSERT INTO user_roles (user_id, role)
     VALUES (NEW.id, 'client')

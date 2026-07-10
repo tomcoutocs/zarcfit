@@ -50,7 +50,7 @@ export default function InviteClientPage() {
     setError('');
 
     try {
-      const invitation = await invitationApi.createInvitation({
+      const result = await invitationApi.createInvitation({
         trainer_id: user.id,
         email: formData.email,
         first_name: formData.firstName,
@@ -60,7 +60,7 @@ export default function InviteClientPage() {
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       });
 
-      if (invitation) {
+      if (result.status === 'success') {
         setSentToEmail(formData.email);
         setSuccess(true);
         setFormData({
@@ -73,6 +73,8 @@ export default function InviteClientPage() {
         setTimeout(() => {
           router.push('/trainer/clients?tab=invitations');
         }, 2000);
+      } else if (result.status === 'is_trainer') {
+        setError('This email belongs to a trainer account. Trainers cannot be added as clients.');
       } else {
         setError('Failed to send invitation. Please try again.');
       }

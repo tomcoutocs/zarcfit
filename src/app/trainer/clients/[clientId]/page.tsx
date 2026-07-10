@@ -352,9 +352,16 @@ export default function ClientDetailPage() {
             </CardHeader>
             <CardContent>
               {nutritionPlans.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No nutrition data available
-                </p>
+                <>
+                  <p className="text-center text-muted-foreground py-8">
+                    No meal plan assigned
+                  </p>
+                  <Link href={`/trainer/meal-plans?client=${clientId}`}>
+                    <Button variant="outline" className="w-full">
+                      Assign Meal Plan
+                    </Button>
+                  </Link>
+                </>
               ) : (
                 <div className="space-y-2">
                   {nutritionPlans.map((plan) => (
@@ -370,6 +377,11 @@ export default function ClientDetailPage() {
                       </Badge>
                     </div>
                   ))}
+                  <Link href={`/trainer/meal-plans?client=${clientId}`}>
+                    <Button variant="outline" className="w-full">
+                      Manage Meal Plans
+                    </Button>
+                  </Link>
                 </div>
               )}
             </CardContent>

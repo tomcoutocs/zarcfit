@@ -34,6 +34,8 @@ export type WorkoutProgram = {
   duration_weeks?: number;
   sessions_per_week?: number;
   is_active?: boolean;
+  is_template?: boolean;
+  created_by_trainer_id?: string;
   created_at?: string;
   updated_at?: string;
 };
@@ -91,6 +93,7 @@ export type ExerciseLog = {
   sets_completed?: number;
   reps_completed?: string;
   weight_used?: string;
+  difficulty_rating?: number;
   notes?: string;
   created_at?: string;
 };
@@ -106,6 +109,8 @@ export type NutritionPlan = {
   carbs_grams?: number;
   fat_grams?: number;
   is_active?: boolean;
+  is_template?: boolean;
+  created_by_trainer_id?: string;
   created_at?: string;
   updated_at?: string;
 };
@@ -305,6 +310,7 @@ export const workoutProgramsApi = {
       .from('workout_programs')
       .select('*')
       .eq('user_id', userId)
+      .eq('is_template', false)
       .order('created_at', { ascending: false });
 
     // Handle Row Level Security (RLS) errors
@@ -396,7 +402,6 @@ export const workoutProgramsApi = {
     return true;
   },
 
-  // Get all sessions for a program
   getProgramSessions: async (programId: string): Promise<WorkoutSession[]> => {
     const { data, error } = await supabase
       .from('workout_sessions')
@@ -411,7 +416,75 @@ export const workoutProgramsApi = {
     }
 
     return data || [];
-  }
+  },
+};
+
+export const planTemplatesApi = {
+  getTrainerWorkoutTemplates: async (trainerId: string): Promise<WorkoutProgram[]> => {
+    const { data, error } = await supabase
+      .from('workout_programs')
+      .select('*')
+      .eq('user_id', trainerId)
+      .eq('is_template', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching workout templates:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  getTrainerNutritionTemplates: async (trainerId: string): Promise<NutritionPlan[]> => {
+    const { data, error } = await supabase
+      .from('nutrition_plans')
+      .select('*')
+      .eq('user_id', trainerId)
+      .eq('is_template', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching nutrition templates:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  assignWorkoutToClient: async (
+    sourceProgramId: string,
+    clientId: string
+  ): Promise<{ status: string; program_id?: string }> => {
+    const { data, error } = await supabase.rpc('copy_workout_program_to_client', {
+      p_source_program_id: sourceProgramId,
+      p_client_id: clientId,
+    });
+
+    if (error) {
+      console.error('Error assigning workout program:', error);
+      return { status: 'error' };
+    }
+
+    return (data as { status: string; program_id?: string }) || { status: 'error' };
+  },
+
+  assignNutritionToClient: async (
+    sourcePlanId: string,
+    clientId: string
+  ): Promise<{ status: string; plan_id?: string }> => {
+    const { data, error } = await supabase.rpc('copy_nutrition_plan_to_client', {
+      p_source_plan_id: sourcePlanId,
+      p_client_id: clientId,
+    });
+
+    if (error) {
+      console.error('Error assigning nutrition plan:', error);
+      return { status: 'error' };
+    }
+
+    return (data as { status: string; plan_id?: string }) || { status: 'error' };
+  },
 };
 
 // Workout Sessions API
@@ -879,6 +952,7 @@ export const nutritionPlansApi = {
       .from('nutrition_plans')
       .select('*')
       .eq('user_id', userId)
+      .eq('is_template', false)
       .order('created_at', { ascending: false });
 
     // Handle Row Level Security (RLS) errors
@@ -907,6 +981,7 @@ export const nutritionPlansApi = {
       .from('nutrition_plans')
       .select('*')
       .eq('user_id', userId)
+      .eq('is_template', false)
       .eq('is_active', true)
       .single();
 

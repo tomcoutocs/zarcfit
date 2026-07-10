@@ -107,6 +107,11 @@ function AcceptInvitationContent() {
       setErrorMessage(
         `This invitation was sent to ${invitation?.email}. Please sign out and sign in with that email address to accept it.`
       );
+    } else if (result === 'is_trainer') {
+      setStep('invalid');
+      setErrorMessage(
+        'Trainer accounts cannot join another trainer as a client. Please use your trainer dashboard instead.'
+      );
     } else {
       setStep('error');
       setErrorMessage('Something went wrong accepting this invitation. Please try again.');

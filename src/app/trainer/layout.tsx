@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   Users,
   Dumbbell,
+  Utensils,
   MessageSquare,
   Calendar,
   Settings,
@@ -36,9 +37,14 @@ export default function TrainerLayout({
       icon: Users,
     },
     {
-      name: 'Programs',
+      name: 'Workout Plans',
       href: '/trainer/programs',
       icon: Dumbbell,
+    },
+    {
+      name: 'Meal Plans',
+      href: '/trainer/meal-plans',
+      icon: Utensils,
     },
     {
       name: 'Messages',

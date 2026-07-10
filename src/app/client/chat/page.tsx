@@ -34,12 +34,32 @@ export default function ClientChatPage() {
   const [trainers, setTrainers] = useState<TrainerWithProfile[]>([]);
   const [conversations, setConversations] = useState<ConversationWithTrainer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTrainerId, setSelectedTrainerId] = useState<string | null>(null);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const openTrainerThread = useCallback(async (trainerId: string) => {
+    if (!user?.id) return;
+
+    setSelectedTrainerId(trainerId);
+
+    const existing = conversations.find((c) => c.trainer_id === trainerId);
+    if (existing) {
+      setSelectedConversationId(existing.id);
+      return;
+    }
+
+    const created = await messagingApi.getOrCreateConversation(trainerId, user.id);
+    if (created) {
+      const trainer = trainers.find((t) => t.trainer_id === trainerId);
+      setConversations((prev) => [{ ...created, trainer }, ...prev]);
+      setSelectedConversationId(created.id);
+    }
+  }, [conversations, trainers, user?.id]);
 
   const loadConversations = useCallback(async () => {
     if (!user?.id) return;
@@ -50,21 +70,31 @@ export default function ClientChatPage() {
       messagingApi.getClientConversations(user.id),
     ]);
 
+    const mappedConversations = conversationList.map(c => ({
+      ...c,
+      trainer: trainerList.find(t => t.trainer_id === c.trainer_id),
+    }));
+
     setTrainers(trainerList);
-    setConversations(
-      conversationList.map(c => ({
-        ...c,
-        trainer: trainerList.find(t => t.trainer_id === c.trainer_id),
-      }))
-    );
+    setConversations(mappedConversations);
     setLoading(false);
 
-    // If there's exactly one conversation (the common case), open it
-    // automatically instead of showing an empty state.
-    if (conversationList.length > 0 && !selectedConversationId) {
-      setSelectedConversationId(conversationList[0].id);
+    if (trainerList.length > 0) {
+      const primaryTrainer = trainerList[0];
+      setSelectedTrainerId(primaryTrainer.trainer_id);
+
+      const existing = mappedConversations.find((c) => c.trainer_id === primaryTrainer.trainer_id);
+      if (existing) {
+        setSelectedConversationId(existing.id);
+        return;
+      }
+
+      const created = await messagingApi.getOrCreateConversation(primaryTrainer.trainer_id, user.id);
+      if (created) {
+        setConversations((prev) => [{ ...created, trainer: primaryTrainer }, ...prev]);
+        setSelectedConversationId(created.id);
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   useEffect(() => {
@@ -87,8 +117,6 @@ export default function ClientChatPage() {
     }
   }, [selectedConversationId, loadMessages]);
 
-  // Realtime subscription so new messages in the open conversation appear
-  // without a manual refresh.
   useEffect(() => {
     if (!selectedConversationId) return;
 
@@ -151,49 +179,35 @@ export default function ClientChatPage() {
     setSending(false);
   };
 
-  const startConversationWithTrainer = async (trainerId: string) => {
-    if (!user?.id) return;
-    const existing = conversations.find(c => c.trainer_id === trainerId);
-    if (existing) {
-      setSelectedConversationId(existing.id);
-      return;
-    }
-    const created = await messagingApi.getOrCreateConversation(trainerId, user.id);
-    if (created) {
-      const trainer = trainers.find(t => t.trainer_id === trainerId);
-      setConversations(prev => [{ ...created, trainer }, ...prev]);
-      setSelectedConversationId(created.id);
-    }
-  };
-
-  const selectedConversation = conversations.find(c => c.id === selectedConversationId);
-  const trainersWithoutConversation = trainers.filter(
-    t => !conversations.some(c => c.trainer_id === t.trainer_id)
-  );
+  const selectedTrainer = trainers.find((t) => t.trainer_id === selectedTrainerId)
+    || conversations.find((c) => c.id === selectedConversationId)?.trainer;
+  const showTrainerList = trainers.length > 1;
 
   return (
     <div className="space-y-6">
       <DashboardPageHeader title="Messages" description="Chat with your trainer" />
 
       <Card className="overflow-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] h-[600px]">
-          {/* Conversation list */}
-          <div className="border-r overflow-y-auto">
-            {loading ? (
-              <div className="flex justify-center py-8">
-                <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
-              </div>
-            ) : (
-              <>
-                {conversations.map((conv) => {
-                  const name = trainerDisplayName(conv.trainer);
+        <div className={cn('grid h-[600px]', showTrainerList ? 'grid-cols-1 md:grid-cols-[280px_1fr]' : 'grid-cols-1')}>
+          {showTrainerList && (
+            <div className="border-r overflow-y-auto">
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
+                </div>
+              ) : (
+                trainers.map((trainer) => {
+                  const name = trainerDisplayName(trainer);
+                  const conversation = conversations.find((c) => c.trainer_id === trainer.trainer_id);
+                  const isSelected = selectedTrainerId === trainer.trainer_id;
+
                   return (
                     <button
-                      key={conv.id}
-                      onClick={() => setSelectedConversationId(conv.id)}
+                      key={trainer.trainer_id}
+                      onClick={() => openTrainerThread(trainer.trainer_id)}
                       className={cn(
                         'flex w-full items-center gap-3 border-b p-3 text-left transition-colors hover:bg-accent/50',
-                        selectedConversationId === conv.id && 'bg-accent'
+                        isSelected && 'bg-accent'
                       )}
                     >
                       <Avatar>
@@ -202,66 +216,47 @@ export default function ClientChatPage() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(conv.last_message_at).toLocaleDateString()}
+                          {conversation
+                            ? new Date(conversation.last_message_at).toLocaleDateString()
+                            : 'No messages yet'}
                         </p>
                       </div>
                     </button>
                   );
-                })}
+                })
+              )}
+            </div>
+          )}
 
-                {trainersWithoutConversation.length > 0 && (
-                  <div className="p-3">
-                    <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">
-                      Start a conversation
-                    </p>
-                    <div className="space-y-1">
-                      {trainersWithoutConversation.map((t) => (
-                        <button
-                          key={t.trainer_id}
-                          onClick={() => startConversationWithTrainer(t.trainer_id)}
-                          className="flex w-full items-center gap-3 rounded-md p-2 text-left text-sm transition-colors hover:bg-accent/50"
-                        >
-                          <Avatar className="h-7 w-7">
-                            <AvatarFallback className="text-xs">{initials(trainerDisplayName(t))}</AvatarFallback>
-                          </Avatar>
-                          <span className="truncate">{trainerDisplayName(t)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {conversations.length === 0 && trainersWithoutConversation.length === 0 && !loading && (
-                  <div className="flex flex-col items-center justify-center gap-2 py-12 text-center px-4">
-                    <MessageSquare className="h-8 w-8 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                      You don&apos;t have a trainer yet
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Message thread */}
           <div className="flex flex-col">
-            {selectedConversation ? (
+            {loading ? (
+              <div className="flex flex-1 items-center justify-center">
+                <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
+              </div>
+            ) : selectedTrainer ? (
               <>
                 <div className="flex items-center gap-3 border-b p-4">
                   <Avatar>
-                    <AvatarFallback>{initials(trainerDisplayName(selectedConversation.trainer))}</AvatarFallback>
+                    <AvatarFallback>{initials(trainerDisplayName(selectedTrainer))}</AvatarFallback>
                   </Avatar>
-                  <p className="font-medium">{trainerDisplayName(selectedConversation.trainer)}</p>
+                  <div>
+                    <p className="font-medium">{trainerDisplayName(selectedTrainer)}</p>
+                    <p className="text-xs text-muted-foreground">Your trainer</p>
+                  </div>
                 </div>
 
                 <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
-                  {messagesLoading ? (
+                  {!selectedConversationId ? (
+                    <p className="py-8 text-center text-sm text-muted-foreground">
+                      Opening conversation...
+                    </p>
+                  ) : messagesLoading ? (
                     <div className="flex justify-center py-8">
                       <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
                     </div>
                   ) : messages.length === 0 ? (
                     <p className="py-8 text-center text-sm text-muted-foreground">
-                      No messages yet. Say hello!
+                      No messages yet. Say hello to your trainer!
                     </p>
                   ) : (
                     messages.map((msg) => {
@@ -294,19 +289,19 @@ export default function ClientChatPage() {
                   <Input
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Type a message..."
-                    disabled={sending}
+                    placeholder="Message your trainer..."
+                    disabled={sending || !selectedConversationId}
                   />
-                  <Button type="submit" size="icon" disabled={sending || !newMessage.trim()}>
+                  <Button type="submit" size="icon" disabled={sending || !newMessage.trim() || !selectedConversationId}>
                     <Send className="h-4 w-4" />
                   </Button>
                 </form>
               </>
             ) : (
-              <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center px-4">
                 <MessageSquare className="h-10 w-10 text-muted-foreground" />
                 <p className="text-muted-foreground">
-                  {trainers.length === 0 ? 'You don\u2019t have a trainer yet' : 'Select a conversation to start chatting'}
+                  You don&apos;t have a trainer yet
                 </p>
               </div>
             )}

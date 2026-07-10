@@ -15,6 +15,10 @@ INNER JOIN user_roles ur ON ur.user_id = u.id AND ur.role = 'client'
 INNER JOIN client_invitations ci
   ON lower(ci.email) = lower(u.email)
   AND ci.status = 'accepted'
+WHERE NOT EXISTS (
+  SELECT 1 FROM user_roles ur_trainer
+  WHERE ur_trainer.user_id = u.id AND ur_trainer.role = 'trainer'
+)
 ON CONFLICT (trainer_id, client_id) DO UPDATE
 SET status = 'active',
     accepted_at = COALESCE(trainer_clients.accepted_at, EXCLUDED.accepted_at);
@@ -27,6 +31,10 @@ FROM (
   FROM auth.users u
   INNER JOIN user_roles ur ON ur.user_id = u.id AND ur.role = 'client'
   WHERE NOT EXISTS (
+    SELECT 1 FROM user_roles ur_trainer
+    WHERE ur_trainer.user_id = u.id AND ur_trainer.role = 'trainer'
+  )
+  AND NOT EXISTS (
     SELECT 1
     FROM trainer_clients tc
     WHERE tc.client_id = u.id

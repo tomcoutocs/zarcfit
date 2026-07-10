@@ -1,29 +1,122 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { FoodSearchResult } from '@/lib/nutrition/food-types';
 
-type FatSecretFood = {
-  food_id: string;
-  food_name: string;
-  food_description?: string;
-};
+const USDA_NUTRIENT = {
+  calories: 1008,
+  protein: 1003,
+  carbs: 1005,
+  fat: 1004,
+} as const;
 
-async function getFatSecretToken(): Promise<string | null> {
-  const clientId = process.env.FATSECRET_CLIENT_ID;
-  const clientSecret = process.env.FATSECRET_CLIENT_SECRET;
-  if (!clientId || !clientSecret) return null;
+function nutrientValue(
+  nutrients: { nutrientId?: number; nutrientNumber?: string; value?: number }[] | undefined,
+  id: number
+): number | undefined {
+  if (!nutrients) return undefined;
+  const match = nutrients.find(
+    (n) => n.nutrientId === id || n.nutrientNumber === String(id)
+  );
+  return match?.value != null ? Math.round(match.value * 10) / 10 : undefined;
+}
 
-  const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-  const res = await fetch('https://oauth.fatsecret.com/connect/token', {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${credentials}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: 'grant_type=client_credentials&scope=basic',
+async function searchUsda(query: string): Promise<FoodSearchResult[]> {
+  const apiKey = process.env.USDA_FDC_API_KEY || 'DEMO_KEY';
+  const params = new URLSearchParams({
+    api_key: apiKey,
+    query,
+    pageSize: '15',
+    dataType: 'Foundation,SR Legacy,Survey (FNDDS),Branded',
   });
 
-  if (!res.ok) return null;
+  const res = await fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?${params}`, {
+    next: { revalidate: 3600 },
+  });
+
+  if (!res.ok) return [];
+
   const data = await res.json();
-  return data.access_token || null;
+  const foods = data?.foods || [];
+
+  return foods.map(
+    (food: {
+      fdcId: number;
+      description: string;
+      brandOwner?: string;
+      servingSize?: number;
+      servingSizeUnit?: string;
+      foodNutrients?: { nutrientId?: number; nutrientNumber?: string; value?: number }[];
+    }): FoodSearchResult => {
+      const serving =
+        food.servingSize && food.servingSizeUnit
+          ? `${food.servingSize} ${food.servingSizeUnit}`
+          : 'per 100g';
+
+      return {
+        id: String(food.fdcId),
+        name: food.description,
+        brand: food.brandOwner,
+        serving_description: serving,
+        calories: nutrientValue(food.foodNutrients, USDA_NUTRIENT.calories),
+        protein_grams: nutrientValue(food.foodNutrients, USDA_NUTRIENT.protein),
+        carbs_grams: nutrientValue(food.foodNutrients, USDA_NUTRIENT.carbs),
+        fat_grams: nutrientValue(food.foodNutrients, USDA_NUTRIENT.fat),
+        source: 'usda',
+      };
+    }
+  );
+}
+
+async function searchOpenFoodFacts(query: string): Promise<FoodSearchResult[]> {
+  const params = new URLSearchParams({
+    search_terms: query,
+    search_simple: '1',
+    action: 'process',
+    json: '1',
+    page_size: '15',
+    fields: 'code,product_name,brands,nutriments,serving_size,serving_quantity',
+  });
+
+  const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?${params}`, {
+    next: { revalidate: 3600 },
+  });
+
+  if (!res.ok) return [];
+
+  const data = await res.json();
+  const products = data?.products || [];
+
+  return products
+    .filter((p: { product_name?: string }) => p.product_name)
+    .map(
+      (product: {
+        code: string;
+        product_name: string;
+        brands?: string;
+        serving_size?: string;
+        nutriments?: Record<string, number>;
+      }): FoodSearchResult => {
+        const n = product.nutriments || {};
+        const calories =
+          n['energy-kcal_serving'] ??
+          n['energy-kcal_100g'] ??
+          (n.energy_100g ? n.energy_100g / 4.184 : undefined);
+        const protein = n.proteins_serving ?? n.proteins_100g;
+        const carbs = n.carbohydrates_serving ?? n.carbohydrates_100g;
+        const fat = n.fat_serving ?? n.fat_100g;
+
+        return {
+          id: product.code,
+          name: product.product_name,
+          brand: product.brands,
+          serving_description: product.serving_size || 'per serving',
+          calories: calories != null ? Math.round(calories) : undefined,
+          protein_grams: protein != null ? Math.round(protein * 10) / 10 : undefined,
+          carbs_grams: carbs != null ? Math.round(carbs * 10) / 10 : undefined,
+          fat_grams: fat != null ? Math.round(fat * 10) / 10 : undefined,
+          source: 'openfoodfacts',
+        };
+      }
+    );
 }
 
 export async function GET(request: NextRequest) {
@@ -32,38 +125,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ foods: [] });
   }
 
-  const token = await getFatSecretToken();
-  if (!token) {
-    return NextResponse.json(
-      { error: 'FatSecret API not configured. Set FATSECRET_CLIENT_ID and FATSECRET_CLIENT_SECRET.' },
-      { status: 503 }
-    );
-  }
+  try {
+    let foods = await searchUsda(query);
 
-  const params = new URLSearchParams({
-    method: 'foods.search',
-    search_expression: query,
-    format: 'json',
-    max_results: '20',
-  });
+    if (foods.length === 0) {
+      foods = await searchOpenFoodFacts(query);
+    }
 
-  const res = await fetch(`https://platform.fatsecret.com/rest/server.api?${params}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  if (!res.ok) {
+    return NextResponse.json({ foods });
+  } catch {
     return NextResponse.json({ error: 'Food search failed' }, { status: 502 });
   }
-
-  const data = await res.json();
-  const rawFoods = data?.foods?.food;
-  const list = Array.isArray(rawFoods) ? rawFoods : rawFoods ? [rawFoods] : [];
-
-  const foods: FatSecretFood[] = list.map((f: { food_id: string; food_name: string; food_description?: string }) => ({
-    food_id: String(f.food_id),
-    food_name: f.food_name,
-    food_description: f.food_description,
-  }));
-
-  return NextResponse.json({ foods });
 }

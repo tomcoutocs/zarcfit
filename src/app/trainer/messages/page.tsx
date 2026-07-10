@@ -24,6 +24,11 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+type ClientThread = {
+  client: ClientWithProfile;
+  conversation?: Conversation;
+};
+
 function MessagesContent() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
@@ -32,6 +37,7 @@ function MessagesContent() {
   const [clients, setClients] = useState<ClientWithProfile[]>([]);
   const [conversations, setConversations] = useState<ConversationWithClient[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -62,29 +68,46 @@ function MessagesContent() {
     loadConversations();
   }, [loadConversations]);
 
-  // If we arrived with ?client=<id> (e.g. from the client detail page's
-  // "Message" button), open or create that conversation automatically.
-  useEffect(() => {
-    async function openPreselected() {
-      if (!user?.id || !preselectClientId || loading) return;
-
-      const existing = conversations.find(c => c.client_id === preselectClientId);
-      if (existing) {
-        setSelectedConversationId(existing.id);
-        return;
+  const clientThreads: ClientThread[] = clients
+    .map((client) => ({
+      client,
+      conversation: conversations.find((c) => c.client_id === client.client_id),
+    }))
+    .sort((a, b) => {
+      const aTime = a.conversation?.last_message_at;
+      const bTime = b.conversation?.last_message_at;
+      if (aTime && bTime) {
+        return new Date(bTime).getTime() - new Date(aTime).getTime();
       }
+      if (aTime) return -1;
+      if (bTime) return 1;
+      return a.client.client_name.localeCompare(b.client.client_name);
+    });
 
-      const created = await messagingApi.getOrCreateConversation(user.id, preselectClientId);
-      if (created) {
-        const client = clients.find(cl => cl.client_id === preselectClientId);
-        setConversations(prev => [{ ...created, client }, ...prev]);
-        setSelectedConversationId(created.id);
-      }
+  const openClientThread = useCallback(async (clientId: string) => {
+    if (!user?.id) return;
+
+    setSelectedClientId(clientId);
+
+    const existing = conversations.find((c) => c.client_id === clientId);
+    if (existing) {
+      setSelectedConversationId(existing.id);
+      return;
     }
 
-    openPreselected();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preselectClientId, loading, user?.id]);
+    const created = await messagingApi.getOrCreateConversation(user.id, clientId);
+    if (created) {
+      const client = clients.find((cl) => cl.client_id === clientId);
+      setConversations((prev) => [{ ...created, client }, ...prev]);
+      setSelectedConversationId(created.id);
+    }
+  }, [clients, conversations, user?.id]);
+
+  // If we arrived with ?client=<id>, open that client automatically.
+  useEffect(() => {
+    if (!user?.id || !preselectClientId || loading) return;
+    openClientThread(preselectClientId);
+  }, [preselectClientId, loading, openClientThread, user?.id]);
 
   const loadMessages = useCallback(async (conversationId: string) => {
     setMessagesLoading(true);
@@ -166,25 +189,8 @@ function MessagesContent() {
     setSending(false);
   };
 
-  const startConversationWithClient = async (clientId: string) => {
-    if (!user?.id) return;
-    const existing = conversations.find(c => c.client_id === clientId);
-    if (existing) {
-      setSelectedConversationId(existing.id);
-      return;
-    }
-    const created = await messagingApi.getOrCreateConversation(user.id, clientId);
-    if (created) {
-      const client = clients.find(cl => cl.client_id === clientId);
-      setConversations(prev => [{ ...created, client }, ...prev]);
-      setSelectedConversationId(created.id);
-    }
-  };
-
-  const selectedConversation = conversations.find(c => c.id === selectedConversationId);
-  const clientsWithoutConversation = clients.filter(
-    cl => !conversations.some(c => c.client_id === cl.client_id)
-  );
+  const selectedThread = clientThreads.find((thread) => thread.client.client_id === selectedClientId)
+    || clientThreads.find((thread) => thread.conversation?.id === selectedConversationId);
 
   return (
     <div className="space-y-6">
@@ -198,77 +204,58 @@ function MessagesContent() {
               <div className="flex justify-center py-8">
                 <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
               </div>
+            ) : clientThreads.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-2 py-12 text-center px-4">
+                <MessageSquare className="h-8 w-8 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">No clients yet</p>
+              </div>
             ) : (
-              <>
-                {conversations.map((conv) => {
-                  const name = conv.client?.client_name || 'Client';
-                  return (
-                    <button
-                      key={conv.id}
-                      onClick={() => setSelectedConversationId(conv.id)}
-                      className={cn(
-                        'flex w-full items-center gap-3 border-b p-3 text-left transition-colors hover:bg-accent/50',
-                        selectedConversationId === conv.id && 'bg-accent'
-                      )}
-                    >
-                      <Avatar>
-                        <AvatarFallback>{initials(name)}</AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(conv.last_message_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-
-                {clientsWithoutConversation.length > 0 && (
-                  <div className="p-3">
-                    <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">
-                      Start a conversation
-                    </p>
-                    <div className="space-y-1">
-                      {clientsWithoutConversation.map((cl) => (
-                        <button
-                          key={cl.client_id}
-                          onClick={() => startConversationWithClient(cl.client_id)}
-                          className="flex w-full items-center gap-3 rounded-md p-2 text-left text-sm transition-colors hover:bg-accent/50"
-                        >
-                          <Avatar className="h-7 w-7">
-                            <AvatarFallback className="text-xs">{initials(cl.client_name)}</AvatarFallback>
-                          </Avatar>
-                          <span className="truncate">{cl.client_name}</span>
-                        </button>
-                      ))}
+              clientThreads.map(({ client, conversation }) => {
+                const name = client.client_name || 'Client';
+                const isSelected = selectedClientId === client.client_id;
+                return (
+                  <button
+                    key={client.client_id}
+                    onClick={() => openClientThread(client.client_id)}
+                    className={cn(
+                      'flex w-full items-center gap-3 border-b p-3 text-left transition-colors hover:bg-accent/50',
+                      isSelected && 'bg-accent'
+                    )}
+                  >
+                    <Avatar>
+                      <AvatarFallback>{initials(name)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {conversation
+                          ? new Date(conversation.last_message_at).toLocaleDateString()
+                          : 'No messages yet'}
+                      </p>
                     </div>
-                  </div>
-                )}
-
-                {conversations.length === 0 && clientsWithoutConversation.length === 0 && !loading && (
-                  <div className="flex flex-col items-center justify-center gap-2 py-12 text-center px-4">
-                    <MessageSquare className="h-8 w-8 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">No clients yet</p>
-                  </div>
-                )}
-              </>
+                  </button>
+                );
+              })
             )}
           </div>
 
           {/* Message thread */}
           <div className="flex flex-col">
-            {selectedConversation ? (
+            {selectedThread ? (
               <>
                 <div className="flex items-center gap-3 border-b p-4">
                   <Avatar>
-                    <AvatarFallback>{initials(selectedConversation.client?.client_name || 'Client')}</AvatarFallback>
+                    <AvatarFallback>{initials(selectedThread.client.client_name || 'Client')}</AvatarFallback>
                   </Avatar>
-                  <p className="font-medium">{selectedConversation.client?.client_name || 'Client'}</p>
+                  <p className="font-medium">{selectedThread.client.client_name || 'Client'}</p>
                 </div>
 
                 <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
-                  {messagesLoading ? (
+                  {!selectedConversationId ? (
+                    <p className="py-8 text-center text-sm text-muted-foreground">
+                      Opening conversation...
+                    </p>
+                  ) : messagesLoading ? (
                     <div className="flex justify-center py-8">
                       <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
                     </div>
@@ -308,9 +295,9 @@ function MessagesContent() {
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder="Type a message..."
-                    disabled={sending}
+                    disabled={sending || !selectedConversationId}
                   />
-                  <Button type="submit" size="icon" disabled={sending || !newMessage.trim()}>
+                  <Button type="submit" size="icon" disabled={sending || !newMessage.trim() || !selectedConversationId}>
                     <Send className="h-4 w-4" />
                   </Button>
                 </form>
@@ -318,7 +305,7 @@ function MessagesContent() {
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
                 <MessageSquare className="h-10 w-10 text-muted-foreground" />
-                <p className="text-muted-foreground">Select a conversation to start chatting</p>
+                <p className="text-muted-foreground">Select a client to start chatting</p>
               </div>
             )}
           </div>

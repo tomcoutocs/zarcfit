@@ -78,6 +78,12 @@ BEGIN
     RETURN 'not_authenticated';
   END IF;
 
+  IF EXISTS (
+    SELECT 1 FROM user_roles WHERE user_id = v_client_id AND role = 'trainer'
+  ) THEN
+    RETURN 'is_trainer';
+  END IF;
+
   SELECT * INTO v_invitation
   FROM client_invitations
   WHERE token = p_token

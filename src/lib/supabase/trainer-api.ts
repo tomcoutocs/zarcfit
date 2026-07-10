@@ -87,7 +87,16 @@ export type AcceptInvitationResult =
   | 'invalid_status'
   | 'expired'
   | 'email_mismatch'
+  | 'is_trainer'
   | 'error';
+
+export type CreateInvitationResult =
+  | { status: 'success'; invitation: ClientInvitation }
+  | { status: 'is_trainer' }
+  | { status: 'invalid_email' }
+  | { status: 'not_a_trainer' }
+  | { status: 'not_authenticated' }
+  | { status: 'error' };
 
 export type TrainerSettings = {
   trainer_id: string;
@@ -413,20 +422,42 @@ export const clientManagementApi = {
 // ============================================
 
 export const invitationApi = {
-  // Create a new client invitation
-  createInvitation: async (invitation: Omit<ClientInvitation, 'id' | 'token' | 'created_at'>): Promise<ClientInvitation | null> => {
-    const { data, error } = await supabase
-      .from('client_invitations')
-      .insert([invitation])
-      .select()
-      .single();
+  // Create a new client invitation (RPC blocks trainer account emails)
+  createInvitation: async (
+    invitation: Omit<ClientInvitation, 'id' | 'token' | 'created_at'>
+  ): Promise<CreateInvitationResult> => {
+    const { data, error } = await supabase.rpc('create_client_invitation', {
+      p_email: invitation.email,
+      p_first_name: invitation.first_name ?? null,
+      p_last_name: invitation.last_name ?? null,
+      p_personal_message: invitation.personal_message ?? null,
+      p_expires_at: invitation.expires_at,
+    });
 
     if (error) {
       console.error('Error creating invitation:', error);
-      return null;
+      return { status: 'error' };
     }
 
-    return data;
+    const result = data as { status?: string; invitation?: ClientInvitation } | null;
+    if (!result?.status) {
+      return { status: 'error' };
+    }
+
+    if (result.status === 'success' && result.invitation) {
+      return { status: 'success', invitation: result.invitation };
+    }
+
+    if (
+      result.status === 'is_trainer' ||
+      result.status === 'invalid_email' ||
+      result.status === 'not_a_trainer' ||
+      result.status === 'not_authenticated'
+    ) {
+      return { status: result.status };
+    }
+
+    return { status: 'error' };
   },
 
   // Get all invitations for a trainer
@@ -593,36 +624,25 @@ export const clientNotesApi = {
 // ============================================
 
 export const messagingApi = {
-  // Get or create conversation
+  // Get or create a trainer-client conversation (RPC enforces roster rules)
   getOrCreateConversation: async (trainerId: string, clientId: string): Promise<Conversation | null> => {
-    // Try to get existing conversation
-    const { data: existing } = await supabase
-      .from('conversations')
-      .select('*')
-      .eq('trainer_id', trainerId)
-      .eq('client_id', clientId)
-      .single();
-
-    if (existing) {
-      return existing;
-    }
-
-    // Create new conversation
-    const { data, error } = await supabase
-      .from('conversations')
-      .insert([{
-        trainer_id: trainerId,
-        client_id: clientId
-      }])
-      .select()
-      .single();
+    const { data, error } = await supabase.rpc('get_or_create_conversation', {
+      p_trainer_id: trainerId,
+      p_client_id: clientId,
+    });
 
     if (error) {
-      console.error('Error creating conversation:', error);
+      console.error('Error getting or creating conversation:', error);
       return null;
     }
 
-    return data;
+    const result = data as { status?: string; conversation?: Conversation } | null;
+    if (result?.status === 'success' && result.conversation) {
+      return result.conversation;
+    }
+
+    console.error('Could not open conversation:', result?.status || 'unknown');
+    return null;
   },
 
   // Get all conversations for a trainer
@@ -729,6 +749,73 @@ export type ClientActivityItem = {
   summary: string;
   occurred_at: string;
   reference_id: string;
+};
+
+export type UserNotification = {
+  id: string;
+  type:
+    | 'workout_assigned'
+    | 'meal_plan'
+    | 'message'
+    | 'workout_logged'
+    | 'progress_logged'
+    | 'goal_updated'
+    | 'sleep_logged';
+  title: string;
+  body: string;
+  link_path?: string | null;
+  actor_id?: string | null;
+  reference_id?: string | null;
+  is_read: boolean;
+  created_at: string;
+};
+
+export const notificationsApi = {
+  getNotifications: async (limit = 20): Promise<UserNotification[]> => {
+    const { data, error } = await supabase.rpc('get_user_notifications', { p_limit: limit });
+
+    if (error) {
+      console.error('Error fetching notifications:', error);
+      return [];
+    }
+
+    return (data as UserNotification[]) || [];
+  },
+
+  getUnreadCount: async (): Promise<number> => {
+    const { data, error } = await supabase.rpc('get_unread_notification_count');
+
+    if (error) {
+      console.error('Error fetching unread notification count:', error);
+      return 0;
+    }
+
+    return Number(data ?? 0);
+  },
+
+  markRead: async (notificationId: string): Promise<boolean> => {
+    const { data, error } = await supabase.rpc('mark_notification_read', {
+      p_notification_id: notificationId,
+    });
+
+    if (error) {
+      console.error('Error marking notification read:', error);
+      return false;
+    }
+
+    return Boolean(data);
+  },
+
+  markAllRead: async (): Promise<number> => {
+    const { data, error } = await supabase.rpc('mark_all_notifications_read');
+
+    if (error) {
+      console.error('Error marking all notifications read:', error);
+      return 0;
+    }
+
+    return Number(data ?? 0);
+  },
 };
 
 export const trainerDashboardApi = {
