@@ -213,7 +213,7 @@ function ClientsContent() {
         </Alert>
       )}
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-3">
             <CardDescription>Total Clients</CardDescription>
@@ -225,14 +225,6 @@ function ClientsContent() {
             <CardDescription>Active Clients</CardDescription>
             <CardTitle className="text-3xl">
               {clients.filter((c) => c.status === 'active').length}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>Pending Connection Requests</CardDescription>
-            <CardTitle className="text-3xl">
-              {clients.filter((c) => c.status === 'pending').length}
             </CardTitle>
           </CardHeader>
         </Card>

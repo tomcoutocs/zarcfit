@@ -11,7 +11,7 @@ import Link from 'next/link';
 import ConnectionReset from '@/components/ConnectionReset';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
 import { clientManagementApi, TrainerWithProfile } from '@/lib/supabase/trainer-api';
-import { Check, X, MessageSquare, UserRound } from 'lucide-react';
+import { MessageSquare, UserRound } from 'lucide-react';
 
 function trainerDisplayName(trainer: TrainerWithProfile) {
   return trainer.trainer_business_name || trainer.trainer_name || 'Your trainer';
@@ -50,7 +50,7 @@ function MyTrainerCard({ userId }: { userId: string }) {
             Your Trainer
           </CardTitle>
           <CardDescription>
-            Once you accept a trainer invitation, they&apos;ll appear here.
+            Your trainer will appear here once you join through their invitation link.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -109,113 +109,10 @@ function MyTrainerCard({ userId }: { userId: string }) {
   );
 }
 
-function TrainerRequestsCard({
-  userId,
-  onUpdated,
-}: {
-  userId: string;
-  onUpdated?: () => void;
-}) {
-  const [requests, setRequests] = useState<TrainerWithProfile[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [respondingId, setRespondingId] = useState<string | null>(null);
-  const [respondError, setRespondError] = useState('');
-
-  const loadRequests = useCallback(async () => {
-    const trainers = await clientManagementApi.getMyTrainers(userId);
-    setRequests(trainers.filter((t) => t.status === 'pending'));
-    setLoading(false);
-  }, [userId]);
-
-  useEffect(() => {
-    loadRequests();
-  }, [loadRequests]);
-
-  const handleRespond = async (trainerId: string, accept: boolean) => {
-    setRespondingId(trainerId);
-    setRespondError('');
-
-    try {
-      const result = await clientManagementApi.respondToTrainerRequest(trainerId, accept);
-
-      if (result === 'accepted' || result === 'declined') {
-        setRequests((prev) => prev.filter((r) => r.trainer_id !== trainerId));
-        if (result === 'accepted') onUpdated?.();
-      } else {
-        setRespondError('Could not respond to this request. Please try again.');
-      }
-    } finally {
-      setRespondingId(null);
-    }
-  };
-
-  if (loading || requests.length === 0) return null;
-
-  return (
-    <Card className="border-primary/30">
-      <CardHeader>
-        <CardTitle>Trainer Requests</CardTitle>
-        <CardDescription>
-          {requests.length === 1
-            ? 'A trainer would like to connect with you'
-            : `${requests.length} trainers would like to connect with you`}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {respondError && (
-          <Alert variant="destructive">
-            <AlertDescription>{respondError}</AlertDescription>
-          </Alert>
-        )}
-        {requests.map((request) => {
-          const name = request.trainer_business_name || request.trainer_name || 'A trainer';
-          const isResponding = respondingId === request.trainer_id;
-
-          return (
-            <div
-              key={request.id}
-              className="flex items-center justify-between p-3 rounded-lg border"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <Avatar>
-                  <AvatarFallback>{name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                  <p className="font-medium truncate">{name}</p>
-                  <p className="text-sm text-muted-foreground truncate">{request.trainer_email}</p>
-                </div>
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={isResponding}
-                  onClick={() => handleRespond(request.trainer_id, false)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={isResponding}
-                  onClick={() => handleRespond(request.trainer_id, true)}
-                >
-                  <Check className="h-4 w-4 mr-1" />
-                  Accept
-                </Button>
-              </div>
-            </div>
-          );
-        })}
-      </CardContent>
-    </Card>
-  );
-}
-
 export default function DashboardPage() {
   const { user } = useAuth();
   const dashboardData = useDashboard(user?.id);
   const [showConnectionReset, setShowConnectionReset] = useState(false);
-  const [trainerRefreshKey, setTrainerRefreshKey] = useState(0);
   
   // Extract warnings and errors from dashboardData
   const { warnings, errors } = useMemo(() => {
@@ -273,13 +170,7 @@ export default function DashboardPage() {
         description="Your fitness overview at a glance"
       />
 
-      {user?.id && (
-        <TrainerRequestsCard
-          userId={user.id}
-          onUpdated={() => setTrainerRefreshKey((key) => key + 1)}
-        />
-      )}
-      {user?.id && <MyTrainerCard key={trainerRefreshKey} userId={user.id} />}
+      {user?.id && <MyTrainerCard userId={user.id} />}
 
       {/* Display the connection troubleshooter if needed */}
       {showConnectionReset && (

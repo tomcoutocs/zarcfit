@@ -141,63 +141,11 @@ export type ClientWithProfile = TrainerClient & {
   };
 };
 
-type TrainerClientQueryRow = TrainerClient & {
-  client?: {
-    id: string;
-    email?: string;
-    user_profiles?: {
-      first_name?: string;
-      last_name?: string;
-      avatar_url?: string;
-    };
-  };
-};
-
 export type TrainerWithProfile = TrainerClient & {
   trainer_email: string;
   trainer_name: string;
   trainer_business_name?: string;
   trainer_avatar_url?: string;
-};
-
-// Shape returned by the search_potential_clients RPC (see client-search.sql).
-export type PotentialClient = {
-  client_id: string;
-  email: string;
-  first_name?: string;
-  last_name?: string;
-  avatar_url?: string;
-  relationship_status: 'pending' | 'active' | 'paused' | 'terminated' | null;
-};
-
-export type SendConnectionRequestResult =
-  | 'sent'
-  | 'already_pending'
-  | 'already_active'
-  | 'invalid_client'
-  | 'not_a_trainer'
-  | 'error';
-
-export type RespondToTrainerRequestResult =
-  | 'accepted'
-  | 'declined'
-  | 'not_found'
-  | 'invalid_status'
-  | 'error';
-
-type ClientTrainerQueryRow = TrainerClient & {
-  trainer?: {
-    id: string;
-    email?: string;
-    user_profiles?: {
-      first_name?: string;
-      last_name?: string;
-    };
-    trainer_profiles?: {
-      business_name?: string;
-      avatar_url?: string;
-    };
-  };
 };
 
 // ============================================
@@ -294,79 +242,91 @@ export const trainerSettingsApi = {
 // ============================================
 
 export const clientManagementApi = {
-  // Get all clients for a trainer
+  // Get all clients for a trainer (via RPC — cannot embed auth.users in browser queries)
   getClients: async (trainerId: string): Promise<ClientWithProfile[]> => {
-    const { data, error } = await supabase
-      .from('trainer_clients')
-      .select(`
-        *,
-        client:client_id (
-          id,
-          email,
-          user_profiles (
-            first_name,
-            last_name,
-            avatar_url
-          )
-        )
-      `)
-      .eq('trainer_id', trainerId)
-      .in('status', ['active', 'pending'])
-      .order('accepted_at', { ascending: false, nullsFirst: false });
+    const { data, error } = await supabase.rpc('get_trainer_clients', {
+      trainer_uuid: trainerId,
+    });
 
     if (error) {
       console.error('Error fetching clients:', error);
       return [];
     }
 
-    // Transform the data to a flatter structure
-    return (data || []).map((item: TrainerClientQueryRow) => ({
-      ...item,
-      client_email: item.client?.email || '',
-      client_name: item.client?.user_profiles?.first_name && item.client?.user_profiles?.last_name
-        ? `${item.client.user_profiles.first_name} ${item.client.user_profiles.last_name}`
-        : item.client?.email || 'Unknown',
-      client_profile: item.client?.user_profiles
+    type TrainerClientRow = {
+      relationship_id: string;
+      trainer_id: string;
+      client_id: string;
+      status: TrainerClient['status'];
+      invited_at: string;
+      accepted_at?: string;
+      terminated_at?: string;
+      notes?: string;
+      client_email: string;
+      client_name: string;
+      first_name?: string;
+      last_name?: string;
+      avatar_url?: string;
+    };
+
+    return ((data as TrainerClientRow[]) || []).map((row) => ({
+      id: row.relationship_id,
+      trainer_id: row.trainer_id,
+      client_id: row.client_id,
+      status: row.status,
+      invited_at: row.invited_at,
+      accepted_at: row.accepted_at,
+      terminated_at: row.terminated_at,
+      notes: row.notes,
+      client_email: row.client_email,
+      client_name: row.client_name,
+      client_profile: {
+        first_name: row.first_name,
+        last_name: row.last_name,
+        avatar_url: row.avatar_url,
+      },
     }));
   },
 
-  // Get all trainers for a client (the symmetric counterpart to getClients,
-  // used by the client-facing messages page to know who they can chat with)
+  // Get all trainers for a client (via RPC — cannot embed auth.users in browser queries)
   getMyTrainers: async (clientId: string): Promise<TrainerWithProfile[]> => {
-    const { data, error } = await supabase
-      .from('trainer_clients')
-      .select(`
-        *,
-        trainer:trainer_id (
-          id,
-          email,
-          user_profiles (
-            first_name,
-            last_name
-          ),
-          trainer_profiles (
-            business_name,
-            avatar_url
-          )
-        )
-      `)
-      .eq('client_id', clientId)
-      .in('status', ['active', 'pending'])
-      .order('accepted_at', { ascending: false, nullsFirst: false });
+    const { data, error } = await supabase.rpc('get_client_trainers', {
+      client_uuid: clientId,
+    });
 
     if (error) {
       console.error('Error fetching trainers:', error);
       return [];
     }
 
-    return (data || []).map((item: ClientTrainerQueryRow) => ({
-      ...item,
-      trainer_email: item.trainer?.email || '',
-      trainer_name: item.trainer?.user_profiles?.first_name && item.trainer?.user_profiles?.last_name
-        ? `${item.trainer.user_profiles.first_name} ${item.trainer.user_profiles.last_name}`
-        : item.trainer?.email || 'Trainer',
-      trainer_business_name: item.trainer?.trainer_profiles?.business_name,
-      trainer_avatar_url: item.trainer?.trainer_profiles?.avatar_url,
+    type ClientTrainerRow = {
+      relationship_id: string;
+      trainer_id: string;
+      client_id: string;
+      status: TrainerClient['status'];
+      invited_at: string;
+      accepted_at?: string;
+      terminated_at?: string;
+      notes?: string;
+      trainer_email: string;
+      trainer_name: string;
+      trainer_business_name?: string;
+      trainer_avatar_url?: string;
+    };
+
+    return ((data as ClientTrainerRow[]) || []).map((row) => ({
+      id: row.relationship_id,
+      trainer_id: row.trainer_id,
+      client_id: row.client_id,
+      status: row.status,
+      invited_at: row.invited_at,
+      accepted_at: row.accepted_at,
+      terminated_at: row.terminated_at,
+      notes: row.notes,
+      trainer_email: row.trainer_email,
+      trainer_name: row.trainer_name,
+      trainer_business_name: row.trainer_business_name,
+      trainer_avatar_url: row.trainer_avatar_url,
     }));
   },
 
@@ -445,55 +405,6 @@ export const clientManagementApi = {
     }
 
     return data;
-  },
-
-  // Search for existing client accounts by name/email (see
-  // client-search.sql). Used by the "Invite Client" page's "Find Existing
-  // Client" tab, as an alternative to sending an email invitation to
-  // someone who hasn't signed up yet.
-  searchPotentialClients: async (search: string): Promise<PotentialClient[]> => {
-    const { data, error } = await supabase.rpc('search_potential_clients', { p_search: search });
-
-    if (error) {
-      console.error('Error searching for clients:', error);
-      return [];
-    }
-
-    return (data as PotentialClient[]) || [];
-  },
-
-  // Send a direct connection request to an existing client account. Creates
-  // a 'pending' trainer_clients row that the client must accept via
-  // respondToTrainerRequest before the trainer gets full access.
-  sendConnectionRequest: async (clientId: string): Promise<SendConnectionRequestResult> => {
-    const { data, error } = await supabase.rpc('send_client_connection_request', {
-      p_client_id: clientId,
-    });
-
-    if (error) {
-      console.error('Error sending connection request:', error);
-      return 'error';
-    }
-
-    return (data as SendConnectionRequestResult) || 'error';
-  },
-
-  // Accept or decline a pending direct connection request as the client.
-  respondToTrainerRequest: async (
-    trainerId: string,
-    accept: boolean
-  ): Promise<RespondToTrainerRequestResult> => {
-    const { data, error } = await supabase.rpc('respond_to_trainer_request', {
-      p_trainer_id: trainerId,
-      p_accept: accept,
-    });
-
-    if (error) {
-      console.error('Error responding to trainer request:', error);
-      return 'error';
-    }
-
-    return (data as RespondToTrainerRequestResult) || 'error';
   },
 };
 
