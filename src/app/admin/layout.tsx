@@ -5,12 +5,13 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
-import { 
-  FileText, 
-  Users, 
-  Settings, 
+import AnimatedPage from '@/components/layout/AnimatedPage';
+import {
+  FileText,
+  Users,
+  Settings,
   LogOut,
-  Home
+  Home,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -111,8 +112,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        <main className="flex-1 overflow-auto p-6 bg-muted/30">
-          {children}
+        <main className="flex-1 overflow-auto bg-muted/30 p-6">
+          <AnimatedPage>{children}</AnimatedPage>
         </main>
       </div>
     </div>

@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import AnimatedPage from '@/components/layout/AnimatedPage';
 import {
   LayoutDashboard,
   Users,
@@ -141,7 +142,7 @@ export default function TrainerLayout({
       {/* Main Content */}
       <main className="lg:pl-64">
         <div className="container mx-auto p-6 lg:p-8">
-          {children}
+          <AnimatedPage>{children}</AnimatedPage>
         </div>
       </main>
     </div>

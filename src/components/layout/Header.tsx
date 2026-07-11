@@ -27,13 +27,13 @@ export default function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur-sm">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link href="/" className="group flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 ring-1 ring-primary/25 transition-colors group-hover:bg-primary/25">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted transition-colors group-hover:bg-muted/80">
             <Dumbbell className="h-5 w-5 text-primary" />
           </div>
-          <span className="text-lg font-bold tracking-tight">ZarcFit</span>
+          <span className="text-lg font-semibold tracking-tight">ZarcFit</span>
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
@@ -44,7 +44,7 @@ export default function Header() {
               className={cn(
                 'rounded-lg px-3 py-2 text-sm transition-colors hover:bg-muted/60 hover:text-foreground',
                 pathname === link.href
-                  ? 'bg-primary/10 font-medium text-primary'
+                  ? 'bg-muted font-medium text-foreground'
                   : 'text-muted-foreground'
               )}
             >
@@ -82,7 +82,7 @@ export default function Header() {
               <Button variant="ghost" onClick={() => router.push('/auth/login')}>
                 Sign in
               </Button>
-              <Button className="glow-primary font-semibold" onClick={() => router.push('/auth/signup')}>
+              <Button className="font-medium" onClick={() => router.push('/auth/signup')}>
                 Become a trainer
               </Button>
             </>
@@ -108,7 +108,7 @@ export default function Header() {
                 href={link.href}
                 className={cn(
                   'rounded-lg px-3 py-2.5 text-sm',
-                  pathname === link.href ? 'bg-primary/10 font-medium text-primary' : 'hover:bg-muted/60'
+                  pathname === link.href ? 'bg-muted font-medium text-foreground' : 'hover:bg-muted/60'
                 )}
                 onClick={() => setIsOpen(false)}
               >
@@ -131,7 +131,7 @@ export default function Header() {
                   <Button variant="outline" className="w-full" onClick={() => { setIsOpen(false); router.push('/auth/login'); }}>
                     Sign in
                   </Button>
-                  <Button className="glow-primary w-full font-semibold" onClick={() => { setIsOpen(false); router.push('/auth/signup'); }}>
+                  <Button className="w-full font-medium" onClick={() => { setIsOpen(false); router.push('/auth/signup'); }}>
                     Become a trainer
                   </Button>
                 </>

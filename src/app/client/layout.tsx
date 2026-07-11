@@ -8,6 +8,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/context/auth-context';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import AnimatedPage from '@/components/layout/AnimatedPage';
 
 interface NavItemProps {
   href: string;
@@ -167,7 +168,7 @@ export default function ClientLayout({
           </div>
 
           <main className="flex-1 overflow-auto bg-muted/20 p-4 md:p-6 lg:p-8">
-            {children}
+            <AnimatedPage>{children}</AnimatedPage>
           </main>
         </div>
       </div>

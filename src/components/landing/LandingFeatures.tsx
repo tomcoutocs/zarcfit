@@ -2,6 +2,9 @@
 
 import { Activity, BarChart3, Brain, Dumbbell, Moon, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import AnimatedContent from '@/components/AnimatedContent';
+import SpotlightCard from '@/components/SpotlightCard';
+import SplitText from '@/components/SplitText';
 
 const FEATURES = [
   {
@@ -42,35 +45,52 @@ const FEATURES = [
   },
 ];
 
+const SPOTLIGHT = 'rgba(72, 120, 150, 0.12)';
+
 export default function LandingFeatures() {
   return (
-    <section className="relative border-t border-border/40 py-20 md:py-28">
+    <section className="relative py-20 md:py-28">
       <div className="container mx-auto px-4">
         <div className="mx-auto mb-14 max-w-2xl text-center">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-primary">Why ZarcFit</p>
-          <h2 className="mb-4 text-3xl font-bold tracking-tight md:text-4xl">
-            Everything you need to reach your goals
-          </h2>
-          <p className="text-muted-foreground">
-            Science-backed programming, modern tracking tools, and coaching that adapts to you.
-          </p>
+          <AnimatedContent distance={40} duration={0.7}>
+            <p className="section-label mb-3">Why ZarcFit</p>
+          </AnimatedContent>
+          <SplitText
+            text="Everything you need to reach your goals"
+            tag="h2"
+            className="mb-4 block text-3xl font-semibold tracking-tight md:text-4xl"
+            splitType="words"
+            delay={60}
+            duration={0.9}
+            textAlign="center"
+          />
+          <AnimatedContent distance={30} delay={0.1} duration={0.7}>
+            <p className="text-muted-foreground">
+              Science-backed programming, modern tracking tools, and coaching that adapts to you.
+            </p>
+          </AnimatedContent>
         </div>
 
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-4 md:grid-cols-3">
-          {FEATURES.map(({ icon: Icon, title, description, className }) => (
-            <div
+          {FEATURES.map(({ icon: Icon, title, description, className }, index) => (
+            <AnimatedContent
               key={title}
-              className={cn(
-                'glass-card group rounded-2xl p-6 transition-all duration-300 hover:border-primary/25 hover:shadow-[0_0_28px_-6px_var(--accent-glow)]',
-                className
-              )}
+              distance={60}
+              delay={index * 0.06}
+              duration={0.75}
+              className={cn(className)}
             >
-              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15 ring-1 ring-primary/20 transition-colors group-hover:bg-primary/25">
-                <Icon className="h-5 w-5 text-primary" />
-              </div>
-              <h3 className="mb-2 font-semibold">{title}</h3>
-              <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
-            </div>
+              <SpotlightCard
+                spotlightColor={SPOTLIGHT}
+                className="!h-full !rounded-xl !border-border !bg-card !p-6 transition-colors hover:!border-primary/30"
+              >
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                  <Icon className="h-5 w-5 text-primary" />
+                </div>
+                <h3 className="mb-2 text-base font-medium">{title}</h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+              </SpotlightCard>
+            </AnimatedContent>
           ))}
         </div>
       </div>

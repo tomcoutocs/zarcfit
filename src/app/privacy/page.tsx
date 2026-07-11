@@ -2,6 +2,7 @@ import React from 'react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import PageHero from '@/components/layout/PageHero';
+import AnimatedPage from '@/components/layout/AnimatedPage';
 
 export const metadata = {
   title: 'Privacy Policy | ZarcFit',
@@ -18,6 +19,7 @@ export default function PrivacyPage() {
           subtitle="How we collect, use, and protect your information"
           size="compact"
         />
+        <AnimatedPage>
         <div className="container mx-auto max-w-3xl px-4 py-12">
           <div className="space-y-8 text-muted-foreground">
             <p className="text-sm">Last updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
@@ -89,6 +91,7 @@ export default function PrivacyPage() {
             </section>
           </div>
         </div>
+        </AnimatedPage>
       </main>
       <Footer />
     </div>

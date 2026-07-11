@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { completeAuthFromUrl } from '@/lib/supabase/auth-callback';
 import { homeForRole, type AppUserRole } from '@/lib/auth-routes';
+import AnimatedPage from '@/components/layout/AnimatedPage';
 
 function AuthCallbackContent() {
   const [message, setMessage] = useState('Processing your sign-in...');
@@ -82,7 +83,8 @@ function AuthCallbackContent() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="glass-card w-full max-w-md border-border/60">
+      <AnimatedPage className="w-full max-w-md">
+      <Card className="glass-card w-full border-border/60">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold">Authentication</CardTitle>
           <CardDescription>
@@ -105,6 +107,7 @@ function AuthCallbackContent() {
           )}
         </CardContent>
       </Card>
+      </AnimatedPage>
     </div>
   );
 }

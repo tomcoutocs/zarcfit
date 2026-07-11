@@ -1,45 +1,14 @@
 'use client';
 
-import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, ChevronRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/context/auth-context';
-
-const PROGRAMS = [
-  {
-    image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=500&fit=crop',
-    category: 'BEGINNER',
-    title: 'Foundation strength',
-    href: '/main/programs',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400&h=500&fit=crop',
-    category: 'INTERMEDIATE',
-    title: 'Core stability flow',
-    href: '/main/programs',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=400&h=500&fit=crop',
-    category: 'ADVANCED',
-    title: 'Performance sprint',
-    href: '/main/programs',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400&h=500&fit=crop',
-    category: 'ALL LEVELS',
-    title: 'Full-body bootcamp',
-    href: '/main/programs',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400&h=500&fit=crop',
-    category: 'RECOVERY',
-    title: 'Mobility & recovery',
-    href: '/main/programs',
-  },
-];
+import Aurora from '@/components/Aurora';
+import SplitText from '@/components/SplitText';
+import AnimatedContent from '@/components/AnimatedContent';
+import CountUp from '@/components/CountUp';
 
 const SOCIAL_AVATARS = [
   'https://i.pravatar.cc/150?img=12',
@@ -57,111 +26,99 @@ export default function ZarcFitHero() {
     : { label: 'Become a trainer', href: '/auth/signup' };
 
   return (
-    <section className="relative overflow-hidden pb-8 pt-8 md:pt-12">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="animate-float absolute -left-32 top-20 h-96 w-96 rounded-full bg-primary/20 blur-[100px]" />
-        <div className="animate-float-delayed absolute -right-24 top-40 h-80 w-80 rounded-full bg-emerald-500/10 blur-[90px]" />
-        <div className="animate-float absolute bottom-32 left-1/3 h-72 w-72 rounded-full bg-teal-400/10 blur-[80px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_var(--background)_72%)]" />
-        <div className="absolute inset-0 gradient-mesh opacity-60" />
+    <section className="relative flex min-h-[calc(100svh-4rem)] flex-col justify-center overflow-hidden py-12 pb-20 md:py-16 md:pb-28 lg:py-20 lg:pb-32">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 opacity-30">
+          <Aurora
+            colorStops={['#1a1f26', '#3d5566', '#1e2428']}
+            amplitude={0.85}
+            blend={0.55}
+            speed={0.5}
+          />
+        </div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_var(--background)_92%)]" />
+        <div className="absolute inset-0 gradient-mesh opacity-35" />
       </div>
 
-      <div className="container relative z-10 mx-auto px-4">
-        <div className="mx-auto max-w-4xl text-center">
-          <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+      <div className="container relative z-10 mx-auto flex flex-1 flex-col justify-center px-4 py-6">
+        <div className="mx-auto w-full max-w-4xl text-center">
+          <AnimatedContent distance={40} duration={0.6}>
+            <span className="mb-8 inline-flex items-center gap-2 rounded-full border border-border bg-muted/50 px-4 py-1.5 text-sm font-medium text-muted-foreground">
+              <span className="relative flex h-2 w-2">
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+              </span>
+              CSCS-certified coaching
             </span>
-            CSCS-certified coaching
-          </span>
+          </AnimatedContent>
 
-          <h1 className="text-gradient mb-6 text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
-            Train smarter.
-            <br />
-            <span className="text-foreground/90">Anywhere. Anytime.</span>
-          </h1>
+          <SplitText
+            text="Train smarter."
+            tag="h1"
+            className="mb-2 block text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl lg:text-7xl"
+            splitType="words"
+            delay={80}
+            duration={1}
+            textAlign="center"
+          />
 
+          <SplitText
+            text="Anywhere. Anytime."
+            tag="h1"
+            className="mb-6 block text-4xl font-semibold leading-[1.1] tracking-tight text-muted-foreground sm:text-5xl md:text-6xl lg:text-7xl"
+            splitType="words"
+            delay={100}
+            duration={1}
+            textAlign="center"
+          />
+
+          <AnimatedContent distance={50} delay={0.15} duration={0.7}>
           <p className="mx-auto mb-10 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
-            Guided fitness programs tailored to your goals — strength, endurance, or recovery.
-            Structured coaching, real progress tracking, and a community that keeps you accountable.
+            The coaching platform for trainers — build programs, manage clients, track progress,
+            and grow your business with plans that scale as your roster does.
           </p>
+          </AnimatedContent>
 
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Button
-              size="lg"
-              className="glow-primary h-12 gap-2 px-8 text-base font-semibold"
-              onClick={() => router.push(primaryCta.href)}
-            >
-              {primaryCta.label}
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="h-12 border-border/60 bg-card/40 px-8 text-base backdrop-blur-sm"
-              onClick={() => router.push('/main/programs')}
-            >
-              Browse programs
-            </Button>
-          </div>
-
-          <p className="mt-4 text-xs text-muted-foreground">*Free to explore — no credit card required</p>
-
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-            <div className="flex -space-x-3">
-              {SOCIAL_AVATARS.map((src) => (
-                <Avatar key={src} className="h-9 w-9 border-2 border-background">
-                  <AvatarImage src={src} alt="" />
-                  <AvatarFallback>U</AvatarFallback>
-                </Avatar>
-              ))}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Join <span className="font-medium text-foreground">500+</span> members training with ZarcFit
-            </p>
-          </div>
-        </div>
-
-        <div className="relative mt-16 md:mt-20">
-          <div className="mb-6 flex items-end justify-between gap-4 px-1">
-            <div className="text-left">
-              <p className="text-xs font-semibold uppercase tracking-widest text-primary">Featured programs</p>
-              <h2 className="mt-1 text-xl font-bold md:text-2xl">Pick your next challenge</h2>
-            </div>
-            <Link
-              href="/main/programs"
-              className="hidden items-center gap-1 text-sm font-medium text-primary hover:underline sm:flex"
-            >
-              View all
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          </div>
-
-          <div className="flex gap-4 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {PROGRAMS.map((program) => (
-              <Link
-                key={program.title}
-                href={program.href}
-                className="group relative w-[220px] shrink-0 overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm transition-all hover:border-primary/30 hover:shadow-[0_0_30px_-8px_var(--accent-glow)] sm:w-[260px]"
+          <AnimatedContent distance={40} delay={0.25} duration={0.7}>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Button
+                size="lg"
+                className="h-12 gap-2 px-8 text-base font-medium"
+                onClick={() => router.push(primaryCta.href)}
               >
-                <div className="relative aspect-[4/5] w-full overflow-hidden">
-                  <Image
-                    src={program.image}
-                    alt={program.title}
-                    fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    sizes="260px"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-4">
-                    <span className="text-[10px] font-bold tracking-widest text-primary">{program.category}</span>
-                    <p className="mt-1 text-sm font-semibold leading-snug text-foreground">{program.title}</p>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+                {primaryCta.label}
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="h-12 border-border/60 bg-card/40 px-8 text-base backdrop-blur-sm"
+                onClick={() => router.push('/main/plans')}
+              >
+                Browse plans
+              </Button>
+            </div>
+            <p className="mt-4 text-xs text-muted-foreground">*Free to explore — no credit card required</p>
+          </AnimatedContent>
+
+          <AnimatedContent distance={30} delay={0.35} duration={0.7}>
+            <div className="mt-12 flex flex-wrap items-center justify-center gap-3 pb-4 md:mt-14 md:pb-6">
+              <div className="flex -space-x-3">
+                {SOCIAL_AVATARS.map((src) => (
+                  <Avatar key={src} className="h-9 w-9 border-2 border-background">
+                    <AvatarImage src={src} alt="" />
+                    <AvatarFallback>U</AvatarFallback>
+                  </Avatar>
+                ))}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Join{' '}
+                <span className="font-medium text-foreground">
+                  <CountUp to={500} duration={2.5} className="inline" />+
+                </span>{' '}
+                members training with ZarcFit
+              </p>
+            </div>
+          </AnimatedContent>
         </div>
       </div>
     </section>

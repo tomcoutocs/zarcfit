@@ -1,27 +1,39 @@
+'use client';
+
 import React from 'react';
-import { cn } from '@/lib/utils';
 import { LucideIcon } from 'lucide-react';
+import AnimatedContent from '@/components/AnimatedContent';
+import SpotlightCard from '@/components/SpotlightCard';
 
 interface FeatureCardProps {
   icon: LucideIcon;
   title: string;
   description: string;
   className?: string;
+  delay?: number;
 }
 
-export default function FeatureCard({ icon: Icon, title, description, className }: FeatureCardProps) {
+const SPOTLIGHT = 'rgba(72, 120, 150, 0.12)';
+
+export default function FeatureCard({
+  icon: Icon,
+  title,
+  description,
+  className,
+  delay = 0,
+}: FeatureCardProps) {
   return (
-    <div
-      className={cn(
-        'glass-card group rounded-2xl p-6 transition-all duration-300 hover:border-primary/30 hover:shadow-[0_0_30px_-5px_var(--accent-glow)]',
-        className
-      )}
-    >
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15 ring-1 ring-primary/20 transition-colors group-hover:bg-primary/25">
-        <Icon className="h-6 w-6 text-primary" />
-      </div>
-      <h3 className="mb-2 text-lg font-semibold">{title}</h3>
-      <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
-    </div>
+    <AnimatedContent distance={40} delay={delay} duration={0.6} className={className}>
+      <SpotlightCard
+        spotlightColor={SPOTLIGHT}
+        className="!h-full !rounded-xl !border-border !bg-card !p-6 transition-colors hover:!border-primary/30"
+      >
+        <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+          <Icon className="h-5 w-5 text-primary" />
+        </div>
+        <h3 className="mb-2 text-base font-medium">{title}</h3>
+        <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+      </SpotlightCard>
+    </AnimatedContent>
   );
 }
