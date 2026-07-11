@@ -997,6 +997,22 @@ export const nutritionPlansApi = {
     return data || [];
   },
 
+  // Get a single nutrition plan by id
+  getPlan: async (planId: string): Promise<NutritionPlan | null> => {
+    const { data, error } = await supabase
+      .from('nutrition_plans')
+      .select('*')
+      .eq('id', planId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching nutrition plan:', error);
+      return null;
+    }
+
+    return data;
+  },
+
   // Get a user's active nutrition plan
   getActiveNutritionPlan: async (userId: string): Promise<NutritionPlan | null> => {
     const { data, error } = await supabase
@@ -1068,6 +1084,71 @@ export const nutritionPlansApi = {
 // day of week), but the UI only ever thinks in terms of "log a meal for
 // Tuesday" — these helpers hide that indirection.
 export const mealsApi = {
+  getMealPlansForNutritionPlan: async (nutritionPlanId: string): Promise<MealPlan[]> => {
+    const { data, error } = await supabase
+      .from('meal_plans')
+      .select('*')
+      .eq('nutrition_plan_id', nutritionPlanId)
+      .order('day_of_week', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching meal plans:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  updateMealPlan: async (mealPlan: MealPlan): Promise<MealPlan | null> => {
+    const { id, ...mealPlanData } = mealPlan;
+
+    const { data, error } = await supabase
+      .from('meal_plans')
+      .update({ ...mealPlanData, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating meal plan:', error);
+      return null;
+    }
+
+    return data;
+  },
+
+  ensureDayPlan: async (
+    nutritionPlanId: string,
+    dayOfWeek: number,
+    name?: string
+  ): Promise<string | null> => {
+    const { data: existingPlan } = await supabase
+      .from('meal_plans')
+      .select('id')
+      .eq('nutrition_plan_id', nutritionPlanId)
+      .eq('day_of_week', dayOfWeek)
+      .maybeSingle();
+
+    if (existingPlan?.id) return existingPlan.id;
+
+    const { data: createdPlan, error: createPlanError } = await supabase
+      .from('meal_plans')
+      .insert([{
+        nutrition_plan_id: nutritionPlanId,
+        day_of_week: dayOfWeek,
+        name: name || `Day ${dayOfWeek}`,
+      }])
+      .select('id')
+      .single();
+
+    if (createPlanError || !createdPlan) {
+      console.error('Error creating meal plan for day:', createPlanError);
+      return null;
+    }
+
+    return createdPlan.id;
+  },
+
   // Get every meal across all of a nutrition plan's days, with the day of
   // week attached so the UI can group them.
   getMealsForNutritionPlan: async (nutritionPlanId: string): Promise<(Meal & { day_of_week: number; meal_plan_id: string })[]> => {
@@ -1110,33 +1191,8 @@ export const mealsApi = {
     dayOfWeek: number,
     meal: Omit<Meal, 'id' | 'meal_plan_id' | 'created_at'>
   ): Promise<Meal | null> => {
-    const { data: existingPlan } = await supabase
-      .from('meal_plans')
-      .select('id')
-      .eq('nutrition_plan_id', nutritionPlanId)
-      .eq('day_of_week', dayOfWeek)
-      .maybeSingle();
-
-    let mealPlanId = existingPlan?.id;
-
-    if (!mealPlanId) {
-      const { data: createdPlan, error: createPlanError } = await supabase
-        .from('meal_plans')
-        .insert([{
-          nutrition_plan_id: nutritionPlanId,
-          day_of_week: dayOfWeek,
-          name: `Day ${dayOfWeek}`,
-        }])
-        .select('id')
-        .single();
-
-      if (createPlanError || !createdPlan) {
-        console.error('Error creating meal plan for day:', createPlanError);
-        return null;
-      }
-
-      mealPlanId = createdPlan.id;
-    }
+    const mealPlanId = await mealsApi.ensureDayPlan(nutritionPlanId, dayOfWeek);
+    if (!mealPlanId) return null;
 
     const { data, error } = await supabase
       .from('meals')
