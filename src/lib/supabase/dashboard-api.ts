@@ -590,6 +590,22 @@ export const workoutSessionsApi = {
     }
     return true;
   },
+
+  updateExercise: async (exercise: WorkoutExercise): Promise<WorkoutExercise | null> => {
+    const { id, ...data } = exercise;
+    const { data: updated, error } = await supabase
+      .from('workout_exercises')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating workout exercise:', error);
+      return null;
+    }
+    return updated;
+  },
 };
 
 // Workout Logs API
