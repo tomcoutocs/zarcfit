@@ -160,10 +160,25 @@ BEGIN
     JOIN client_names cn ON cn.client_id = st.user_id
     WHERE st.user_id IN (SELECT client_id FROM active_clients)
   )
-  SELECT a.activity_type, a.client_id, a.client_name, a.summary, a.occurred_at, a.reference_id
-  FROM activities a
-  ORDER BY a.occurred_at DESC NULLS LAST
-  LIMIT GREATEST(1, LEAST(COALESCE(p_limit, 20), 50));
+  SELECT
+    result.activity_type,
+    result.client_id,
+    result.client_name,
+    result.summary,
+    result.occurred_at,
+    result.reference_id
+  FROM (
+    SELECT
+      a.activity_type,
+      a.client_id,
+      a.client_name,
+      a.summary,
+      a.occurred_at,
+      a.reference_id
+    FROM activities a
+    ORDER BY a.occurred_at DESC NULLS LAST
+    LIMIT GREATEST(1, LEAST(COALESCE(p_limit, 20), 50))
+  ) result;
 END;
 $$;
 

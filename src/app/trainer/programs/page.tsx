@@ -133,7 +133,6 @@ function ProgramsContent() {
     setError('');
 
     const payload: WorkoutProgram = {
-      id: editingTemplate?.id,
       user_id: user.id,
       name: form.name.trim(),
       description: form.description.trim() || undefined,
@@ -147,7 +146,7 @@ function ProgramsContent() {
     };
 
     const result = editingTemplate
-      ? await workoutProgramsApi.updateProgram(payload)
+      ? await workoutProgramsApi.updateProgram({ ...payload, id: editingTemplate.id })
       : await workoutProgramsApi.createProgram(payload);
 
     setSaving(false);

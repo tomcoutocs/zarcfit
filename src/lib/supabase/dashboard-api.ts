@@ -9,6 +9,12 @@ function throwMutationError(
   throw new Error(message);
 }
 
+function withoutId<T extends { id?: string }>(row: T): Omit<T, 'id'> {
+  const { id: _omit, ...rest } = row;
+  void _omit;
+  return rest;
+}
+
 // User Profile Types
 export type UserProfile = {
   id: string;
@@ -353,7 +359,7 @@ export const workoutProgramsApi = {
   createProgram: async (program: WorkoutProgram): Promise<WorkoutProgram | null> => {
     const { data, error } = await supabase
       .from('workout_programs')
-      .insert([program])
+      .insert([withoutId(program)])
       .select()
       .single();
 
@@ -493,7 +499,7 @@ export const workoutSessionsApi = {
   createSession: async (session: WorkoutSession): Promise<WorkoutSession | null> => {
     const { data, error } = await supabase
       .from('workout_sessions')
-      .insert([session])
+      .insert([withoutId(session)])
       .select()
       .single();
 
@@ -565,7 +571,7 @@ export const workoutSessionsApi = {
   addExercise: async (exercise: WorkoutExercise): Promise<WorkoutExercise | null> => {
     const { data, error } = await supabase
       .from('workout_exercises')
-      .insert([exercise])
+      .insert([withoutId(exercise)])
       .select()
       .single();
 
@@ -615,7 +621,7 @@ export const workoutLogsApi = {
   createLog: async (log: WorkoutLog): Promise<WorkoutLog | null> => {
     const { data, error } = await supabase
       .from('workout_logs')
-      .insert([log])
+      .insert([withoutId(log)])
       .select()
       .single();
 
@@ -703,7 +709,7 @@ export const exerciseLogsApi = {
   createLog: async (log: ExerciseLog): Promise<ExerciseLog | null> => {
     const { data, error } = await supabase
       .from('exercise_logs')
-      .insert([log])
+      .insert([withoutId(log)])
       .select()
       .single();
 
@@ -997,7 +1003,7 @@ export const nutritionPlansApi = {
   createNutritionPlan: async (plan: NutritionPlan): Promise<NutritionPlan | null> => {
     const { data, error } = await supabase
       .from('nutrition_plans')
-      .insert([plan])
+      .insert([withoutId(plan)])
       .select()
       .single();
 
