@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,10 +20,10 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
   const { signUp, signInWithProvider } = useAuth();
+  const router = useRouter();
 
   const validateForm = () => {
     if (!firstName.trim()) return 'First name is required';
@@ -48,10 +49,9 @@ export default function SignupPage() {
     
     setError('');
     setIsLoading(true);
-    setSuccess('');
 
     try {
-      const { error: signUpError } = await signUp(email, password, {
+      const { error: signUpError, resentConfirmation } = await signUp(email, password, {
         firstName,
         lastName,
       }, 'trainer');
@@ -67,14 +67,11 @@ export default function SignupPage() {
         
         setError(errorMessage);
       } else {
-        setFirstName('');
-        setLastName('');
-        setEmail('');
-        setPassword('');
-        setConfirmPassword('');
-        setAcceptTerms(false);
-        
-        setSuccess('Registration successful! Please check your email to verify your account.');
+        router.push(
+          `/auth/email-verification?email=${encodeURIComponent(email)}${
+            resentConfirmation ? '&resent=1' : ''
+          }`
+        );
       }
     } catch (err) {
       console.error('Unexpected error during signup:', err);
@@ -121,12 +118,6 @@ export default function SignupPage() {
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            
-            {success && (
-              <Alert>
-                <AlertDescription>{success}</AlertDescription>
               </Alert>
             )}
             

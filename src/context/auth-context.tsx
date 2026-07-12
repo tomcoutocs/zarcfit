@@ -30,7 +30,17 @@ interface AuthContextType {
   isClient: boolean;
   isAdmin: boolean;
   isLoading: boolean;
-  signUp: (email: string, password: string, metadata?: UserMetadata, role?: UserRole) => Promise<{ error: AuthError | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    metadata?: UserMetadata,
+    role?: UserRole
+  ) => Promise<{
+    error: AuthError | null;
+    resentConfirmation?: boolean;
+    alreadyConfirmed?: boolean;
+  }>;
+  resendSignupConfirmation: (email: string) => Promise<{ error: AuthError | null }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   forgotPassword: (email: string) => Promise<{ error: AuthError | null }>;
@@ -118,6 +128,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [supabase, fetchUserRole]);
 
+  const emailRedirectTo = `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/login?emailConfirmed=1`;
+
+  const resendSignupConfirmation = async (email: string) => {
+    if (configError) {
+      return { error: { message: configError, name: 'ConfigError', status: 500 } as AuthError };
+    }
+
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo },
+    });
+
+    return { error };
+  };
+
   const signUp = async (email: string, password: string, metadata?: UserMetadata, role: UserRole = 'trainer') => {
     if (configError) {
       return { error: { message: configError, name: 'ConfigError', status: 500 } as AuthError };
@@ -147,9 +173,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password,
         options: { 
           data: formattedMetadata,
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo,
         }
       });
+
+      if (error) {
+        return { error };
+      }
+
+      const isRepeatedSignup =
+        !!data.user && (!data.user.identities || data.user.identities.length === 0);
+
+      if (isRepeatedSignup) {
+        const isConfirmed = !!(data.user?.email_confirmed_at || data.user?.confirmed_at);
+
+        if (isConfirmed) {
+          return {
+            error: {
+              message: 'An account with this email already exists. Please sign in instead.',
+              name: 'AlreadyRegistered',
+              status: 400,
+            } as AuthError,
+            alreadyConfirmed: true,
+          };
+        }
+
+        const { error: resendError } = await resendSignupConfirmation(email);
+        if (resendError) {
+          return { error: resendError };
+        }
+
+        return { error: null, resentConfirmation: true };
+      }
       
       if (data?.user) {
         try {
@@ -291,6 +346,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAdmin: role === 'admin',
       isLoading,
       signUp,
+      resendSignupConfirmation,
       signIn,
       signOut,
       forgotPassword,

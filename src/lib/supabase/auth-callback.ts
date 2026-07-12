@@ -6,6 +6,25 @@ export type AuthCallbackResult = {
   handled: boolean;
 };
 
+/** True when the current URL contains Supabase auth callback parameters. */
+export function hasAuthCallbackParams(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const url = new URL(window.location.href);
+
+  if (url.searchParams.get('code')) return true;
+  if (url.searchParams.get('token_hash')) return true;
+  if (url.searchParams.get('token') && url.searchParams.get('email')) return true;
+
+  const hash = url.hash.startsWith('#') ? url.hash.slice(1) : url.hash;
+  if (!hash) return false;
+
+  const params = new URLSearchParams(hash);
+  return !!(params.get('access_token') && params.get('refresh_token'));
+}
+
 /**
  * Completes Supabase auth from the current browser URL after email confirm,
  * magic links, password reset, or OAuth redirects.

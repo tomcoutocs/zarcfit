@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,15 +8,54 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/auth-context';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
+import { completeAuthFromUrl, hasAuthCallbackParams } from '@/lib/supabase/auth-callback';
 import AuthShell from '@/components/layout/AuthShell';
 
-export default function LoginPage() {
+function LoginContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isConfirmingEmail, setIsConfirmingEmail] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
   const { signIn, signInWithProvider } = useAuth();
+
+  useEffect(() => {
+    const handleEmailConfirmation = async () => {
+      if (!hasAuthCallbackParams()) {
+        return;
+      }
+
+      setIsConfirmingEmail(true);
+
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { error: callbackError, handled } = await completeAuthFromUrl(supabase);
+
+        if (!handled) {
+          return;
+        }
+
+        if (callbackError) {
+          setError(callbackError);
+          return;
+        }
+
+        await supabase.auth.signOut({ scope: 'local' });
+        setSuccess('Your email has been verified. Please sign in with your password.');
+        window.history.replaceState({}, '', '/auth/login');
+      } catch (err) {
+        console.error('Email confirmation error:', err);
+        setError('We could not verify your email. The link may have expired.');
+      } finally {
+        setIsConfirmingEmail(false);
+      }
+    };
+
+    handleEmailConfirmation();
+  }, []);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,10 +95,18 @@ export default function LoginPage() {
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold">Sign in to ZarcFit</CardTitle>
           <CardDescription>
-            Enter your email and password to access your account
+            {isConfirmingEmail
+              ? 'Confirming your email...'
+              : 'Enter your email and password to access your account'}
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {isConfirmingEmail ? (
+            <div className="flex justify-center py-8">
+              <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
+            </div>
+          ) : (
+            <>
           <Alert className="mb-4">
             <AlertDescription>
               Clients need an invitation from their trainer to join ZarcFit. If you received an invite, use the link in your email to create your account.
@@ -67,6 +114,12 @@ export default function LoginPage() {
           </Alert>
 
           <form onSubmit={handleSignIn} className="space-y-4">
+            {success && (
+              <Alert>
+                <AlertDescription>{success}</AlertDescription>
+              </Alert>
+            )}
+
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
@@ -116,7 +169,10 @@ export default function LoginPage() {
               </Link>
             </p>
           </div>
+            </>
+          )}
         </CardContent>
+        {!isConfirmingEmail && (
         <CardFooter className="flex flex-col space-y-4">
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
@@ -145,7 +201,22 @@ export default function LoginPage() {
             </Button>
           </div>
         </CardFooter>
+        )}
       </Card>
     </AuthShell>
   );
-} 
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
+  );
+}

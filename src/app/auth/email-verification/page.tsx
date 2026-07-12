@@ -1,21 +1,35 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { CheckCircle, XCircle } from 'lucide-react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { completeAuthFromUrl } from '@/lib/supabase/auth-callback';
+import { useAuth } from '@/context/auth-context';
 import AuthShell from '@/components/layout/AuthShell';
 
 function EmailVerificationContent() {
   const [error, setError] = useState('');
+  const [resendMessage, setResendMessage] = useState('');
   const [isVerifying, setIsVerifying] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
   const [awaitingEmail, setAwaitingEmail] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { resendSignupConfirmation } = useAuth();
+  const emailFromQuery = searchParams.get('email') ?? '';
+  const [resendEmail, setResendEmail] = useState(emailFromQuery);
+  const wasResent = searchParams.get('resent') === '1';
+
+  useEffect(() => {
+    setResendEmail(emailFromQuery);
+  }, [emailFromQuery]);
 
   useEffect(() => {
     const verifyEmail = async () => {
@@ -55,7 +69,28 @@ function EmailVerificationContent() {
   }, []);
 
   const handleContinue = () => {
-    router.push(isVerified ? '/client' : '/auth/login');
+    router.push('/auth/login');
+  };
+
+  const handleResend = async () => {
+    if (!resendEmail.trim()) {
+      setError('Enter the email address you used to sign up.');
+      return;
+    }
+
+    setIsResending(true);
+    setError('');
+    setResendMessage('');
+
+    const { error: resendError } = await resendSignupConfirmation(resendEmail.trim());
+    setIsResending(false);
+
+    if (resendError) {
+      setError(resendError.message);
+      return;
+    }
+
+    setResendMessage('Confirmation email sent. Check your inbox and spam folder.');
   };
 
   return (
@@ -90,17 +125,51 @@ function EmailVerificationContent() {
             </Alert>
           )}
 
+          {resendMessage && (
+            <Alert className="mt-4 w-full">
+              <AlertDescription>{resendMessage}</AlertDescription>
+            </Alert>
+          )}
+
           {!isVerifying && (
             <div className="mt-6 w-full text-center">
               <p className="mb-4 text-sm text-muted-foreground">
                 {isVerified
-                  ? 'Thank you for verifying your email. You can now access your ZarcFit dashboard.'
+                  ? 'Thank you for verifying your email. You can now sign in to access your ZarcFit dashboard.'
                   : awaitingEmail
-                    ? 'We sent a confirmation link to your email. Click the link in that message to activate your account.'
+                    ? wasResent
+                      ? `We resent a confirmation link${resendEmail ? ` to ${resendEmail}` : ''}. Click the link in that message, then sign in on the login page.`
+                      : `We sent a confirmation link${resendEmail ? ` to ${resendEmail}` : ''}. Click the link in that message, then sign in on the login page.`
                     : 'We were unable to verify your email. Try signing in — your link may have expired — or sign up again.'}
               </p>
+
+              {awaitingEmail && (
+                <div className="mb-4 space-y-3 text-left">
+                  {!emailFromQuery && (
+                    <div className="space-y-2">
+                      <Label htmlFor="resendEmail">Email address</Label>
+                      <Input
+                        id="resendEmail"
+                        type="email"
+                        placeholder="your.email@example.com"
+                        value={resendEmail}
+                        onChange={(e) => setResendEmail(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleResend}
+                    disabled={isResending}
+                  >
+                    {isResending ? 'Sending...' : 'Resend confirmation email'}
+                  </Button>
+                </div>
+              )}
+
               <Button onClick={handleContinue} className="w-full">
-                {isVerified ? 'Continue to Dashboard' : 'Back to Login'}
+                {isVerified ? 'Go to Login' : 'Back to Login'}
               </Button>
             </div>
           )}
