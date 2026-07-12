@@ -6,10 +6,8 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Check, Eye, EyeOff, Mail, ShieldCheck, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import SpotlightCard from '@/components/SpotlightCard';
 import ShinyText from '@/components/ShinyText';
-import AnimatedContent from '@/components/AnimatedContent';
 import { cn } from '@/lib/utils';
 import { PASSWORD_REQUIREMENTS } from '@/lib/validation/auth';
 
@@ -32,7 +30,7 @@ type AuthProgressProps = {
 
 export function AuthProgress({ steps, currentStep }: AuthProgressProps) {
   return (
-    <div className="mb-8 flex items-center justify-center gap-3">
+    <div className="mb-5 flex items-start justify-center gap-1">
       {steps.map((step, index) => {
         const stepNumber = index + 1;
         const isComplete = stepNumber < currentStep;
@@ -40,39 +38,35 @@ export function AuthProgress({ steps, currentStep }: AuthProgressProps) {
 
         return (
           <React.Fragment key={step}>
-            <AnimatedContent distance={16} delay={index * 0.05} duration={0.45}>
-              <div className="flex flex-col items-center gap-2">
-                <motion.div
-                  className={cn(
-                    'flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold transition-all duration-300',
-                    isComplete && 'bg-primary text-primary-foreground shadow-[0_0_24px_oklch(0.58_0.08_200_/_0.35)]',
-                    isCurrent &&
-                      'border border-primary/40 bg-primary/10 text-primary shadow-[0_0_28px_oklch(0.58_0.08_200_/_0.2)]',
-                    !isComplete &&
-                      !isCurrent &&
-                      'border border-border/50 bg-background/20 text-muted-foreground'
-                  )}
-                  animate={isCurrent ? { scale: [1, 1.06, 1] } : { scale: 1 }}
-                  transition={{ duration: 2.2, repeat: isCurrent ? Infinity : 0, ease: 'easeInOut' }}
-                >
-                  {isComplete ? <Check className="h-4 w-4" /> : stepNumber}
-                </motion.div>
-                <span
-                  className={cn(
-                    'rounded-full px-2.5 py-0.5 text-[11px] font-medium',
-                    isCurrent
-                      ? 'bg-primary/10 text-foreground'
-                      : 'text-muted-foreground'
-                  )}
-                >
-                  {step}
-                </span>
-              </div>
-            </AnimatedContent>
+            <div className="flex w-[4.5rem] flex-col items-center gap-1.5">
+              <motion.div
+                className={cn(
+                  'flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold transition-all duration-300',
+                  isComplete && 'bg-primary text-primary-foreground shadow-[0_0_24px_oklch(0.58_0.08_200_/_0.35)]',
+                  isCurrent &&
+                    'border border-primary/40 bg-primary/10 text-primary shadow-[0_0_28px_oklch(0.58_0.08_200_/_0.2)]',
+                  !isComplete &&
+                    !isCurrent &&
+                    'border border-border/50 bg-background/20 text-muted-foreground'
+                )}
+                animate={isCurrent ? { scale: [1, 1.06, 1] } : { scale: 1 }}
+                transition={{ duration: 2.2, repeat: isCurrent ? Infinity : 0, ease: 'easeInOut' }}
+              >
+                {isComplete ? <Check className="h-4 w-4" /> : stepNumber}
+              </motion.div>
+              <span
+                className={cn(
+                  'text-center text-[11px] font-medium leading-tight',
+                  isCurrent ? 'text-foreground' : 'text-muted-foreground'
+                )}
+              >
+                {step}
+              </span>
+            </div>
             {index < steps.length - 1 && (
               <div
                 className={cn(
-                  'mb-6 h-px w-10 rounded-full transition-all duration-500',
+                  'mt-[1.125rem] h-px w-6 shrink-0 rounded-full transition-all duration-500',
                   stepNumber < currentStep
                     ? 'bg-gradient-to-r from-primary/70 to-primary/20'
                     : 'bg-border/60'
@@ -97,7 +91,7 @@ type AuthFormCardProps = {
 export function AuthFormCard({ title, description, children, footer, progress }: AuthFormCardProps) {
   return (
     <SpotlightCard className="p-0">
-      <div className="space-y-1 px-6 pb-2 pt-8 text-center md:px-8">
+      <div className="space-y-2 border-b border-border/20 px-6 pb-5 pt-6 text-center md:px-8">
         {progress && <AuthProgress {...progress} />}
         <h2 className="text-2xl font-bold tracking-tight">
           <ShinyText
@@ -116,10 +110,12 @@ export function AuthFormCard({ title, description, children, footer, progress }:
         )}
       </div>
 
-      <div className="px-6 py-2 md:px-8">{children}</div>
+      <div className="px-6 py-5 md:px-8">{children}</div>
 
       {footer && (
-        <div className="flex flex-col space-y-4 px-6 pb-8 pt-4 md:px-8">{footer}</div>
+        <div className="flex flex-col gap-4 border-t border-border/20 px-6 pb-6 pt-5 md:px-8">
+          {footer}
+        </div>
       )}
     </SpotlightCard>
   );
@@ -140,7 +136,7 @@ export function AuthStepView({ stepKey, children, className }: AuthStepViewProps
         animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
         exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
         transition={{ duration: 0.28, ease: 'easeOut' }}
-        className={className}
+        className={cn('flex flex-col gap-5', className)}
       >
         {children}
       </motion.div>
@@ -234,16 +230,16 @@ export function AuthFieldInput(props: React.ComponentProps<typeof Input>) {
 
 export function AuthInfoAlert({ children }: { children: React.ReactNode }) {
   return (
-    <Alert className="mb-4 rounded-2xl border-primary/15 bg-primary/5">
-      <Sparkles className="h-4 w-4 text-primary" />
-      <AlertDescription className="text-muted-foreground">{children}</AlertDescription>
-    </Alert>
+    <div className="flex gap-3 rounded-2xl border border-primary/15 bg-primary/5 px-4 py-3.5">
+      <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+      <p className="text-sm leading-relaxed text-muted-foreground">{children}</p>
+    </div>
   );
 }
 
 export function SocialAuthDivider({ label = 'Or continue with' }: { label?: string }) {
   return (
-    <div className="relative py-1">
+    <div className="relative py-2">
       <div className="organic-divider" />
       <div className="relative flex justify-center">
         <span className="bg-card/80 px-3 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
@@ -274,7 +270,7 @@ export function SocialAuthButtons({
         type="button"
         onClick={onGoogle}
         disabled={disabled || !!loadingProvider}
-        className="h-11 rounded-2xl border-border/50 bg-background/30 hover:bg-background/50"
+        className="h-12 rounded-2xl border-border/50 bg-background/30 hover:bg-background/50"
       >
         {loadingProvider === 'google' ? 'Connecting...' : 'Google'}
       </Button>
@@ -283,7 +279,7 @@ export function SocialAuthButtons({
         type="button"
         onClick={onApple}
         disabled={disabled || !!loadingProvider}
-        className="h-11 rounded-2xl border-border/50 bg-background/30 hover:bg-background/50"
+        className="h-12 rounded-2xl border-border/50 bg-background/30 hover:bg-background/50"
       >
         {loadingProvider === 'apple' ? 'Connecting...' : 'Apple'}
       </Button>
@@ -332,13 +328,15 @@ export function AuthFooterLink({
   prompt,
   href,
   label,
+  className,
 }: {
   prompt: string;
   href: string;
   label: string;
+  className?: string;
 }) {
   return (
-    <div className="mt-5 text-center text-sm">
+    <div className={cn('text-center text-sm', className)}>
       <p className="text-muted-foreground">
         {prompt}{' '}
         <Link href={href} className="font-medium text-primary transition-colors hover:text-primary/80">
@@ -353,7 +351,7 @@ export function AuthPrimaryButton(props: React.ComponentProps<typeof Button>) {
   return (
     <Button
       variant="white"
-      className="h-11 w-full rounded-2xl font-semibold shadow-[0_12px_40px_-18px_oklch(1_0_0_/_0.8)]"
+      className="h-12 w-full rounded-2xl font-semibold shadow-[0_12px_40px_-18px_oklch(1_0_0_/_0.8)]"
       {...props}
     />
   );

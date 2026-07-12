@@ -185,7 +185,7 @@
   }
 
   .auth-input {
-    @apply h-11 rounded-2xl border-border/50 bg-background/40 px-4 shadow-[inset_0_1px_0_oklch(1_0_0_/_0.03)] transition-all duration-300;
+    @apply h-12 rounded-2xl border-border/50 bg-background/40 px-4 py-3 text-sm shadow-[inset_0_1px_0_oklch(1_0_0_/_0.03)] transition-all duration-300;
     @apply focus-visible:border-primary/50 focus-visible:bg-background/60 focus-visible:ring-primary/20;
   }
 

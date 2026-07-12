@@ -111,10 +111,10 @@ export default function SignupPage() {
   };
 
   return (
-    <AuthShell title="Become a trainer" subtitle="Create your coaching account on ZarcFit">
+    <AuthShell>
       <AuthFormCard
-        title="Trainer registration"
-        description="Sign up as a coach to manage clients and training programs"
+        title="Become a trainer"
+        description="Create your coaching account on ZarcFit"
         progress={{ steps: TRAINER_SIGNUP_STEPS, currentStep: 1 }}
         footer={
           <>
@@ -135,19 +135,19 @@ export default function SignupPage() {
           </AuthInfoAlert>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
               {formError && (
                 <Alert variant="destructive">
                   <AlertDescription>{formError}</AlertDescription>
                 </Alert>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <FormField
                   control={form.control}
                   name="firstName"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="gap-2.5">
                       <FormLabel>First Name</FormLabel>
                       <FormControl>
                         <AuthFieldInput placeholder="John" {...field} />
@@ -160,7 +160,7 @@ export default function SignupPage() {
                   control={form.control}
                   name="lastName"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="gap-2.5">
                       <FormLabel>Last Name</FormLabel>
                       <FormControl>
                         <AuthFieldInput placeholder="Doe" {...field} />
@@ -175,7 +175,7 @@ export default function SignupPage() {
                 control={form.control}
                 name="email"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="gap-2.5">
                     <FormLabel>Email</FormLabel>
                     <FormControl>
                       <AuthFieldInput type="email" placeholder="your.email@example.com" {...field} />
@@ -189,7 +189,7 @@ export default function SignupPage() {
                 control={form.control}
                 name="password"
                 render={({ field, fieldState }) => (
-                  <FormItem>
+                  <FormItem className="gap-0">
                     <PasswordField
                       id="password"
                       label="Password"
@@ -208,7 +208,7 @@ export default function SignupPage() {
                 control={form.control}
                 name="confirmPassword"
                 render={({ field, fieldState }) => (
-                  <FormItem>
+                  <FormItem className="gap-0">
                     <PasswordField
                       id="confirmPassword"
                       label="Confirm Password"
@@ -226,12 +226,13 @@ export default function SignupPage() {
                 control={form.control}
                 name="acceptTerms"
                 render={({ field }) => (
-                  <FormItem>
-                    <div className="flex items-start space-x-2">
+                  <FormItem className="gap-2.5">
+                    <div className="flex items-start gap-3">
                       <FormControl>
                         <Checkbox
                           checked={field.value}
                           onCheckedChange={(checked) => field.onChange(checked === true)}
+                          className="mt-0.5"
                         />
                       </FormControl>
                       <label className="text-sm leading-relaxed text-muted-foreground">
@@ -250,20 +251,22 @@ export default function SignupPage() {
                 )}
               />
 
-              <AuthPrimaryButton
-                type="submit"
-                disabled={form.formState.isSubmitting || !passwordValue}
-              >
-                {form.formState.isSubmitting ? 'Creating Account...' : 'Continue to Verification'}
-              </AuthPrimaryButton>
+              <div className="space-y-4 pt-1">
+                <AuthPrimaryButton
+                  type="submit"
+                  disabled={form.formState.isSubmitting || !passwordValue}
+                >
+                  {form.formState.isSubmitting ? 'Creating Account...' : 'Continue to Verification'}
+                </AuthPrimaryButton>
+
+                <AuthFooterLink
+                  prompt="Already have an account?"
+                  href="/auth/login"
+                  label="Sign in"
+                />
+              </div>
             </form>
           </Form>
-
-          <AuthFooterLink
-            prompt="Already have an account?"
-            href="/auth/login"
-            label="Sign in"
-          />
         </AuthStepView>
       </AuthFormCard>
     </AuthShell>
