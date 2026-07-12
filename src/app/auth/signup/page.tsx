@@ -116,17 +116,6 @@ export default function SignupPage() {
         title="Become a trainer"
         description="Create your coaching account on ZarcFit"
         progress={{ steps: TRAINER_SIGNUP_STEPS, currentStep: 1 }}
-        footer={
-          <>
-            <SocialAuthDivider label="Or sign up with" />
-            <SocialAuthButtons
-              onGoogle={() => handleSocialSignUp('google')}
-              onApple={() => handleSocialSignUp('apple')}
-              loadingProvider={socialLoading}
-              disabled={form.formState.isSubmitting}
-            />
-          </>
-        }
       >
         <AuthStepView stepKey="signup-form">
           <AuthInfoAlert>
@@ -135,20 +124,20 @@ export default function SignupPage() {
           </AuthInfoAlert>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               {formError && (
                 <Alert variant="destructive">
                   <AlertDescription>{formError}</AlertDescription>
                 </Alert>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-4">
                 <FormField
                   control={form.control}
                   name="firstName"
                   render={({ field }) => (
-                    <FormItem className="gap-2.5">
-                      <FormLabel>First Name</FormLabel>
+                    <FormItem className="gap-2">
+                      <FormLabel className="text-muted-foreground">First Name</FormLabel>
                       <FormControl>
                         <AuthFieldInput placeholder="John" {...field} />
                       </FormControl>
@@ -160,8 +149,8 @@ export default function SignupPage() {
                   control={form.control}
                   name="lastName"
                   render={({ field }) => (
-                    <FormItem className="gap-2.5">
-                      <FormLabel>Last Name</FormLabel>
+                    <FormItem className="gap-2">
+                      <FormLabel className="text-muted-foreground">Last Name</FormLabel>
                       <FormControl>
                         <AuthFieldInput placeholder="Doe" {...field} />
                       </FormControl>
@@ -175,8 +164,8 @@ export default function SignupPage() {
                 control={form.control}
                 name="email"
                 render={({ field }) => (
-                  <FormItem className="gap-2.5">
-                    <FormLabel>Email</FormLabel>
+                  <FormItem className="gap-2">
+                    <FormLabel className="text-muted-foreground">Email</FormLabel>
                     <FormControl>
                       <AuthFieldInput type="email" placeholder="your.email@example.com" {...field} />
                     </FormControl>
@@ -226,7 +215,7 @@ export default function SignupPage() {
                 control={form.control}
                 name="acceptTerms"
                 render={({ field }) => (
-                  <FormItem className="gap-2.5">
+                  <FormItem className="gap-2">
                     <div className="flex items-start gap-3">
                       <FormControl>
                         <Checkbox
@@ -251,7 +240,7 @@ export default function SignupPage() {
                 )}
               />
 
-              <div className="space-y-4 pt-1">
+              <div className="space-y-3">
                 <AuthPrimaryButton
                   type="submit"
                   disabled={form.formState.isSubmitting || !passwordValue}
@@ -263,6 +252,16 @@ export default function SignupPage() {
                   prompt="Already have an account?"
                   href="/auth/login"
                   label="Sign in"
+                />
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <SocialAuthDivider label="Or sign up with" />
+                <SocialAuthButtons
+                  onGoogle={() => handleSocialSignUp('google')}
+                  onApple={() => handleSocialSignUp('apple')}
+                  loadingProvider={socialLoading}
+                  disabled={form.formState.isSubmitting}
                 />
               </div>
             </form>

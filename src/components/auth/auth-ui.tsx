@@ -30,7 +30,7 @@ type AuthProgressProps = {
 
 export function AuthProgress({ steps, currentStep }: AuthProgressProps) {
   return (
-    <div className="mb-5 flex items-start justify-center gap-1">
+    <div className="flex items-center justify-center gap-2">
       {steps.map((step, index) => {
         const stepNumber = index + 1;
         const isComplete = stepNumber < currentStep;
@@ -38,25 +38,20 @@ export function AuthProgress({ steps, currentStep }: AuthProgressProps) {
 
         return (
           <React.Fragment key={step}>
-            <div className="flex w-[4.5rem] flex-col items-center gap-1.5">
-              <motion.div
+            <div className="flex items-center gap-2">
+              <div
                 className={cn(
-                  'flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold transition-all duration-300',
-                  isComplete && 'bg-primary text-primary-foreground shadow-[0_0_24px_oklch(0.58_0.08_200_/_0.35)]',
-                  isCurrent &&
-                    'border border-primary/40 bg-primary/10 text-primary shadow-[0_0_28px_oklch(0.58_0.08_200_/_0.2)]',
-                  !isComplete &&
-                    !isCurrent &&
-                    'border border-border/50 bg-background/20 text-muted-foreground'
+                  'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-all duration-300',
+                  isComplete && 'bg-primary text-primary-foreground',
+                  isCurrent && 'border border-primary/40 bg-primary/10 text-primary',
+                  !isComplete && !isCurrent && 'border border-border/50 bg-background/20 text-muted-foreground'
                 )}
-                animate={isCurrent ? { scale: [1, 1.06, 1] } : { scale: 1 }}
-                transition={{ duration: 2.2, repeat: isCurrent ? Infinity : 0, ease: 'easeInOut' }}
               >
-                {isComplete ? <Check className="h-4 w-4" /> : stepNumber}
-              </motion.div>
+                {isComplete ? <Check className="h-3.5 w-3.5" /> : stepNumber}
+              </div>
               <span
                 className={cn(
-                  'text-center text-[11px] font-medium leading-tight',
+                  'text-xs font-medium',
                   isCurrent ? 'text-foreground' : 'text-muted-foreground'
                 )}
               >
@@ -66,10 +61,8 @@ export function AuthProgress({ steps, currentStep }: AuthProgressProps) {
             {index < steps.length - 1 && (
               <div
                 className={cn(
-                  'mt-[1.125rem] h-px w-6 shrink-0 rounded-full transition-all duration-500',
-                  stepNumber < currentStep
-                    ? 'bg-gradient-to-r from-primary/70 to-primary/20'
-                    : 'bg-border/60'
+                  'h-px w-5 shrink-0 rounded-full',
+                  stepNumber < currentStep ? 'bg-primary/50' : 'bg-border/60'
                 )}
               />
             )}
@@ -90,32 +83,32 @@ type AuthFormCardProps = {
 
 export function AuthFormCard({ title, description, children, footer, progress }: AuthFormCardProps) {
   return (
-    <SpotlightCard className="p-0">
-      <div className="space-y-2 border-b border-border/20 px-6 pb-5 pt-6 text-center md:px-8">
+    <SpotlightCard className="w-full p-0">
+      <div className="space-y-3 px-6 pb-6 pt-6 text-center sm:px-8">
         {progress && <AuthProgress {...progress} />}
-        <h2 className="text-2xl font-bold tracking-tight">
-          <ShinyText
-            text={title}
-            speed={3.2}
-            color="oklch(0.92 0.004 260)"
-            shineColor="oklch(0.72 0.08 200)"
-            spread={100}
-            className="text-2xl font-bold"
-          />
-        </h2>
-        {description && (
-          <p className="mx-auto max-w-sm text-sm leading-relaxed text-muted-foreground">
-            {description}
-          </p>
-        )}
+        <div className="space-y-1.5">
+          <h2 className="text-2xl font-bold tracking-tight">
+            <ShinyText
+              text={title}
+              speed={3.2}
+              color="oklch(0.92 0.004 260)"
+              shineColor="oklch(0.72 0.08 200)"
+              spread={100}
+              className="text-2xl font-bold"
+            />
+          </h2>
+          {description && (
+            <p className="mx-auto max-w-sm text-sm leading-relaxed text-muted-foreground">
+              {description}
+            </p>
+          )}
+        </div>
       </div>
 
-      <div className="px-6 py-5 md:px-8">{children}</div>
+      <div className="px-6 pb-6 sm:px-8">{children}</div>
 
       {footer && (
-        <div className="flex flex-col gap-4 border-t border-border/20 px-6 pb-6 pt-5 md:px-8">
-          {footer}
-        </div>
+        <div className="flex flex-col gap-4 px-6 pb-6 sm:px-8">{footer}</div>
       )}
     </SpotlightCard>
   );
@@ -136,7 +129,7 @@ export function AuthStepView({ stepKey, children, className }: AuthStepViewProps
         animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
         exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
         transition={{ duration: 0.28, ease: 'easeOut' }}
-        className={cn('flex flex-col gap-5', className)}
+        className={cn('flex flex-col gap-4', className)}
       >
         {children}
       </motion.div>
@@ -168,11 +161,11 @@ export function PasswordField({
   const [visible, setVisible] = useState(false);
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2">
       {(label || onBlur !== undefined) && (
         <div className="flex items-center justify-between">
           {label ? (
-            <label htmlFor={id} className="text-sm font-medium leading-none text-foreground/90">
+            <label htmlFor={id} className="text-sm font-medium text-muted-foreground">
               {label}
             </label>
           ) : (
@@ -196,7 +189,7 @@ export function PasswordField({
         onBlur={onBlur}
         autoComplete={autoComplete}
         aria-invalid={!!error}
-        className="auth-input"
+        className="auth-input !h-12 !min-h-12 !py-0"
       />
       {showRequirements && value.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-1">
@@ -225,7 +218,12 @@ export function PasswordField({
 }
 
 export function AuthFieldInput(props: React.ComponentProps<typeof Input>) {
-  return <Input {...props} className={cn('auth-input', props.className)} />;
+  return (
+    <Input
+      {...props}
+      className={cn('auth-input !h-12 !min-h-12 !py-0', props.className)}
+    />
+  );
 }
 
 export function AuthInfoAlert({ children }: { children: React.ReactNode }) {

@@ -74,7 +74,7 @@ export default function AuthShell({ children, title, subtitle }: AuthShellProps)
         </AnimatedContent>
       </div>
 
-      <div className="auth-ambient relative flex flex-1 flex-col items-center justify-center p-4 md:p-8">
+      <div className="auth-ambient relative flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-8 lg:px-12">
         <div className="pointer-events-none absolute inset-0 opacity-30 lg:hidden">
           <Aurora colorStops={['#1a1f26', '#3d5566', '#1e2428']} amplitude={0.55} blend={0.45} speed={0.35} />
         </div>
@@ -110,9 +110,9 @@ export default function AuthShell({ children, title, subtitle }: AuthShellProps)
           </AnimatedContent>
         )}
 
-        <AnimatedContent distance={30} delay={0.1} duration={0.6} className="relative z-10 w-full max-w-md">
+        <div className="relative z-10 w-full max-w-[32rem]">
           {children}
-        </AnimatedContent>
+        </div>
       </div>
     </div>
   );
