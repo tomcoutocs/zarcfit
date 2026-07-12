@@ -6,7 +6,9 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 import AnimatedPage from '@/components/layout/AnimatedPage';
+import AppAmbient from '@/components/layout/AppAmbient';
 import {
   LayoutDashboard,
   Users,
@@ -67,12 +69,13 @@ export default function TrainerLayout({
   const isActive = (href: string) => pathname?.startsWith(href);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="dashboard-shell min-h-screen bg-background">
+      <AppAmbient />
       {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-50 w-64 border-r bg-card hidden lg:block">
-        <div className="flex flex-col h-full">
+      <aside className="sidebar-organic fixed inset-y-0 left-0 z-50 hidden w-64 lg:block">
+        <div className="flex h-full flex-col">
           {/* Logo */}
-          <div className="p-6 border-b">
+          <div className="border-b border-border/40 p-6">
             <Link href="/trainer/dashboard">
               <h1 className="text-2xl font-bold text-primary">ZarcoFit</h1>
               <p className="text-sm text-muted-foreground">Trainer Portal</p>
@@ -80,14 +83,17 @@ export default function TrainerLayout({
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-1">
+          <nav className="flex-1 space-y-1 p-4">
             {navigation.map((item) => {
               const Icon = item.icon;
               return (
                 <Link key={item.name} href={item.href}>
                   <Button
                     variant={isActive(item.href) ? 'default' : 'ghost'}
-                    className="w-full justify-start gap-3"
+                    className={cn(
+                      'w-full justify-start gap-3 rounded-2xl',
+                      isActive(item.href) && 'nav-pill-active shadow-none'
+                    )}
                   >
                     <Icon className="h-5 w-5" />
                     {item.name}
@@ -98,7 +104,7 @@ export default function TrainerLayout({
           </nav>
 
           {/* User */}
-          <div className="p-4 border-t">
+          <div className="border-t border-border/40 p-4">
             <div className="flex items-center gap-3 mb-3">
               <Avatar>
                 <AvatarFallback>
@@ -115,7 +121,7 @@ export default function TrainerLayout({
             <Button
               variant="outline"
               size="sm"
-              className="w-full gap-2"
+              className="w-full gap-2 rounded-2xl"
               onClick={() => signOut()}
             >
               <LogOut className="h-4 w-4" />
@@ -126,7 +132,7 @@ export default function TrainerLayout({
       </aside>
 
       {/* Mobile Header */}
-      <header className="lg:hidden sticky top-0 z-40 border-b bg-card p-4">
+      <header className="sticky top-0 z-40 border-b border-border/40 bg-card/50 p-4 backdrop-blur-xl lg:hidden">
         <div className="flex items-center justify-between">
           <Link href="/trainer/dashboard">
             <h1 className="text-xl font-bold text-primary">ZarcoFit</h1>
@@ -140,9 +146,9 @@ export default function TrainerLayout({
       </header>
 
       {/* Main Content */}
-      <main className="lg:pl-64">
+      <main className="relative lg:pl-64">
         <div className="container mx-auto p-6 lg:p-8">
-          <AnimatedPage>{children}</AnimatedPage>
+          <AnimatedPage ambient={false}>{children}</AnimatedPage>
         </div>
       </main>
     </div>

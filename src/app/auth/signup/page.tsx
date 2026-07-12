@@ -3,96 +3,108 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useAuth } from '@/context/auth-context';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { useAuth } from '@/context/auth-context';
 import AuthShell from '@/components/layout/AuthShell';
+import {
+  AuthFieldInput,
+  AuthFooterLink,
+  AuthFormCard,
+  AuthInfoAlert,
+  AuthPrimaryButton,
+  AuthStepView,
+  PasswordField,
+  SocialAuthButtons,
+  SocialAuthDivider,
+} from '@/components/auth/auth-ui';
+import { signupSchema, TRAINER_SIGNUP_STEPS, type SignupFormValues } from '@/lib/validation/auth';
 
 export default function SignupPage() {
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [acceptTerms, setAcceptTerms] = useState(false);
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [formError, setFormError] = useState('');
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
   const { signUp, signInWithProvider } = useAuth();
   const router = useRouter();
 
-  const validateForm = () => {
-    if (!firstName.trim()) return 'First name is required';
-    if (!lastName.trim()) return 'Last name is required';
-    if (!email.trim()) return 'Email is required';
-    if (!/\S+@\S+\.\S+/.test(email)) return 'Email is invalid';
-    if (password.length < 8) return 'Password must be at least 8 characters';
-    if (!/[0-9]/.test(password)) return 'Password must include a number';
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) return 'Password must include a special character';
-    if (password !== confirmPassword) return 'Passwords do not match';
-    if (!acceptTerms) return 'You must accept the terms and conditions';
-    return null;
-  };
+  const form = useForm<SignupFormValues>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      acceptTerms: false,
+    },
+    mode: 'onBlur',
+  });
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-    
-    setError('');
-    setIsLoading(true);
+  const passwordValue = form.watch('password');
+
+  const onSubmit = async (values: SignupFormValues) => {
+    setFormError('');
 
     try {
-      const { error: signUpError, resentConfirmation } = await signUp(email, password, {
-        firstName,
-        lastName,
-      }, 'trainer');
-      
+      const { error: signUpError, resentConfirmation } = await signUp(
+        values.email,
+        values.password,
+        {
+          firstName: values.firstName,
+          lastName: values.lastName,
+        },
+        'trainer'
+      );
+
       if (signUpError) {
         let errorMessage = signUpError.message;
-        
+
         if (errorMessage.includes('Database error')) {
-          errorMessage = 'Database error while creating user. Please contact support or try again later.';
+          errorMessage =
+            'Database error while creating user. Please contact support or try again later.';
         } else if (errorMessage.includes('User already registered')) {
           errorMessage = 'An account with this email already exists. Please log in instead.';
         }
-        
-        setError(errorMessage);
-      } else {
-        router.push(
-          `/auth/email-verification?email=${encodeURIComponent(email)}${
-            resentConfirmation ? '&resent=1' : ''
-          }`
-        );
+
+        setFormError(errorMessage);
+        return;
       }
+
+      router.push(
+        `/auth/email-verification?email=${encodeURIComponent(values.email)}${
+          resentConfirmation ? '&resent=1' : ''
+        }`
+      );
     } catch (err) {
       console.error('Unexpected error during signup:', err);
-      setError('An unexpected error occurred. Please try again.');
-    } finally {
-      setIsLoading(false);
+      setFormError('An unexpected error occurred. Please try again.');
     }
   };
 
-  const handleSocialSignUp = async (provider: 'github' | 'google' | 'apple') => {
+  const handleSocialSignUp = async (provider: 'google' | 'apple') => {
+    const accepted = form.getValues('acceptTerms');
+    if (!accepted) {
+      form.setError('acceptTerms', {
+        message: 'You must accept the terms and conditions',
+      });
+      return;
+    }
+
     try {
-      if (!acceptTerms) {
-        setError('You must accept the terms and conditions');
-        return;
-      }
-      
       setSocialLoading(provider);
-      setError('');
+      setFormError('');
       await signInWithProvider(provider, { signupRole: 'trainer' });
     } catch (err) {
-      setError('An error occurred with social sign-up. Please try again.');
+      setFormError('An error occurred with social sign-up. Please try again.');
       console.error(err);
       setSocialLoading(null);
     }
@@ -100,149 +112,160 @@ export default function SignupPage() {
 
   return (
     <AuthShell title="Become a trainer" subtitle="Create your coaching account on ZarcFit">
-      <Card className="glass-card w-full border-border/60 shadow-xl">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">Trainer registration</CardTitle>
-          <CardDescription>
-            Sign up as a coach to manage clients and training programs
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Alert className="mb-4">
-            <AlertDescription>
-              Looking to train with a coach? Clients join ZarcFit through an invitation from their trainer — you cannot create a client account here.
-            </AlertDescription>
-          </Alert>
+      <AuthFormCard
+        title="Trainer registration"
+        description="Sign up as a coach to manage clients and training programs"
+        progress={{ steps: TRAINER_SIGNUP_STEPS, currentStep: 1 }}
+        footer={
+          <>
+            <SocialAuthDivider label="Or sign up with" />
+            <SocialAuthButtons
+              onGoogle={() => handleSocialSignUp('google')}
+              onApple={() => handleSocialSignUp('apple')}
+              loadingProvider={socialLoading}
+              disabled={form.formState.isSubmitting}
+            />
+          </>
+        }
+      >
+        <AuthStepView stepKey="signup-form">
+          <AuthInfoAlert>
+            Looking to train with a coach? Clients join ZarcFit through an invitation from their
+            trainer — you cannot create a client account here.
+          </AuthInfoAlert>
 
-          <form onSubmit={handleSignUp} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
-                <Input 
-                  id="firstName" 
-                  placeholder="John" 
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  required
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {formError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{formError}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Name</FormLabel>
+                      <FormControl>
+                        <AuthFieldInput placeholder="John" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name</FormLabel>
+                      <FormControl>
+                        <AuthFieldInput placeholder="Doe" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input 
-                  id="lastName" 
-                  placeholder="Doe" 
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="your.email@example.com" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
+
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <AuthFieldInput type="email" placeholder="your.email@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input 
-                id="password" 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
+
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field, fieldState }) => (
+                  <FormItem>
+                    <PasswordField
+                      id="password"
+                      label="Password"
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      error={fieldState.error?.message}
+                      showRequirements
+                      autoComplete="new-password"
+                    />
+                  </FormItem>
+                )}
               />
-              <p className="text-xs text-muted-foreground">
-                Password must be at least 8 characters long and include a number and special character.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input 
-                id="confirmPassword" 
-                type="password" 
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
+
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field, fieldState }) => (
+                  <FormItem>
+                    <PasswordField
+                      id="confirmPassword"
+                      label="Confirm Password"
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      error={fieldState.error?.message}
+                      autoComplete="new-password"
+                    />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="terms" 
-                checked={acceptTerms}
-                onCheckedChange={(checked) => setAcceptTerms(checked === true)}
+
+              <FormField
+                control={form.control}
+                name="acceptTerms"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-start space-x-2">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={(checked) => field.onChange(checked === true)}
+                        />
+                      </FormControl>
+                      <label className="text-sm leading-relaxed text-muted-foreground">
+                        I agree to the{' '}
+                        <Link href="/terms" className="text-primary hover:underline">
+                          Terms of Service
+                        </Link>{' '}
+                        and{' '}
+                        <Link href="/privacy" className="text-primary hover:underline">
+                          Privacy Policy
+                        </Link>
+                      </label>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              <label htmlFor="terms" className="text-sm text-muted-foreground">
-                I agree to the{' '}
-                <Link href="/terms" className="text-primary hover:underline">
-                  Terms of Service
-                </Link>{' '}
-                and{' '}
-                <Link href="/privacy" className="text-primary hover:underline">
-                  Privacy Policy
-                </Link>
-              </label>
-            </div>
-            <Button 
-              variant="white"
-              className="w-full font-semibold" 
-              type="submit" 
-              disabled={isLoading}
-            >
-              {isLoading ? 'Creating Account...' : 'Create Trainer Account'}
-            </Button>
-          </form>
-          
-          <div className="mt-4 text-center text-sm">
-            <p>
-              Already have an account?{' '}
-              <Link href="/auth/login" className="text-primary hover:underline">
-                Sign in
-              </Link>
-            </p>
-          </div>
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or sign up with</span>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Button 
-              variant="outline" 
-              type="button" 
-              onClick={() => handleSocialSignUp('google')}
-              disabled={!!socialLoading}
-            >
-              {socialLoading === 'google' ? 'Connecting...' : 'Google'}
-            </Button>
-            <Button 
-              variant="outline" 
-              type="button" 
-              onClick={() => handleSocialSignUp('apple')}
-              disabled={!!socialLoading}
-            >
-              {socialLoading === 'apple' ? 'Connecting...' : 'Apple'}
-            </Button>
-          </div>
-        </CardFooter>
-      </Card>
+
+              <AuthPrimaryButton
+                type="submit"
+                disabled={form.formState.isSubmitting || !passwordValue}
+              >
+                {form.formState.isSubmitting ? 'Creating Account...' : 'Continue to Verification'}
+              </AuthPrimaryButton>
+            </form>
+          </Form>
+
+          <AuthFooterLink
+            prompt="Already have an account?"
+            href="/auth/login"
+            label="Sign in"
+          />
+        </AuthStepView>
+      </AuthFormCard>
     </AuthShell>
   );
 }

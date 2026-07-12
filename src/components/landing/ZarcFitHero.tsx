@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
+import MagnetButton from '@/components/layout/MagnetButton';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/context/auth-context';
@@ -43,7 +44,7 @@ export default function ZarcFitHero() {
       <div className="container relative z-10 mx-auto flex flex-1 flex-col justify-center px-4 py-6">
         <div className="mx-auto w-full max-w-4xl text-center">
           <AnimatedContent distance={40} duration={0.6}>
-            <span className="mb-8 inline-flex items-center gap-2 rounded-full border border-border bg-muted/50 px-4 py-1.5 text-sm font-medium text-muted-foreground">
+            <span className="mb-8 inline-flex items-center gap-2 rounded-full border border-border/50 bg-muted/30 px-4 py-1.5 text-sm font-medium text-muted-foreground backdrop-blur-sm">
               <span className="relative flex h-2 w-2">
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
               </span>
@@ -80,18 +81,18 @@ export default function ZarcFitHero() {
 
           <AnimatedContent distance={40} delay={0.25} duration={0.7}>
             <div className="flex flex-wrap items-center justify-center gap-3">
-              <Button
+              <MagnetButton
                 size="lg"
-                className="h-12 gap-2 px-8 text-base font-medium"
+                className="h-12 gap-2 rounded-2xl px-8 text-base font-medium"
                 onClick={() => router.push(primaryCta.href)}
               >
                 {primaryCta.label}
                 <ArrowRight className="h-4 w-4" />
-              </Button>
+              </MagnetButton>
               <Button
                 size="lg"
                 variant="outline"
-                className="h-12 border-border/60 bg-card/40 px-8 text-base backdrop-blur-sm"
+                className="h-12 rounded-2xl border-border/60 bg-card/40 px-8 text-base backdrop-blur-sm"
                 onClick={() => router.push('/main/plans')}
               >
                 Browse plans

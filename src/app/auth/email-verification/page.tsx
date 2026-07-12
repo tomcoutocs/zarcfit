@@ -3,15 +3,20 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, XCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { completeAuthFromUrl } from '@/lib/supabase/auth-callback';
 import { useAuth } from '@/context/auth-context';
 import AuthShell from '@/components/layout/AuthShell';
+import {
+  AuthFormCard,
+  AuthSpinner,
+  AuthStatusPanel,
+  AuthStepView,
+} from '@/components/auth/auth-ui';
+import { TRAINER_SIGNUP_STEPS } from '@/lib/validation/auth';
 
 function EmailVerificationContent() {
   const [error, setError] = useState('');
@@ -38,7 +43,6 @@ function EmailVerificationContent() {
         const { error: callbackError, handled } = await completeAuthFromUrl(supabase);
 
         if (!handled) {
-          // User landed here after signup — no link params yet
           setAwaitingEmail(true);
           setIsVerified(false);
           return;
@@ -48,10 +52,12 @@ function EmailVerificationContent() {
           setError(callbackError);
           setIsVerified(false);
         } else {
-          const { data: { session } } = await supabase.auth.getSession();
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
           if (session) {
+            await supabase.auth.signOut({ scope: 'local' });
             setIsVerified(true);
-            // Clean tokens from the URL bar
             window.history.replaceState({}, '', '/auth/email-verification');
           } else {
             setError('Verification succeeded but no session was created. Try signing in.');
@@ -93,60 +99,50 @@ function EmailVerificationContent() {
     setResendMessage('Confirmation email sent. Check your inbox and spam folder.');
   };
 
+  const stepKey = isVerifying ? 'verifying' : isVerified ? 'verified' : awaitingEmail ? 'awaiting' : 'failed';
+
   return (
-    <AuthShell title="Email Verification" subtitle="Confirm your account to get started">
-      <Card className="glass-card w-full border-border/60 shadow-xl">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">Email Verification</CardTitle>
-          <CardDescription>
-            {isVerifying
-              ? 'Verifying your email address...'
-              : isVerified
-                ? 'Your email has been verified!'
-                : awaitingEmail
-                  ? 'Check your inbox'
-                  : 'Email verification failed'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center space-y-4">
+    <AuthShell title="Verify your email" subtitle="One more step before you can sign in">
+      <AuthFormCard
+        title="Email verification"
+        description={
+          isVerifying
+            ? 'Verifying your email address...'
+            : isVerified
+              ? 'Your email has been verified'
+              : awaitingEmail
+                ? 'Check your inbox'
+                : 'Verification failed'
+        }
+        progress={{ steps: TRAINER_SIGNUP_STEPS, currentStep: 2 }}
+      >
+        <AuthStepView stepKey={stepKey}>
           {isVerifying ? (
-            <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
+            <AuthSpinner />
           ) : isVerified ? (
-            <CheckCircle className="h-16 w-16 text-primary" />
+            <AuthStatusPanel
+              icon="shield"
+              title="Email verified"
+              description="Your account is ready. Sign in with the email and password you created during registration."
+              action={
+                <Button className="h-11 w-full rounded-2xl" onClick={handleContinue}>
+                  Continue to Sign In
+                </Button>
+              }
+            />
           ) : awaitingEmail ? (
-            <CheckCircle className="h-16 w-16 text-muted-foreground" />
-          ) : (
-            <XCircle className="h-16 w-16 text-destructive" />
-          )}
-
-          {error && (
-            <Alert variant="destructive" className="mt-4 w-full">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {resendMessage && (
-            <Alert className="mt-4 w-full">
-              <AlertDescription>{resendMessage}</AlertDescription>
-            </Alert>
-          )}
-
-          {!isVerifying && (
-            <div className="mt-6 w-full text-center">
-              <p className="mb-4 text-sm text-muted-foreground">
-                {isVerified
-                  ? 'Thank you for verifying your email. You can now sign in to access your ZarcFit dashboard.'
-                  : awaitingEmail
-                    ? wasResent
-                      ? `We resent a confirmation link${resendEmail ? ` to ${resendEmail}` : ''}. Click the link in that message, then sign in on the login page.`
-                      : `We sent a confirmation link${resendEmail ? ` to ${resendEmail}` : ''}. Click the link in that message, then sign in on the login page.`
-                    : 'We were unable to verify your email. Try signing in — your link may have expired — or sign up again.'}
-              </p>
-
-              {awaitingEmail && (
-                <div className="mb-4 space-y-3 text-left">
+            <AuthStatusPanel
+              icon="mail"
+              title={wasResent ? 'Confirmation resent' : 'Check your inbox'}
+              description={
+                wasResent
+                  ? `We resent a confirmation link${resendEmail ? ` to ${resendEmail}` : ''}. Click the link in that message, then sign in on the login page.`
+                  : `We sent a confirmation link${resendEmail ? ` to ${resendEmail}` : ''}. Click the link in that message, then sign in on the login page.`
+              }
+              action={
+                <div className="space-y-3">
                   {!emailFromQuery && (
-                    <div className="space-y-2">
+                    <div className="space-y-2 text-left">
                       <Label htmlFor="resendEmail">Email address</Label>
                       <Input
                         id="resendEmail"
@@ -154,40 +150,60 @@ function EmailVerificationContent() {
                         placeholder="your.email@example.com"
                         value={resendEmail}
                         onChange={(e) => setResendEmail(e.target.value)}
+                        className="auth-input"
                       />
                     </div>
                   )}
                   <Button
                     variant="outline"
-                    className="w-full"
+                    className="h-11 w-full rounded-2xl border-border/50 bg-background/30"
                     onClick={handleResend}
                     disabled={isResending}
                   >
                     {isResending ? 'Sending...' : 'Resend confirmation email'}
                   </Button>
+                  <Button className="h-11 w-full rounded-2xl" onClick={handleContinue}>
+                    Go to Sign In
+                  </Button>
                 </div>
-              )}
-
-              <Button onClick={handleContinue} className="w-full">
-                {isVerified ? 'Go to Login' : 'Back to Login'}
-              </Button>
-            </div>
+              }
+            />
+          ) : (
+            <AuthStatusPanel
+              icon="shield"
+              title="Verification failed"
+              description={
+                error ||
+                'We were unable to verify your email. Try signing in — your link may have expired — or sign up again.'
+              }
+              action={
+                <Button className="h-11 w-full rounded-2xl" onClick={handleContinue}>
+                  Back to Sign In
+                </Button>
+              }
+            />
           )}
-        </CardContent>
-      </Card>
+        </AuthStepView>
+
+        {resendMessage && (
+          <Alert className="mt-4">
+            <AlertDescription>{resendMessage}</AlertDescription>
+          </Alert>
+        )}
+
+        {error && !isVerifying && awaitingEmail && (
+          <Alert variant="destructive" className="mt-4">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+      </AuthFormCard>
     </AuthShell>
   );
 }
 
 export default function EmailVerificationPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center">
-          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
-        </div>
-      }
-    >
+    <Suspense fallback={<AuthSpinner className="min-h-screen" />}>
       <EmailVerificationContent />
     </Suspense>
   );

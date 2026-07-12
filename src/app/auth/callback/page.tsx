@@ -2,12 +2,12 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { completeAuthFromUrl } from '@/lib/supabase/auth-callback';
 import { homeForRole, type AppUserRole } from '@/lib/auth-routes';
-import AnimatedPage from '@/components/layout/AnimatedPage';
+import AuthShell from '@/components/layout/AuthShell';
+import { AuthFormCard, AuthSpinner, AuthStepView } from '@/components/auth/auth-ui';
 
 function AuthCallbackContent() {
   const [message, setMessage] = useState('Processing your sign-in...');
@@ -82,45 +82,40 @@ function AuthCallbackContent() {
   }, [router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <AnimatedPage className="w-full max-w-md">
-      <Card className="glass-card w-full border-border/60">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">Authentication</CardTitle>
-          <CardDescription>
-            {error ? 'Authentication Error' : 'Completing your sign-in'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center space-y-4">
-          {!error && (
-            <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
-          )}
-
-          <p className={error ? 'text-destructive text-center text-sm' : 'text-center text-sm text-muted-foreground'}>
-            {error || message}
-          </p>
-
-          {error && (
-            <Button variant="outline" className="mt-4 w-full" onClick={() => router.push('/auth/login')}>
-              Return to login
-            </Button>
-          )}
-        </CardContent>
-      </Card>
-      </AnimatedPage>
-    </div>
+    <AuthShell title="Signing you in" subtitle="Completing authentication">
+      <AuthFormCard
+        title="Authentication"
+        description={error ? 'Authentication error' : 'Completing your sign-in'}
+      >
+        <AuthStepView stepKey={error ? 'error' : 'loading'}>
+          <div className="flex flex-col items-center space-y-4 py-4">
+            {!error && <AuthSpinner className="py-4" />}
+            <p
+              className={
+                error ? 'text-center text-sm text-destructive' : 'text-center text-sm text-muted-foreground'
+              }
+            >
+              {error || message}
+            </p>
+            {error && (
+              <Button
+                variant="outline"
+                className="mt-2 w-full rounded-2xl"
+                onClick={() => router.push('/auth/login')}
+              >
+                Return to login
+              </Button>
+            )}
+          </div>
+        </AuthStepView>
+      </AuthFormCard>
+    </AuthShell>
   );
 }
 
 export default function AuthCallbackPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center">
-          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
-        </div>
-      }
-    >
+    <Suspense fallback={<AuthSpinner className="min-h-screen" />}>
       <AuthCallbackContent />
     </Suspense>
   );

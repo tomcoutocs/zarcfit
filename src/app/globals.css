@@ -45,7 +45,7 @@
 }
 
 :root {
-  --radius: 0.5rem;
+  --radius: 0.875rem;
   --accent-glow: oklch(0.55 0.06 200 / 0.06);
   --background: oklch(0.14 0.004 260);
   --foreground: oklch(0.96 0.004 260);
@@ -135,7 +135,72 @@
   }
 
   .glass-card {
-    @apply border border-border/70 bg-card/80 backdrop-blur-sm;
+    @apply rounded-[1.75rem] border border-border/50 bg-card/55 shadow-[0_24px_80px_-40px_oklch(0.58_0.08_200_/_0.35)] backdrop-blur-xl;
+    box-shadow:
+      0 0 0 1px oklch(0.58 0.08 200 / 0.06),
+      0 24px 80px -36px oklch(0 0 0 / 0.55);
+  }
+
+  .dashboard-shell {
+    @apply relative min-h-screen bg-background;
+  }
+
+  .sidebar-organic {
+    @apply border-r border-border/40 bg-card/30 backdrop-blur-xl;
+  }
+
+  .nav-pill-active {
+    @apply rounded-2xl bg-primary/15 text-primary shadow-[0_0_24px_oklch(0.58_0.08_200_/_0.12)];
+  }
+
+  [data-slot='card']::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 55% 40% at 100% 0%, oklch(0.58 0.08 200 / 0.06), transparent 55%),
+      radial-gradient(ellipse 45% 35% at 0% 100%, oklch(0.55 0.06 200 / 0.04), transparent 50%);
+  }
+
+  [data-slot='card'] > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .organic-surface {
+    box-shadow:
+      0 0 0 1px oklch(0.58 0.08 200 / 0.06),
+      0 24px 80px -36px oklch(0 0 0 / 0.55);
+  }
+
+  .auth-ambient {
+    background:
+      radial-gradient(ellipse 80% 55% at 90% 0%, oklch(0.58 0.08 200 / 0.08), transparent 55%),
+      radial-gradient(ellipse 60% 45% at 0% 100%, oklch(0.55 0.06 200 / 0.05), transparent 50%);
+  }
+
+  .auth-orb {
+    @apply pointer-events-none absolute rounded-full blur-3xl;
+  }
+
+  .auth-input {
+    @apply h-11 rounded-2xl border-border/50 bg-background/40 px-4 shadow-[inset_0_1px_0_oklch(1_0_0_/_0.03)] transition-all duration-300;
+    @apply focus-visible:border-primary/50 focus-visible:bg-background/60 focus-visible:ring-primary/20;
+  }
+
+  .auth-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-background/30 px-3 py-1.5 text-xs transition-colors;
+  }
+
+  .organic-divider {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      oklch(0.58 0.08 200 / 0.35) 50%,
+      transparent 100%
+    );
+    height: 1px;
   }
 
   .glow-primary {

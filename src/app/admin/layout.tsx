@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import AnimatedPage from '@/components/layout/AnimatedPage';
+import AppAmbient from '@/components/layout/AppAmbient';
 import {
   FileText,
   Users,
@@ -52,10 +53,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div className="dashboard-shell relative flex min-h-screen">
+      <AppAmbient />
       {/* Admin Sidebar */}
-      <div className="w-64 border-r bg-background">
-        <div className="p-4 border-b">
+      <div className="sidebar-organic w-64">
+        <div className="border-b border-border/40 p-4">
           <Link href="/admin" className="flex items-center gap-2">
             <span className="text-xl font-bold">ZarcFit Admin</span>
           </Link>
@@ -65,28 +67,28 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           <nav className="space-y-2">
             <Link 
               href="/admin"
-              className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted transition-colors"
+              className="flex items-center gap-3 rounded-2xl px-3 py-2 transition-colors hover:bg-muted/50"
             >
               <Home className="h-5 w-5" />
               <span>Dashboard</span>
             </Link>
             <Link 
               href="/admin/blog"
-              className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted transition-colors"
+              className="flex items-center gap-3 rounded-2xl px-3 py-2 transition-colors hover:bg-muted/50"
             >
               <FileText className="h-5 w-5" />
               <span>Blog Posts</span>
             </Link>
             <Link 
               href="/admin/users"
-              className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted transition-colors"
+              className="flex items-center gap-3 rounded-2xl px-3 py-2 transition-colors hover:bg-muted/50"
             >
               <Users className="h-5 w-5" />
               <span>Users</span>
             </Link>
             <Link 
               href="/admin/settings"
-              className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted transition-colors"
+              className="flex items-center gap-3 rounded-2xl px-3 py-2 transition-colors hover:bg-muted/50"
             >
               <Settings className="h-5 w-5" />
               <span>Settings</span>
@@ -112,8 +114,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        <main className="flex-1 overflow-auto bg-muted/30 p-6">
-          <AnimatedPage>{children}</AnimatedPage>
+        <main className="relative flex-1 overflow-auto bg-muted/15 p-6">
+          <AnimatedPage ambient={false}>{children}</AnimatedPage>
         </main>
       </div>
     </div>

@@ -16,8 +16,8 @@ export default function Section({
 }: SectionProps) {
   const variants = {
     default: 'bg-background',
-    muted: 'bg-muted/30',
-    accent: 'bg-primary/5 border-y border-primary/10',
+    muted: 'bg-muted/20 auth-ambient',
+    accent: 'border-y border-primary/10 bg-primary/5 auth-ambient',
   };
 
   return (

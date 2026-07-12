@@ -1,25 +1,46 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useAuth } from '@/context/auth-context';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Form,
+  FormField,
+  FormItem,
+} from '@/components/ui/form';
+import { useAuth } from '@/context/auth-context';
 import AuthShell from '@/components/layout/AuthShell';
+import {
+  AuthFormCard,
+  AuthPrimaryButton,
+  AuthSpinner,
+  AuthStatusPanel,
+  AuthStepView,
+  PasswordField,
+} from '@/components/auth/auth-ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { completeAuthFromUrl } from '@/lib/supabase/auth-callback';
+import { resetPasswordSchema, type ResetPasswordFormValues } from '@/lib/validation/auth';
 
 export default function ResetPasswordPage() {
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [formError, setFormError] = useState('');
   const [sessionReady, setSessionReady] = useState(false);
   const [checkingLink, setCheckingLink] = useState(true);
   const { resetPassword } = useAuth();
+
+  const form = useForm<ResetPasswordFormValues>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: {
+      password: '',
+      confirmPassword: '',
+    },
+    mode: 'onBlur',
+  });
+
+  const passwordValue = form.watch('password');
 
   useEffect(() => {
     const establishSession = async () => {
@@ -28,10 +49,12 @@ export default function ResetPasswordPage() {
         const { error: callbackError, handled } = await completeAuthFromUrl(supabase);
 
         if (handled && callbackError) {
-          setError(callbackError);
+          setFormError(callbackError);
           setSessionReady(false);
         } else {
-          const { data: { session } } = await supabase.auth.getSession();
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
           setSessionReady(!!session);
           if (handled && session) {
             window.history.replaceState({}, '', '/auth/reset-password');
@@ -39,7 +62,7 @@ export default function ResetPasswordPage() {
         }
       } catch (err) {
         console.error(err);
-        setError('Invalid or expired reset link. Please request a new one.');
+        setFormError('Invalid or expired reset link. Please request a new one.');
       } finally {
         setCheckingLink(false);
       }
@@ -48,105 +71,113 @@ export default function ResetPasswordPage() {
     establishSession();
   }, []);
 
-  const validatePassword = () => {
-    if (password.length < 8) return 'Password must be at least 8 characters';
-    if (!/[0-9]/.test(password)) return 'Password must include a number';
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) return 'Password must include a special character';
-    if (password !== confirmPassword) return 'Passwords do not match';
-    return null;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const validationError = validatePassword();
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-    
-    setError('');
-    setSuccess('');
-    setIsLoading(true);
+  const onSubmit = async (values: ResetPasswordFormValues) => {
+    setFormError('');
 
     try {
-      const { error } = await resetPassword(password);
+      const { error } = await resetPassword(values.password);
       if (error) {
-        setError(error.message);
-      } else {
-        setSuccess('Password has been reset successfully. Redirecting to login...');
-        // The auth context will handle redirection to login page
+        setFormError(error.message);
       }
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
+      setFormError('An unexpected error occurred. Please try again.');
       console.error(err);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   return (
     <AuthShell title="Set new password" subtitle="Choose a strong password for your account">
-      <Card className="glass-card w-full border-border/60 shadow-xl">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">Create new password</CardTitle>
-          <CardDescription>
-            Enter a new password for your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {checkingLink ? (
-            <div className="flex justify-center py-8">
-              <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
-            </div>
-          ) : !sessionReady && !success ? (
-            <Alert variant="destructive">
-              <AlertDescription>
-                {error || 'This reset link is invalid or has expired. Request a new link from the forgot password page.'}
-              </AlertDescription>
-            </Alert>
-          ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            {success && (
-              <Alert>
-                <AlertDescription>{success}</AlertDescription>
-              </Alert>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="password">New Password</Label>
-              <Input 
-                id="password" 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
+      <AuthFormCard
+        title="Create new password"
+        description={
+          checkingLink
+            ? 'Validating your reset link...'
+            : sessionReady
+              ? 'Enter a new password for your account'
+              : 'This reset link is no longer valid'
+        }
+      >
+        {checkingLink ? (
+          <AuthSpinner />
+        ) : (
+          <AuthStepView stepKey={sessionReady ? 'form' : 'invalid'}>
+            {!sessionReady ? (
+              <AuthStatusPanel
+                icon="shield"
+                title="Link expired"
+                description={
+                  formError ||
+                  'This reset link is invalid or has expired. Request a new link to continue.'
+                }
+                action={
+                  <Button asChild className="w-full">
+                    <Link href="/auth/forgot-password">Request new reset link</Link>
+                  </Button>
+                }
+                secondaryAction={
+                  <Button asChild variant="outline" className="w-full">
+                    <Link href="/auth/login">Back to login</Link>
+                  </Button>
+                }
               />
-              <p className="text-xs text-muted-foreground">
-                Password must be at least 8 characters long and include a number and special character.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input 
-                id="confirmPassword" 
-                type="password" 
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
-            </div>
-            <Button className="w-full" type="submit" disabled={isLoading || !sessionReady}>
-              {isLoading ? 'Resetting...' : 'Reset Password'}
-            </Button>
-          </form>
-          )}
-        </CardContent>
-      </Card>
+            ) : (
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  {formError && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{formError}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field, fieldState }) => (
+                      <FormItem>
+                        <PasswordField
+                          id="password"
+                          label="New Password"
+                          value={field.value}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          error={fieldState.error?.message}
+                          showRequirements
+                          autoComplete="new-password"
+                        />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="confirmPassword"
+                    render={({ field, fieldState }) => (
+                      <FormItem>
+                        <PasswordField
+                          id="confirmPassword"
+                          label="Confirm Password"
+                          value={field.value}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          error={fieldState.error?.message}
+                          autoComplete="new-password"
+                        />
+                      </FormItem>
+                    )}
+                  />
+
+                  <AuthPrimaryButton
+                    type="submit"
+                    disabled={form.formState.isSubmitting || !passwordValue}
+                  >
+                    {form.formState.isSubmitting ? 'Resetting...' : 'Reset Password'}
+                  </AuthPrimaryButton>
+                </form>
+              </Form>
+            )}
+          </AuthStepView>
+        )}
+      </AuthFormCard>
     </AuthShell>
   );
-} 
+}

@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -12,6 +12,8 @@ import { useAuth } from '@/context/auth-context';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { invitationApi, InvitationPreview } from '@/lib/supabase/trainer-api';
 import AuthShell from '@/components/layout/AuthShell';
+import OrganicCard from '@/components/layout/OrganicCard';
+import { AuthSpinner, AuthStepView } from '@/components/auth/auth-ui';
 import { CheckCircle2, XCircle, UserPlus } from 'lucide-react';
 
 type Step = 'loading' | 'invalid' | 'ready' | 'accepting' | 'accepted' | 'error';
@@ -190,12 +192,13 @@ function AcceptInvitationContent() {
 
   return (
     <AuthShell title="You're Invited" subtitle="Join your trainer on ZarcFit">
-      <Card className="glass-card w-full border-border/60 shadow-xl">
+      <OrganicCard padding="none" className="w-full">
+        <AuthStepView stepKey={step}>
         {step === 'loading' && (
-          <CardContent className="flex flex-col items-center gap-4 py-12">
-            <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
+          <div className="flex flex-col items-center gap-4 px-6 py-12">
+            <AuthSpinner className="py-2" />
             <p className="text-sm text-muted-foreground">Loading invitation...</p>
-          </CardContent>
+          </div>
         )}
 
         {step === 'invalid' && (
@@ -227,10 +230,10 @@ function AcceptInvitationContent() {
         )}
 
         {step === 'accepting' && (
-          <CardContent className="flex flex-col items-center gap-4 py-12">
-            <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
+          <div className="flex flex-col items-center gap-4 px-6 py-12">
+            <AuthSpinner className="py-2" />
             <p className="text-sm text-muted-foreground">Accepting invitation...</p>
-          </CardContent>
+          </div>
         )}
 
         {step === 'accepted' && (
@@ -277,12 +280,12 @@ function AcceptInvitationContent() {
               )}
 
               {!user && !checkEmailNotice && (
-                <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted p-1">
+                <div className="grid grid-cols-2 gap-2 rounded-2xl bg-muted/40 p-1">
                   <button
                     type="button"
                     onClick={() => setAuthMode('signup')}
-                    className={`rounded-md py-1.5 text-sm font-medium transition-colors ${
-                      authMode === 'signup' ? 'bg-background shadow-sm' : 'text-muted-foreground'
+                    className={`rounded-xl py-2 text-sm font-medium transition-colors ${
+                      authMode === 'signup' ? 'bg-background/80 shadow-sm' : 'text-muted-foreground'
                     }`}
                   >
                     Create Account
@@ -290,8 +293,8 @@ function AcceptInvitationContent() {
                   <button
                     type="button"
                     onClick={() => setAuthMode('login')}
-                    className={`rounded-md py-1.5 text-sm font-medium transition-colors ${
-                      authMode === 'login' ? 'bg-background shadow-sm' : 'text-muted-foreground'
+                    className={`rounded-xl py-2 text-sm font-medium transition-colors ${
+                      authMode === 'login' ? 'bg-background/80 shadow-sm' : 'text-muted-foreground'
                     }`}
                   >
                     I Have an Account
@@ -370,7 +373,8 @@ function AcceptInvitationContent() {
             </CardContent>
           </>
         )}
-      </Card>
+        </AuthStepView>
+      </OrganicCard>
     </AuthShell>
   );
 }

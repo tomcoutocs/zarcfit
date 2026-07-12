@@ -26,7 +26,7 @@ export default function FeatureCard({
     <AnimatedContent distance={40} delay={delay} duration={0.6} className={className}>
       <SpotlightCard
         spotlightColor={SPOTLIGHT}
-        className="!h-full !rounded-xl !border-border !bg-card !p-6 transition-colors hover:!border-primary/30"
+        className="!h-full !rounded-2xl !border-border/50 !bg-card/55 !p-6 transition-colors hover:!border-primary/30"
       >
         <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
           <Icon className="h-5 w-5 text-primary" />

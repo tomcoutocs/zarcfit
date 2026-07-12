@@ -2,25 +2,50 @@
 
 import React, { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useAuth } from '@/context/auth-context';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { useAuth } from '@/context/auth-context';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { completeAuthFromUrl, hasAuthCallbackParams } from '@/lib/supabase/auth-callback';
 import AuthShell from '@/components/layout/AuthShell';
+import {
+  AuthFieldInput,
+  AuthFooterLink,
+  AuthFormCard,
+  AuthInfoAlert,
+  AuthPrimaryButton,
+  AuthSpinner,
+  AuthStepView,
+  PasswordField,
+  SocialAuthButtons,
+  SocialAuthDivider,
+} from '@/components/auth/auth-ui';
+import { loginSchema, type LoginFormValues } from '@/lib/validation/auth';
 
 function LoginContent() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [verifiedBanner, setVerifiedBanner] = useState(false);
   const [isConfirmingEmail, setIsConfirmingEmail] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
   const { signIn, signInWithProvider } = useAuth();
+
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+    mode: 'onBlur',
+  });
 
   useEffect(() => {
     const handleEmailConfirmation = async () => {
@@ -39,16 +64,16 @@ function LoginContent() {
         }
 
         if (callbackError) {
-          setError(callbackError);
+          setFormError(callbackError);
           return;
         }
 
         await supabase.auth.signOut({ scope: 'local' });
-        setSuccess('Your email has been verified. Please sign in with your password.');
+        setVerifiedBanner(true);
         window.history.replaceState({}, '', '/auth/login');
       } catch (err) {
         console.error('Email confirmation error:', err);
-        setError('We could not verify your email. The link may have expired.');
+        setFormError('We could not verify your email. The link may have expired.');
       } finally {
         setIsConfirmingEmail(false);
       }
@@ -57,33 +82,27 @@ function LoginContent() {
     handleEmailConfirmation();
   }, []);
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setIsLoading(true);
+  const onSubmit = async (values: LoginFormValues) => {
+    setFormError('');
 
     try {
-      const { error } = await signIn(email, password);
+      const { error } = await signIn(values.email, values.password);
       if (error) {
-        setError(error.message);
+        setFormError(error.message);
       }
-      // The auth context will handle redirection to dashboard
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
+      setFormError('An unexpected error occurred. Please try again.');
       console.error(err);
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const handleSocialSignIn = async (provider: 'github' | 'google' | 'apple') => {
+  const handleSocialSignIn = async (provider: 'google' | 'apple') => {
     try {
       setSocialLoading(provider);
-      setError('');
+      setFormError('');
       await signInWithProvider(provider);
-      // The OAuth flow will handle redirection
     } catch (err) {
-      setError('An error occurred with social sign-in. Please try again.');
+      setFormError('An error occurred with social sign-in. Please try again.');
       console.error(err);
       setSocialLoading(null);
     }
@@ -91,131 +110,114 @@ function LoginContent() {
 
   return (
     <AuthShell title="Sign in to ZarcFit" subtitle="Access your personalized dashboard">
-      <Card className="glass-card w-full border-border/60 shadow-xl">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">Sign in to ZarcFit</CardTitle>
-          <CardDescription>
-            {isConfirmingEmail
-              ? 'Confirming your email...'
-              : 'Enter your email and password to access your account'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isConfirmingEmail ? (
-            <div className="flex justify-center py-8">
-              <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
-            </div>
-          ) : (
+      <AuthFormCard
+        title="Sign in to ZarcFit"
+        description={
+          isConfirmingEmail
+            ? 'Confirming your email...'
+            : 'Enter your email and password to access your account'
+        }
+        footer={
+          !isConfirmingEmail ? (
             <>
-          <Alert className="mb-4">
-            <AlertDescription>
-              Clients need an invitation from their trainer to join ZarcFit. If you received an invite, use the link in your email to create your account.
-            </AlertDescription>
-          </Alert>
-
-          <form onSubmit={handleSignIn} className="space-y-4">
-            {success && (
-              <Alert>
-                <AlertDescription>{success}</AlertDescription>
-              </Alert>
-            )}
-
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="your.email@example.com" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
+              <SocialAuthDivider />
+              <SocialAuthButtons
+                onGoogle={() => handleSocialSignIn('google')}
+                onApple={() => handleSocialSignIn('apple')}
+                loadingProvider={socialLoading}
+                disabled={form.formState.isSubmitting}
               />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link href="/auth/forgot-password" className="text-sm text-primary hover:underline">
-                  Forgot password?
-                </Link>
-              </div>
-              <Input 
-                id="password" 
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <Button 
-              variant="white"
-              className="w-full font-semibold" 
-              type="submit" 
-              disabled={isLoading}
-            >
-              {isLoading ? 'Signing in...' : 'Sign In'}
-            </Button>
-          </form>
-          
-          <div className="mt-4 text-center text-sm space-y-1">
-            <p>
-              Are you a trainer?{' '}
-              <Link href="/auth/signup" className="text-primary hover:underline">
-                Create a trainer account
-              </Link>
-            </p>
-          </div>
             </>
-          )}
-        </CardContent>
-        {!isConfirmingEmail && (
-        <CardFooter className="flex flex-col space-y-4">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Button 
-              variant="outline" 
-              type="button" 
-              onClick={() => handleSocialSignIn('google')}
-              disabled={!!socialLoading}
-            >
-              {socialLoading === 'google' ? 'Connecting...' : 'Google'}
-            </Button>
-            <Button 
-              variant="outline" 
-              type="button" 
-              onClick={() => handleSocialSignIn('apple')}
-              disabled={!!socialLoading}
-            >
-              {socialLoading === 'apple' ? 'Connecting...' : 'Apple'}
-            </Button>
-          </div>
-        </CardFooter>
+          ) : undefined
+        }
+      >
+        {isConfirmingEmail ? (
+          <AuthSpinner />
+        ) : (
+          <AuthStepView stepKey="login-form">
+            <AuthInfoAlert>
+              Clients need an invitation from their trainer to join ZarcFit. If you received an
+              invite, use the link in your email to create your account.
+            </AuthInfoAlert>
+
+            {verifiedBanner && (
+              <Alert className="mb-4">
+                <AlertDescription>
+                  Your email has been verified. Please sign in with your password.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                {formError && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{formError}</AlertDescription>
+                  </Alert>
+                )}
+
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <AuthFieldInput type="email" placeholder="your.email@example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field, fieldState }) => (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel>Password</FormLabel>
+                        <Link
+                          href="/auth/forgot-password"
+                          className="text-sm text-primary hover:underline"
+                        >
+                          Forgot password?
+                        </Link>
+                      </div>
+                      <PasswordField
+                        id="password"
+                        label=""
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        error={fieldState.error?.message}
+                        autoComplete="current-password"
+                      />
+                    </FormItem>
+                  )}
+                />
+
+                <AuthPrimaryButton type="submit" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting ? 'Signing in...' : 'Sign In'}
+                </AuthPrimaryButton>
+              </form>
+            </Form>
+
+            <AuthFooterLink
+              prompt="Are you a trainer?"
+              href="/auth/signup"
+              label="Create a trainer account"
+            />
+          </AuthStepView>
         )}
-      </Card>
+      </AuthFormCard>
     </AuthShell>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center">
-          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
-        </div>
-      }
-    >
+    <Suspense fallback={<AuthSpinner className="min-h-screen" />}>
       <LoginContent />
     </Suspense>
   );

@@ -9,6 +9,7 @@ import { useAuth } from '@/context/auth-context';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import AnimatedPage from '@/components/layout/AnimatedPage';
+import AppAmbient from '@/components/layout/AppAmbient';
 
 interface NavItemProps {
   href: string;
@@ -26,8 +27,8 @@ function NavItem({ href, icon, label, isActive = false, onClick }: NavItemProps)
       className={cn(
         'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
         isActive
-          ? 'nav-link-active shadow-sm'
-          : 'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground'
+          ? 'nav-pill-active text-primary'
+          : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground'
       )}
     >
       {icon}
@@ -70,9 +71,10 @@ export default function ClientLayout({
 
   return (
     <ProtectedRoute>
-      <div className="flex min-h-screen bg-background">
+      <div className="dashboard-shell flex min-h-screen bg-background">
+        <AppAmbient />
         {/* Sidebar */}
-        <aside className="hidden w-64 flex-col border-r border-sidebar-border bg-sidebar md:flex">
+        <aside className="sidebar-organic hidden w-64 flex-col md:flex">
           <div className="border-b border-sidebar-border p-5">
             <Link href="/" className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 ring-1 ring-primary/20">
@@ -167,8 +169,8 @@ export default function ClientLayout({
             )}
           </div>
 
-          <main className="flex-1 overflow-auto bg-muted/20 p-4 md:p-6 lg:p-8">
-            <AnimatedPage>{children}</AnimatedPage>
+          <main className="relative flex-1 overflow-auto bg-muted/15 p-4 md:p-6 lg:p-8">
+            <AnimatedPage ambient={false}>{children}</AnimatedPage>
           </main>
         </div>
       </div>
