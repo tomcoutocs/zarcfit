@@ -83,19 +83,19 @@ export default function TrainerLayout({
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-1 p-4">
+          <nav className="flex-1 space-y-2.5 p-4">
             {navigation.map((item) => {
               const Icon = item.icon;
               return (
                 <Link key={item.name} href={item.href}>
                   <Button
-                    variant={isActive(item.href) ? 'default' : 'ghost'}
+                    variant="ghost"
                     className={cn(
-                      'w-full justify-start gap-3 rounded-2xl',
-                      isActive(item.href) && 'nav-pill-active shadow-none'
+                      'sidebar-nav-item h-auto justify-start',
+                      isActive(item.href) && 'nav-pill-active'
                     )}
                   >
-                    <Icon className="h-5 w-5" />
+                    <Icon className="h-5 w-5 shrink-0" />
                     {item.name}
                   </Button>
                 </Link>

@@ -64,31 +64,31 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </div>
         
         <div className="p-4">
-          <nav className="space-y-2">
+          <nav className="space-y-2.5">
             <Link 
               href="/admin"
-              className="flex items-center gap-3 rounded-2xl px-3 py-2 transition-colors hover:bg-muted/50"
+              className="sidebar-nav-item transition-colors hover:bg-muted/50"
             >
               <Home className="h-5 w-5" />
               <span>Dashboard</span>
             </Link>
             <Link 
               href="/admin/blog"
-              className="flex items-center gap-3 rounded-2xl px-3 py-2 transition-colors hover:bg-muted/50"
+              className="sidebar-nav-item transition-colors hover:bg-muted/50"
             >
               <FileText className="h-5 w-5" />
               <span>Blog Posts</span>
             </Link>
             <Link 
               href="/admin/users"
-              className="flex items-center gap-3 rounded-2xl px-3 py-2 transition-colors hover:bg-muted/50"
+              className="sidebar-nav-item transition-colors hover:bg-muted/50"
             >
               <Users className="h-5 w-5" />
               <span>Users</span>
             </Link>
             <Link 
               href="/admin/settings"
-              className="flex items-center gap-3 rounded-2xl px-3 py-2 transition-colors hover:bg-muted/50"
+              className="sidebar-nav-item transition-colors hover:bg-muted/50"
             >
               <Settings className="h-5 w-5" />
               <span>Settings</span>

@@ -25,7 +25,7 @@ function NavItem({ href, icon, label, isActive = false, onClick }: NavItemProps)
       href={href}
       onClick={onClick}
       className={cn(
-        'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+        'sidebar-nav-item transition-all',
         isActive
           ? 'nav-pill-active text-primary'
           : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground'
@@ -86,7 +86,7 @@ export default function ClientLayout({
             </Link>
           </div>
 
-          <nav className="flex-1 space-y-1 p-4">
+          <nav className="flex-1 space-y-2.5 p-4">
             {navItems.map((item) => (
               <NavItem
                 key={item.href}
@@ -133,7 +133,7 @@ export default function ClientLayout({
 
             {mobileMenuOpen ? (
               <div className="border-t border-border/50 p-4">
-                <nav className="space-y-1">
+                <nav className="space-y-2.5">
                   {navItems.map((item) => (
                     <NavItem
                       key={item.href}
