@@ -10,9 +10,10 @@ import LandingStats from '@/components/landing/LandingStats';
 import LandingFeatures from '@/components/landing/LandingFeatures';
 import LandingTestimonials from '@/components/landing/LandingTestimonials';
 import CTABanner from '@/components/layout/CTABanner';
+import { homeForRole } from '@/lib/auth-routes';
 
 export default function HomePage() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const router = useRouter();
 
   return (
@@ -34,7 +35,7 @@ export default function HomePage() {
                   <Button
                     size="lg"
                     className="font-medium"
-                    onClick={() => router.push('/client')}
+                    onClick={() => router.push(homeForRole(role))}
                   >
                     Go to Dashboard
                   </Button>

@@ -9,6 +9,7 @@ import {
   toAuthNetworkError,
 } from '@/lib/supabase/browser';
 import { homeForRole } from '@/lib/auth-routes';
+import { fetchOrEnsureUserRole } from '@/lib/supabase/ensure-user-role';
 
 type UserMetadata = {
   firstName?: string;
@@ -65,24 +66,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const configError = getSupabaseConfigError();
 
-  const fetchUserRole = useCallback(async (userId: string) => {
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Error fetching user role:', error);
-      return null;
-    }
-
-    return (data?.role as UserRole | undefined) ?? null;
+  const fetchUserRole = useCallback(async (authUser: User) => {
+    return fetchOrEnsureUserRole(supabase, authUser);
   }, [supabase]);
 
   const refreshRole = async () => {
     if (user) {
-      const userRole = await fetchUserRole(user.id);
+      const userRole = await fetchUserRole(user);
       setRole(userRole);
     }
   };
@@ -95,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(data.session?.user || null);
         
         if (data.session?.user) {
-          const userRole = await fetchUserRole(data.session.user.id);
+          const userRole = await fetchUserRole(data.session.user);
           setRole(userRole);
         }
       } catch (error) {
@@ -113,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user || null);
         
         if (session?.user) {
-          const userRole = await fetchUserRole(session.user.id);
+          const userRole = await fetchUserRole(session.user);
           setRole(userRole);
         } else {
           setRole(null);
@@ -265,7 +255,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!error && data.user) {
-        const userRole = await fetchUserRole(data.user.id);
+        const userRole = await fetchUserRole(data.user);
         setRole(userRole);
         router.push(homeForRole(userRole));
       }

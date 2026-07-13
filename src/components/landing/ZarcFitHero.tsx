@@ -10,6 +10,7 @@ import Aurora from '@/components/Aurora';
 import SplitText from '@/components/SplitText';
 import AnimatedContent from '@/components/AnimatedContent';
 import CountUp from '@/components/CountUp';
+import { homeForRole } from '@/lib/auth-routes';
 
 const SOCIAL_AVATARS = [
   'https://i.pravatar.cc/150?img=12',
@@ -19,11 +20,11 @@ const SOCIAL_AVATARS = [
 ];
 
 export default function ZarcFitHero() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const router = useRouter();
 
   const primaryCta = user
-    ? { label: 'Go to Dashboard', href: '/client' }
+    ? { label: 'Go to Dashboard', href: homeForRole(role) }
     : { label: 'Become a trainer', href: '/auth/signup' };
 
   return (

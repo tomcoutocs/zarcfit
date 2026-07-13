@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { completeAuthFromUrl } from '@/lib/supabase/auth-callback';
-import { homeForRole, type AppUserRole } from '@/lib/auth-routes';
+import { homeForRole } from '@/lib/auth-routes';
+import { fetchOrEnsureUserRole } from '@/lib/supabase/ensure-user-role';
 import AuthShell from '@/components/layout/AuthShell';
 import { AuthFormCard, AuthSpinner, AuthStepView } from '@/components/auth/auth-ui';
 
@@ -22,26 +23,8 @@ function AuthCallbackContent() {
         return;
       }
 
-      const { data: roleRow } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      let role = roleRow?.role as AppUserRole | undefined;
-
-      const signupIntent = new URLSearchParams(window.location.search).get('signup');
-      if (!role && signupIntent === 'trainer') {
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert([{ user_id: user.id, role: 'trainer' }]);
-
-        if (!roleError) {
-          role = 'trainer';
-        }
-      }
-
-      router.replace(homeForRole(role ?? null));
+      const role = await fetchOrEnsureUserRole(supabase, user);
+      router.replace(homeForRole(role));
     };
 
     const handleCallback = async () => {

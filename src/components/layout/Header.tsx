@@ -15,12 +15,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { MARKETING_NAV_LINKS } from '@/lib/site-nav';
+import { homeForRole } from '@/lib/auth-routes';
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, role, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const dashboardHref = homeForRole(role);
+  const profileHref =
+    role === 'trainer' ? '/trainer/settings' : role === 'admin' ? '/admin/settings' : '/client/profile';
 
   const handleSignOut = async () => {
     await signOut();
@@ -65,10 +69,10 @@ export default function Header() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem asChild>
-                  <Link href="/client">Dashboard</Link>
+                  <Link href={dashboardHref}>Dashboard</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/client/profile">Profile</Link>
+                  <Link href={profileHref}>Profile</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
@@ -118,7 +122,7 @@ export default function Header() {
             <div className="mt-4 flex flex-col gap-2 border-t border-border/40 pt-4">
               {user ? (
                 <>
-                  <Button className="w-full gap-2" onClick={() => { setIsOpen(false); router.push('/client'); }}>
+                  <Button className="w-full gap-2" onClick={() => { setIsOpen(false); router.push(dashboardHref); }}>
                     Dashboard
                     <ArrowRight className="h-4 w-4" />
                   </Button>
