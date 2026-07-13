@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { homeForRole, type AppUserRole } from '@/lib/auth-routes'
+import { homeForRole, pickPrimaryRole } from '@/lib/auth-routes'
 
 const PLACEHOLDER_URL = 'https://placeholder.supabase.co'
 const PLACEHOLDER_KEY =
@@ -22,13 +22,6 @@ function copyCookies(from: NextResponse, to: NextResponse) {
   from.cookies.getAll().forEach(({ name, value }) => {
     to.cookies.set(name, value)
   })
-}
-
-function parseRole(role: string | undefined | null): AppUserRole | null {
-  if (role === 'trainer' || role === 'admin' || role === 'client') {
-    return role
-  }
-  return null
 }
 
 export async function middleware(req: NextRequest) {
@@ -87,13 +80,12 @@ export async function middleware(req: NextRequest) {
     return redirectResponse
   }
 
-  const { data: userRole } = await supabase
+  const { data: userRoles } = await supabase
     .from('user_roles')
     .select('role')
     .eq('user_id', user.id)
-    .maybeSingle()
 
-  const role = parseRole(userRole?.role)
+  const role = pickPrimaryRole((userRoles ?? []).map((row) => row.role))
 
   const isRoleProtectedPath =
     path.startsWith('/trainer') ||

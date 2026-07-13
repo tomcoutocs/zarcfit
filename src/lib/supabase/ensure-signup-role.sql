@@ -19,6 +19,12 @@ BEGIN
   SELECT role INTO v_role
   FROM user_roles
   WHERE user_id = v_user_id
+  ORDER BY CASE role
+    WHEN 'admin' THEN 3
+    WHEN 'trainer' THEN 2
+    WHEN 'client' THEN 1
+    ELSE 0
+  END DESC
   LIMIT 1;
 
   IF v_role IS NOT NULL THEN

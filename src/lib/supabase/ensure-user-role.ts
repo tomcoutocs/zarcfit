@@ -1,5 +1,6 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import type { AppUserRole } from '@/lib/auth-routes';
+import { pickPrimaryRole } from '@/lib/auth-routes';
 
 function readIntendedSignupRole(user: User): AppUserRole | null {
   const meta = user.user_metadata ?? {};
@@ -26,13 +27,15 @@ export async function fetchOrEnsureUserRole(
   const { data, error } = await supabase
     .from('user_roles')
     .select('role')
-    .eq('user_id', user.id)
-    .maybeSingle();
+    .eq('user_id', user.id);
 
   if (error) {
     console.error('Error fetching user role:', error);
-  } else if (data?.role) {
-    return data.role as AppUserRole;
+  } else {
+    const role = pickPrimaryRole((data ?? []).map((row) => row.role));
+    if (role) {
+      return role;
+    }
   }
 
   const intendedRole = readIntendedSignupRole(user);
@@ -56,10 +59,9 @@ export async function fetchOrEnsureUserRole(
     const { data: retry } = await supabase
       .from('user_roles')
       .select('role')
-      .eq('user_id', user.id)
-      .maybeSingle();
+      .eq('user_id', user.id);
 
-    return (retry?.role as AppUserRole | undefined) ?? null;
+    return pickPrimaryRole((retry ?? []).map((row) => row.role));
   }
 
   return intendedRole;
