@@ -50,7 +50,7 @@ export async function uploadMessageAttachment(
   const supabase = createSupabaseBrowserClient();
 
   const { error: uploadError } = await supabase.storage
-    .from('avatars')
+    .from(BUCKET)
     .upload(path, file, { upsert: true, contentType: file.type });
 
   if (uploadError) {
@@ -58,6 +58,6 @@ export async function uploadMessageAttachment(
     return { url: null, error: uploadError.message };
   }
 
-  const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
   return { url: data.publicUrl };
 }

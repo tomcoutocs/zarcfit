@@ -28,7 +28,7 @@ export default function PlansPage() {
         const res = await fetch('/api/stripe/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ priceId, customerEmail: user.email }),
+          body: JSON.stringify({ priceId }),
         });
         const data = await res.json();
         if (data.url) {
@@ -51,14 +51,14 @@ export default function PlansPage() {
       <PageHero
         badge="Trainer pricing"
         title="Plans for coaches"
-        subtitle="Planned monthly tiers for coaches — free to explore while billing is in early access."
+        subtitle="Monthly tiers for coaches — start free, upgrade when you're ready."
         size="compact"
       />
 
       <div className="container mx-auto px-4 py-12">
         <div className="mx-auto max-w-5xl">
           <p className="mb-8 rounded-lg border border-border bg-muted/40 px-4 py-3 text-center text-sm text-muted-foreground">
-            Trainer accounts are free during early access. Paid subscriptions and online checkout are coming soon — create your account now to start coaching.
+            Trainer accounts are free to create. Subscribe to a paid tier anytime — checkout is handled securely by Stripe.
           </p>
           <div className="mb-12 grid grid-cols-1 gap-8 md:grid-cols-3">
             {TRAINER_PLANS.map((plan, index) => (
@@ -191,7 +191,7 @@ export default function PlansPage() {
           <div className="mt-12 rounded-xl border border-border bg-card p-8 text-center">
             <h2 className="mb-3 text-2xl font-semibold tracking-tight">Ready to coach on ZarcFit?</h2>
             <p className="mx-auto mb-6 max-w-2xl text-muted-foreground">
-              Create your free trainer account and start inviting clients. Choose a plan when paid billing launches.
+              Create your free trainer account and start inviting clients. Upgrade your plan as your roster grows.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Button size="lg" onClick={() => router.push('/auth/signup')}>

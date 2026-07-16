@@ -34,30 +34,23 @@ SUPABASE_DB_PASSWORD=your_secure_password_123
 
 ### Step 3: Run Migrations
 
-#### Option A: Using the Migration Script (Automated)
+**Use the full migration runbook** — do not run only two files.
 
-```bash
-# Install PostgreSQL client if needed
-# On Ubuntu/Debian:
-sudo apt-get update && sudo apt-get install -y postgresql-client
+See **[MIGRATION_RUNBOOK.md](./MIGRATION_RUNBOOK.md)** for the complete ordered list of 34 SQL files.
 
-# Run the migration script
-./run-migrations.sh
-```
-
-#### Option B: Using Supabase Dashboard (Manual)
+#### Quick start (Supabase SQL Editor)
 
 1. Go to **SQL Editor** in your Supabase Dashboard
-2. Create a new query
-3. Copy and paste the contents of `src/lib/supabase/trainer-platform-schema.sql`
-4. Click **Run**
-5. Wait for completion (should take 2-3 seconds)
-6. Create another new query
-7. Copy and paste the contents of `src/lib/supabase/update-rls-policies.sql`
-8. Click **Run**
-9. Done!
+2. Run each file from `src/lib/supabase/` **in the order listed in MIGRATION_RUNBOOK.md**
+3. Wait for success before the next file
 
-#### Option C: Using psql Directly
+List all files:
+
+```bash
+./run-migrations.sh --list
+```
+
+#### Option A: Using psql (advanced)
 
 ```bash
 # Replace with your actual credentials

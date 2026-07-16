@@ -10,4 +10,12 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  webServer: process.env.CI
+    ? {
+        command: 'npm run start',
+        url: 'http://localhost:3000',
+        reuseExistingServer: false,
+        timeout: 120_000,
+      }
+    : undefined,
 });

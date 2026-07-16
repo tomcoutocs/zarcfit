@@ -17,12 +17,32 @@ export function getPlanStripePriceId(planId: string): string | undefined {
       process.env.STRIPE_PRICE_STARTER,
     growth:
       process.env.NEXT_PUBLIC_STRIPE_PRICE_GROWTH ||
+      process.env.STRIPE_PRICE_GROWTH ||
       process.env.STRIPE_PRICE_PRO,
     pro:
       process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO ||
+      process.env.STRIPE_PRICE_PRO ||
       process.env.STRIPE_PRICE_ENTERPRISE,
   };
   return envMap[planId];
+}
+
+/** Map a Stripe price ID back to a subscription tier slug. */
+export function tierFromStripePriceId(priceId: string | null | undefined): string {
+  if (!priceId) return 'free';
+  const tiers = ['starter', 'growth', 'pro'] as const;
+  for (const tier of tiers) {
+    const id = getPlanStripePriceId(tier);
+    if (id && id === priceId) return tier;
+  }
+  return 'starter';
+}
+
+/** Collect all configured Stripe price IDs (for webhook tier detection). */
+export function allStripePriceIds(): string[] {
+  return ['starter', 'growth', 'pro']
+    .map((id) => getPlanStripePriceId(id))
+    .filter((id): id is string => Boolean(id));
 }
 
 export const TRAINER_PLANS: TrainerPlan[] = [

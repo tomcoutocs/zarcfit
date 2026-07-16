@@ -34,9 +34,12 @@ MIGRATIONS=(
   "sleep-unique-constraint.sql"
   "blog-slug.sql"
   "message-read-receipts.sql"
+  "message-attachments.sql"
   "user-preferences.sql"
   "meal-favorites.sql"
   "stripe-subscriptions.sql"
+  "session-request-notifications.sql"
+  "message-storage-rls.sql"
 )
 
 if [[ "$1" == "--list" ]]; then

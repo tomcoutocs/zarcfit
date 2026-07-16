@@ -13,6 +13,7 @@ import { useAuth } from '@/context/auth-context';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
+import { slugifyTitle } from '@/lib/blog';
 
 // Blog post categories
 const categories = [
@@ -36,6 +37,7 @@ export default function NewBlogPostPage() {
   
   const [formData, setFormData] = useState({
     title: '',
+    slug: '',
     category: '',
     content: '',
     excerpt: '',
@@ -47,7 +49,11 @@ export default function NewBlogPostPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+      ...(name === 'title' && !prev.slug ? { slug: slugifyTitle(value) } : {}),
+    }));
   };
 
   const handleSelectChange = (name: string, value: string) => {
@@ -88,6 +94,7 @@ export default function NewBlogPostPage() {
         .from('blog_posts')
         .insert({
           title: formData.title,
+          slug: formData.slug || slugifyTitle(formData.title),
           excerpt: formData.excerpt,
           content: formData.content,
           category: formData.category,
@@ -165,6 +172,18 @@ export default function NewBlogPostPage() {
                 placeholder="Enter post title"
                 required
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="slug">URL slug</Label>
+              <Input
+                id="slug"
+                name="slug"
+                value={formData.slug}
+                onChange={handleChange}
+                placeholder="url-friendly-slug"
+              />
+              <p className="text-sm text-muted-foreground">Used in /main/blog/[slug]. Auto-generated from title if left blank.</p>
             </div>
             
             <div className="space-y-2">

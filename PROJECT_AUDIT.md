@@ -1,369 +1,273 @@
-# ZarcFit — Full Project Audit
+# ZarcFit — Project Audit
 
 **Audit date:** July 16, 2026  
-**Scope:** Codebase review only — no changes made  
-**Stack:** Next.js 15, React 19, TypeScript, Tailwind CSS, Supabase (Auth, Postgres, Storage, Realtime)
+**Baseline:** Pre-implementation audit (July 2026) · Implementation pass commit `388b066`  
+**Stack:** Next.js 15.2, React 19, TypeScript, Tailwind CSS, Supabase, TanStack Query, Sonner, Stripe (API)  
+**Production:** [zarcfit.vercel.app](https://zarcfit.vercel.app) · Supabase project `emcxxlwklkmwuduywlna`
 
 ---
 
 ## Executive Summary
 
-ZarcFit has evolved from a consumer fitness tracker into a **trainer–client coaching platform**. The core product is largely functional: authentication, role-based routing, client tracking (workouts, nutrition, sleep, goals, progress), trainer tooling (programs, meal plans, messaging, scheduling), and an admin panel are wired to Supabase.
+ZarcFit is a **feature-rich coach platform** (~88% MVP in code) after the full implementation pass. Client and trainer apps are largely complete with mobile navigation, CMS blog, messaging upgrades, nutrition/workout depth, and CI scaffolding.
 
-The main gaps fall into four buckets:
+**The platform is not yet production-ready.** Several P0 bugs and security gaps block a confident launch: message attachments upload to the wrong storage bucket, Stripe webhooks do not verify signatures or update the correct database rows, and multiple API routes accept unauthenticated requests.
 
-1. **Incomplete or placeholder UI** — calendar views, profile security/preferences, billing, public blog
-2. **Ops / production hardening** — migration coverage, rate limiting, tests, API security polish
-3. **UX friction** — mobile navigation, misleading copy, dev-only UI shown to users, broken marketing assets
-4. **Documentation drift** — several markdown files describe an older `/dashboard/*` app state
+Supabase migrations from the runbook were applied to production (July 16, 2026). Build and unit tests pass.
 
-Overall maturity: **~75–80% of an MVP coach platform**, with polish and monetization still ahead.
-
----
-
-## Architecture Overview
-
-| Area | Routes | Status |
-|------|--------|--------|
-| Marketing | `/`, `/main/*`, `/terms`, `/privacy` | Mostly complete |
-| Auth | `/auth/*` | Complete |
-| Client app | `/client/*` | Largely complete |
-| Trainer portal | `/trainer/*` | Largely complete |
-| Admin | `/admin/*` | Partial (no contact inbox) |
-| API routes | `/api/food/search`, `/api/health-import`, `/api/sleep-records` | Partial hardening |
-
-**Roles:** `admin`, `trainer`, `client` — enforced in middleware via `user_roles`.
-
-**Canonical client routes:** `/client/*` (legacy `/dashboard` redirects to `/client` only at the root).
+| Area | Maturity | Status |
+|------|----------|--------|
+| Client app | **93%** | Feature-complete; minor stubs (2FA) |
+| Trainer portal | **91%** | Feature-complete |
+| Admin | **85%** | No mobile nav |
+| Marketing | **88%** | Billing copy inconsistent; FAQ search UI-only |
+| Auth & roles | **88%** | Middleware solid; API route auth gaps |
+| Database / SQL | **90%** | Migrations applied; script/runbook drift |
+| Stripe / billing | **55%** | Code wired; webhook broken; Dashboard unset |
+| Messaging | **80%** | Attachments broken (bucket bug) |
+| Notifications | **75%** | Realtime + prefs; web push deferred |
+| Testing & CI | **35%** | 2 unit tests, 2 smoke E2E; no auth E2E |
+| Security | **70%** | RLS good; open API routes are P0 |
+| **Overall MVP** | **~88%** | Fix P0 blockers before launch |
 
 ---
 
-## What Is Fully Implemented
+## Architecture
 
-### Authentication & onboarding
-- Email/password login, signup, forgot/reset password, email verification
-- Trainer-only public signup (`/auth/signup` always creates trainer accounts)
-- Client onboarding via invitation token (`/auth/accept-invitation`)
-- Role-based middleware and protected layouts
-- Global error boundaries (`error.tsx`, `global-error.tsx`)
+### App routes (47 pages)
 
-### Client features (`/client/*`)
-| Feature | Route | Backend | Notes |
-|---------|-------|---------|-------|
-| Dashboard overview | `/client` | ✅ | Goals, events, trainer card, notifications |
-| Workout logging | `/client/workout` | ✅ | Today's workout, history, assigned programs |
-| Meal planning | `/client/meal-plan` | ✅ | Weekly plan + daily food diary tabs |
-| Sleep tracking | `/client/sleep` | ✅ | Full CRUD, charts, stats |
-| Goals | `/client/goals` | ✅ | CRUD with progress bars |
-| Progress | `/client/progress` | ✅ | Measurements, weight chart, photo upload |
-| Calendar | `/client/calendar` | ✅ | Month view, events, session requests |
-| Chat | `/client/chat` | ✅ | Realtime messaging with trainers |
-| Profile | `/client/profile` | ⚠️ | Avatar, health import; several tabs stubbed |
+| Zone | Routes | Notes |
+|------|--------|-------|
+| Landing | `/` | Marketing homepage with animations |
+| Marketing | `/main/plans`, `/main/blog`, `/main/blog/[slug]`, `/main/about`, `/main/contact`, `/main/faq` | Blog CMS-connected |
+| Legal | `/terms`, `/privacy` | Static |
+| Auth | `/auth/*` (7 routes) | Login, signup, reset, callback, invitation accept |
+| Client | `/client/*` (9 routes) | Dashboard, workout, meal-plan, sleep, goals, progress, calendar, chat, profile |
+| Trainer | `/trainer/*` (11 routes) | Dashboard, clients, programs, meal-plans, messages, schedule, settings |
+| Admin | `/admin/*` (9 routes) | Blog CMS, users, contact inbox, settings |
 
-### Trainer features (`/trainer/*`)
-| Feature | Route | Backend | Notes |
-|---------|-------|---------|-------|
-| Dashboard | `/trainer/dashboard` | ✅ | Live stats, activity feed, notifications |
-| Clients | `/trainer/clients` | ✅ | Roster, invitations, client detail tabs |
-| Programs | `/trainer/programs` + builder | ✅ | Templates, assignment, exercise library |
-| Meal plans | `/trainer/meal-plans` + editor | ✅ | Templates, assignment, food search |
-| Messages | `/trainer/messages` | ✅ | Realtime chat |
-| Schedule | `/trainer/schedule` | ✅ | Events + session request approve/decline |
-| Settings | `/trainer/settings` | ✅ | Profile, avatar, booking preferences |
+Legacy redirects in `next.config.ts`: `/dashboard/*` → `/client/*`, `/main/programs` and `/main/coaching` → `/main/plans`.
 
-### Admin (`/admin/*`)
-- Real stats via `get_admin_stats()` RPC
-- Blog CRUD (backed by `blog_posts` table)
-- User management (grant/revoke roles)
-- Password change in settings
+### API routes (8)
 
-### Integrations
-- **Food search:** USDA FoodData Central + Open Food Facts fallback (`/api/food/search`)
-- **Health import:** Webhook for Apple Health Auto Export (`/api/health-import`)
-- **Storage:** Avatar and progress photo uploads (Supabase Storage)
+| Route | Auth | Rate limit | Status |
+|-------|------|------------|--------|
+| `/api/food/search` | Public | ✅ 30/min/IP | ✅ Working |
+| `/api/health-import` | API key | ✅ Strict | ✅ Working |
+| `/api/sleep-records` | Session | — | ✅ Working |
+| `/api/invitations/send-email` | **None** | — | ⚠️ P0 — open invite spam |
+| `/api/notifications/send-email` | **None** | — | ⚠️ P0 — open email relay |
+| `/api/stripe/checkout` | **None** | — | ⚠️ P0 — anyone can create sessions |
+| `/api/stripe/portal` | **None** | — | ⚠️ P0 |
+| `/api/webhooks/stripe` | Signature (broken) | — | ⚠️ P0 — no verify, wrong DB lookup |
+
+Middleware (`src/middleware.ts`) guards `/trainer`, `/client`, `/admin` by role. All `/api/*` routes bypass auth checks.
 
 ---
 
-## What Needs Implementation
+## What's Complete (production-quality)
 
-### 🔴 High priority — user-facing gaps
+### Client app
+- Workout logging, history tab auto-switch, analytics (volume + PRs)
+- Meal plan weekly view, daily diary, serving size picker, copy meal, favorites
+- Sleep tracking, goals, progress photos + side-by-side compare
+- Calendar week/day views, session requests with trainer availability
+- Chat: text, typing indicators, search, read receipts, optimistic send
+- Profile: notification/privacy/unit preferences
+- Mobile: 5-tab bottom bar + More drawer, unread message badges
 
-#### 1. Public blog not connected to admin CMS
-- Admin writes to `blog_posts` (`/admin/blog/*`)
-- Public `/main/blog` is **entirely static** hardcoded content
-- No public post detail routes (e.g. `/main/blog/[slug]`)
-- Search and category filters on the blog page are non-functional
-- Referenced images (`/assets/images/blog-*.jpg`) **do not exist** in `public/` — broken visuals
+### Trainer portal
+- Client roster, detail views, quick actions, bulk pause/message
+- Program + meal plan builders, duplicate templates, assign to clients
+- Messaging, schedule, settings (incl. billing UI)
+- Mobile nav, dashboard stats + client activity feed
+- Invitation flow with email API + manual link fallback
 
-#### 2. Billing & subscriptions (marketing promises vs. reality)
-- `/main/plans` shows pricing tiers; CTAs go to trainer signup only
-- FAQ and contact copy references **Stripe billing**, pause/cancel flows — **no Stripe integration exists**
-- DB schema has `stripe_customer_id`, `stripe_subscription_id`, `subscription_tier` on trainer profiles
-- Trainer settings has no billing/subscription UI
-- Client profile shows hardcoded **"Free Plan"**
+### Admin & marketing
+- Blog CMS → public `/main/blog` list + slug detail pages
+- Contact form → admin contact inbox
+- Admin user management
 
-#### 3. Client invitation email delivery
-- Invitations create DB records + tokens
-- Trainers must **manually copy invitation links** from the clients page
-- UI copy says "Invitation Sent!" / "Send an email invitation" — **misleading** (no email is sent)
-
-#### 4. Calendar week & day views
-- Month view works; week and day tabs show **"coming soon"** placeholders
-
-#### 5. Client profile — security & preferences stubs
-Explicit "Coming Soon" buttons for:
-- Two-factor authentication
-- Notification preferences
-- Privacy settings
-
-Health Auto Export setup **is** implemented under Preferences.
-
-#### 6. Admin contact message inbox
-- Contact form submits to `contact_messages` table
-- **No admin UI** to view or respond to submissions
+### Infrastructure
+- `MIGRATION_RUNBOOK.md` (34 ordered SQL files) — in git at `388b066`
+- GitHub Actions CI: lint + test + build
+- Vitest + Playwright smoke scaffold
+- React Query provider, Sonner toasts, loading skeletons on dashboards
+- Rate limiting on food search + health import
 
 ---
 
-### 🟠 Medium priority — feature depth
+## P0 Blockers (must fix before launch)
 
-#### 7. Workout analytics
-- Logging and history exist
-- Missing: progression charts, volume trends, personal records (PRs), exercise-specific history
+### 1. Message attachments use wrong storage bucket
 
-#### 8. Nutrition enhancements
-- Daily diary + weekly meal plan both exist (good)
-- Missing: meal library/favorites, copy meal to another day, serving-size picker (food search parses description text only)
-- `NEXT_STEPS.md` references FatSecret; code uses **USDA + Open Food Facts** instead
+```52:61:src/lib/supabase/storage.ts
+  const { error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true, contentType: file.type });
+```
 
-#### 9. Progress photo comparison
-- Gallery and upload work
-- No side-by-side before/after comparison view
+`storage-schema.sql` creates only the `user-uploads` bucket. Profile uploads correctly use `user-uploads`; message attachments target a non-existent `avatars` bucket. **Fix:** Use `user-uploads` with path `messages/{userId}/...` or align schema + RLS.
 
-#### 10. Messaging limitations
-- Text-only chat with realtime
-- No file/image attachments, read receipts, typing indicators, or message search
+### 2. Stripe webhook broken
 
-#### 11. Push & email notifications
-- In-app notifications exist (`user_notifications` + triggers in `notifications.sql`)
-- Trainer settings toggles for email/push — **no web push or email delivery implementation**
-- Client dashboard notifications don't use Realtime (messages do)
+```42:51:src/app/api/webhooks/stripe/route.ts
+    if (email && customerId) {
+      await admin
+        .from('trainer_profiles')
+        .update({ ... })
+        .eq('email', email);
+```
 
-#### 12. Social auth
-- Google/Apple buttons on login/signup
-- Requires Supabase OAuth provider configuration; no in-app handling for misconfiguration
+Problems:
+- `trainer_profiles` has no `email` column — lookup never matches
+- Signature header is read but **never verified** (`webhookSecret` unused)
+- All subscriptions hardcoded to `subscription_tier: 'pro'`
+- No handling for `customer.subscription.updated/deleted`
 
-#### 13. Social/community features
-- No feeds, following, challenges, or leaderboards (intentionally deferred; no schema)
+**Fix:** Lookup trainer via `auth.users` email → `trainer_profiles.id`; verify with Stripe SDK; map price ID → tier.
 
----
+### 3. Unauthenticated API routes
 
-### 🟡 Infrastructure & production readiness
+| Route | Risk |
+|-------|------|
+| `/api/invitations/send-email` | Anyone can trigger Supabase invite emails |
+| `/api/notifications/send-email` | Open Resend relay if key configured |
+| `/api/stripe/checkout` | Session creation without login |
+| `/api/stripe/portal` | Portal access without login |
 
-#### 14. Database migration coverage gaps
-`NEXT_STEPS.md` lists 16 SQL files, but **several critical files are omitted**:
-
-| Missing from migration docs | Purpose |
-|----------------------------|---------|
-| `notifications.sql` | In-app notifications table + triggers |
-| `messaging-access.sql` | Chat RLS policies |
-| `prevent-trainer-as-client.sql` | Data integrity |
-| `invite-only-clients.sql` | Client signup restrictions |
-| `ensure-signup-role.sql` | Role assignment on signup |
-| `exercise-log-difficulty.sql` | Workout difficulty ratings |
-| `trainer-plan-templates.sql` | Program/meal templates |
-| `fix-trainer-client-queries.sql` | Query fixes |
-
-`run-migrations.sh` only runs **2 of 26** SQL files — severely outdated vs. actual app needs.
-
-#### 15. API hardening
-- No rate limiting on `/api/health-import` or `/api/food/search`
-- Health import uses service-role key (by design) — needs rate limits + optional IP allowlisting
-- No unique constraint on `sleep_tracking (user_id, date)` — duplicate rows possible on health import
-
-#### 16. Testing
-- **Zero** unit, integration, or E2E test files in the repo
-- No CI test pipeline evident
-
-#### 17. Dead / unused dependencies
-- `next-auth` in `package.json` — **not used anywhere** (Supabase Auth is the sole auth system)
-
-#### 18. Legacy route redirects incomplete
-- `/dashboard` → `/client` works
-- Subroutes like `/dashboard/workout` are **not** redirected
-
-#### 19. Environment & build concerns
-- Placeholder Supabase credentials allow builds without env vars (middleware + browser client)
-- Can mask misconfiguration until runtime in production
+**Fix:** Require authenticated trainer session; validate caller owns the resource.
 
 ---
 
-### 🟢 Known placeholders (honest, not bugs)
+## P1 Gaps (high priority)
 
-These are visible stubs pending product decisions:
-
-| Location | Placeholder |
-|----------|-------------|
-| `/client/calendar` | Week/day views |
-| `/client/profile` | 2FA, notifications, privacy |
-| `/lib/trainer-plans.ts` | "Custom integrations (coming soon)" on Enterprise plan |
-
----
-
-## Documentation Debt
-
-Several docs are **significantly outdated** and should not be trusted without re-verification:
-
-| File | Issue |
-|------|-------|
-| `FEATURE_STATUS.md` | References `/dashboard/*`, marks workout/meal/chat as mockups — **incorrect** |
-| `README.md` | Describes consumer sleep-tracking app; missing trainer platform, 26 SQL files, env vars |
-| `IMPLEMENTATION_ROADMAP.md` | Mixed accurate history + stale "missing tables" section |
-| `run-migrations.sh` | Only 2 migrations; misleading for new setups |
-
-`NEXT_STEPS.md` (July 4, 2026) is the most accurate operational guide but incomplete on SQL file list.
+| Gap | Location | Notes |
+|-----|----------|-------|
+| Billing copy conflict | `plans/page.tsx:61` vs `faq/page.tsx:122` | Plans says "coming soon"; FAQ promises live Stripe |
+| Stripe env naming | `trainer-plans.ts:14-25` vs `.env.example` | `growth` maps to `STRIPE_PRICE_PRO`; no `STRIPE_PRICE_GROWTH` |
+| Stripe Dashboard unset | External | ZF-1001 — products/prices/webhook endpoint |
+| `run-migrations.sh` drift | Missing 2 files vs runbook | `message-attachments.sql`, `session-request-notifications.sql` |
+| `SUPABASE_SETUP.md` stale | Lines 52-57 | Still documents 2-file migration only |
+| Admin no mobile nav | `admin/layout.tsx` | Fixed sidebar only |
+| Minimal test coverage | `__tests__/lib.test.ts` (2 tests) | No auth helpers, API, or E2E auth flows |
+| Docs deleted locally | git status | `IMPLEMENTATION_PLAN.md`, `MIGRATION_RUNBOOK.md`, audit files marked deleted |
+| Orphaned email API | `notifications/send-email/route.ts` | No callers in app code |
+| In-memory rate limiter | `rate-limit.ts` | Resets on serverless cold start |
 
 ---
 
-## UX Improvement Suggestions
+## P2 Polish (post-MVP)
 
-### Navigation & mobile
-
-1. **Client mobile bottom bar shows only 4 of 9 nav items** (Overview, Chat, Workout, Meal Plan). Goals, Progress, Sleep, Calendar, and Profile are hidden unless the hamburger menu is opened. Consider a "More" tab or reordering by usage frequency.
-
-2. **Trainer portal has no mobile navigation menu** — only a header with avatar. Trainers on phones cannot reach Clients, Programs, Messages, etc. without typing URLs. Add a mobile drawer matching the desktop sidebar.
-
-3. **Remove the "Dashboard Implementation" dev card** on `/client` — it exposes internal architecture (`dashboard-api.ts`, table names) to end users and breaks immersion.
-
-### Onboarding & empty states
-
-4. **Clarify client entry path everywhere** — landing, FAQ, and signup already say clients join via invitation; reinforce this on `/auth/login` and in empty trainer/chat states.
-
-5. **Fix invitation UX copy** — change "Invitation Sent!" to "Invitation Created — copy link to share" until automated email is built. Show the link immediately on the success screen.
-
-6. **First-time client checklist** — when a new client has no trainer, program, or goals, show a guided checklist ("Connect with trainer → Review program → Log first workout").
-
-### Workout & nutrition flows
-
-7. **Auto-switch to History tab** after starting/completing a workout from a program (noted in `NEXT_STEPS.md`).
-
-8. **Unified nutrition mental model** — meal plan has "Daily Diary" and "Weekly Plan" tabs; add brief inline explanation of how they relate to trainer-assigned plans.
-
-9. **Serving size picker** after food search — let users adjust portions before logging instead of accepting parsed defaults.
-
-10. **Progress photo comparison** — side-by-side view with date picker for before/after motivation.
-
-### Calendar & scheduling
-
-11. **Implement week/day views** or hide those tabs until ready — clickable "coming soon" tabs create dead-end frustration.
-
-12. **Show trainer working hours** when clients request sessions (trainer settings has timezone/duration; surface availability to clients).
-
-13. **Session request feedback** — toast/notification when trainer approves or declines (in-app notification triggers may exist; ensure they fire for session requests).
-
-### Messaging & notifications
-
-14. **Unread badges** on client/trainer nav for Messages (like notifications feed already does for activity).
-
-15. **Realtime notification updates** on dashboards (poll or Supabase Realtime subscription).
-
-16. **Deep links from notifications** — ensure all `link_path` values land on the correct screen (workout, message thread, etc.).
-
-### Marketing site
-
-17. **Wire public blog to CMS** — highest-impact marketing fix; admin content is wasted otherwise.
-
-18. **Fix broken blog images** — add assets under `public/assets/images/` or use Supabase Storage URLs from `blog_posts.featured_image`.
-
-19. **Make FAQ/blog search functional** — or remove search UI until implemented.
-
-20. **Align FAQ billing copy with reality** — remove Stripe references until integrated, or add "coming soon" disclaimers.
-
-### Profile & settings
-
-21. **Phone number** still lives in auth metadata only (no `user_profiles` column) — consider consolidating or documenting why.
-
-22. **Unit preferences** — weight (kg/lb), height (cm/ft), first day of week — especially for US users.
-
-23. **Accessibility** — audit form labels, focus states, and color contrast on animated landing components (GSAP/motion-heavy UI).
-
-### Trainer workflow
-
-24. **Client detail tabs** are functional but read-heavy — add quick actions (assign program, send message) from Workouts/Nutrition tabs.
-
-25. **Bulk client actions** — archive, pause, or message multiple clients.
-
-26. **Program/meal plan duplication** — "Duplicate template" for faster coach workflows.
-
-### Performance & polish
-
-27. **Data caching** — no React Query/SWR; every navigation refetches from Supabase. Add caching for dashboard, client lists, and exercise library.
-
-28. **Loading skeletons** — many pages use spinners only; skeletons improve perceived performance.
-
-29. **Optimistic updates** — chat and workout log edits would feel snappier with optimistic UI.
-
-30. **Toast system** — success/error feedback is inconsistent (inline alerts vs. silent failures); standardize with a toast library.
+| Item | Location / ID |
+|------|---------------|
+| Web push notifications | NG-503 (was ZF-803) |
+| Accessibility pass | NG-504 (was ZF-1107) |
+| Two-factor authentication | `profile/page.tsx:367` stub |
+| FAQ search + categories | `faq/page.tsx:25-37` UI only |
+| Enterprise integrations | `trainer-plans.ts:84` copy stub |
+| Redis-backed rate limiting | Scale concern |
+| Playwright in CI | `.github/workflows/ci.yml` |
 
 ---
 
-## Priority Matrix
+## Database Status
 
-| Priority | Item | Impact | Effort |
-|----------|------|--------|--------|
-| P0 | Complete SQL migration docs + runbook | Prevents production breakage | Low |
-| P0 | Fix public blog + broken images | Marketing credibility | Medium |
-| P1 | Trainer mobile navigation | Trainer daily usability | Medium |
-| P1 | Invitation email or honest UX copy | Trust & onboarding | Low–Medium |
-| P1 | Remove client dashboard dev card | Professional polish | Trivial |
-| P1 | Rate-limit health import + food search | Security | Low |
-| P2 | Stripe/billing or remove pricing claims | Legal/trust | High |
-| P2 | Calendar week/day views | Client scheduling UX | Medium |
-| P2 | Admin contact inbox | Support workflow | Low |
-| P2 | Workout analytics / PR tracking | Core fitness value | Medium–High |
-| P3 | Automated test suite | Regression safety | High |
-| P3 | Push/email notifications | Engagement | High |
-| P3 | Social features | New product surface | Very high |
+**34 SQL files** in `src/lib/supabase/`. Production migrations applied July 16, 2026:
 
----
+- Core schema (via earlier Supabase migrations)
+- New: `blog-slug`, `user-preferences`, `meal-favorites`, `stripe-subscriptions`, `session-request-notifications`, `avatars` storage bucket
 
-## Suggested Implementation Order
+### Verification checklist (run in SQL Editor)
 
-**Phase 1 — Quick wins (polish & trust)**  
-Remove dev UI, fix invitation copy, fix blog images, expand mobile nav, update stale docs.
+```sql
+-- Tables
+SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+AND tablename IN ('meal_favorites', 'user_notifications', 'messages', 'session_requests');
 
-**Phase 2 — Content & ops**  
-Public blog reader, admin contact inbox, complete migration guide, rate limiting, sleep unique constraint.
+-- New columns
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'messages' AND column_name IN ('attachment_url', 'message_type');
 
-**Phase 3 — Revenue & retention**  
-Stripe integration (or defer pricing page), notification preferences, calendar week/day views, workout analytics.
-
-**Phase 4 — Scale**  
-Test suite, caching layer, push notifications, messaging attachments, social features (if desired).
+-- RPCs
+SELECT proname FROM pg_proc WHERE proname IN (
+  'get_client_unread_message_count',
+  'get_trainer_dashboard_stats',
+  'notify_session_request_status'
+);
+```
 
 ---
 
-## Files Worth Reviewing First
+## Security Summary
 
-| Purpose | Path |
-|---------|------|
-| Client nav & mobile UX | `src/app/client/layout.tsx` |
-| Trainer mobile gap | `src/app/trainer/layout.tsx` |
-| Dev card to remove | `src/app/client/page.tsx` (lines ~500–528) |
-| Static public blog | `src/app/main/blog/page.tsx` |
-| Calendar stubs | `src/app/client/calendar/page.tsx` |
-| Profile placeholders | `src/app/client/profile/page.tsx` |
-| Invitation flow | `src/app/trainer/clients/add/page.tsx`, `trainer-api.ts` |
-| Migration source of truth | `src/lib/supabase/*.sql`, `NEXT_STEPS.md` |
-| Outdated status doc | `FEATURE_STATUS.md` |
+| Control | Status |
+|---------|--------|
+| Supabase RLS on core tables | ✅ |
+| Middleware role guards | ✅ |
+| API route authentication | ❌ 4 routes open |
+| Stripe webhook verification | ❌ |
+| Rate limiting (food, health) | ✅ In-memory |
+| Service role server-only | ✅ |
+| Env validation at build | ⚠️ Warns only |
 
 ---
 
-## Conclusion
+## Testing & CI
 
-ZarcFit is a **solid coach-platform MVP** with real Supabase-backed features across client tracking, trainer management, and admin tooling. The largest user-visible gaps are **marketing/blog disconnect**, **billing fiction vs. implementation**, **mobile trainer navigation**, and **placeholder profile/calendar features**. The largest engineering gaps are **migration documentation**, **zero test coverage**, and **API hardening**.
-
-The codebase is well-structured (`dashboard-api.ts`, `trainer-api.ts`, role middleware, component library) and most remaining work is **connecting, polishing, and productionizing** rather than greenfield building.
+| Asset | Coverage |
+|-------|----------|
+| `src/__tests__/lib.test.ts` | `slugifyTitle`, `rateLimit` (2 tests) |
+| `e2e/smoke.spec.ts` | Landing + login page load |
+| `.github/workflows/ci.yml` | lint, test, build — **no E2E** |
+| `@testing-library/react` | In deps, unused |
 
 ---
 
-*This audit was generated from static codebase analysis. Runtime verification (Supabase migrations applied, OAuth providers configured, Vercel env vars) was not performed in this environment.*
+## Stubs & Deferred UI
+
+| Location | Finding |
+|----------|---------|
+| `client/profile/page.tsx:367` | "Coming Soon" — Two-Factor Authentication |
+| `trainer-plans.ts:84` | "Custom integrations (coming soon)" |
+| `plans/page.tsx:61` | "Paid subscriptions... coming soon" (conflicts with checkout code) |
+| `faq/page.tsx:25` | Search input — no filter logic |
+
+No `TODO`/`FIXME` comments in `src/`.
+
+---
+
+## Build & Deploy
+
+- ✅ `npm run build` — passes (2 non-blocking ESLint warnings in Aurora/GradientText)
+- ✅ `npm run test` — 2 Vitest tests pass
+- ✅ Supabase migrations applied to prod
+- ⚠️ Stripe env vars not configured in Vercel
+- ⚠️ P0 bugs block feature verification in prod
+
+---
+
+## Recommended Path to MVP Launch
+
+1. **Fix P0 blockers** — storage bucket, Stripe webhook, API auth (Phase 1 in new plan)
+2. **Configure Stripe** — Dashboard products, env vars, webhook endpoint (Phase 2)
+3. **Align billing copy** — FAQ + plans page consistency (Phase 2)
+4. **Restore/sync docs** — runbook, setup guide (Phase 3)
+5. **Expand tests + admin mobile** — regression safety (Phase 4)
+6. **Staging smoke test** — login, invite, workout log, chat attachment, checkout
+7. **Production deploy**
+
+---
+
+## Document History
+
+| Document | Status |
+|----------|--------|
+| `PROJECT_AUDIT.md` (this file) | Current audit — July 16, 2026 |
+| `IMPLEMENTATION_PLAN.md` | New plan — see companion doc |
+| `PROJECT_AUDIT_POST_IMPLEMENTATION.md` | Superseded by this audit |
+| Pre-implementation `PROJECT_AUDIT.md` (baseline) | Historical reference in git history |
+
+---
+
+*Next: [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md)*

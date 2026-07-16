@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireTrainer } from '@/lib/api-auth';
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -9,6 +10,9 @@ function getAdminClient() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireTrainer();
+  if ('response' in auth) return auth.response;
+
   const admin = getAdminClient();
   if (!admin) {
     return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
@@ -28,19 +32,17 @@ export async function POST(request: NextRequest) {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://zarcfit.vercel.app';
 
-  // Supabase inviteUserByEmail sends auth invite; for custom invitation links
-  // we use the admin API to send a magic link style invite when possible.
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo: invitationUrl.startsWith('http') ? invitationUrl : `${siteUrl}${invitationUrl}`,
     data: {
       invitation_url: invitationUrl,
       trainer_name: trainerName || 'Your trainer',
       personal_message: personalMessage || '',
+      invited_by: auth.user.id,
     },
   });
 
   if (error) {
-    // Fallback: invitation still works via manual link copy
     return NextResponse.json({
       sent: false,
       error: error.message,

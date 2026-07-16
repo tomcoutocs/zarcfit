@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyInternalSecret } from '@/lib/api-auth';
 
 export async function POST(request: NextRequest) {
+  if (!verifyInternalSecret(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ sent: false, skipped: true });

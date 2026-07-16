@@ -12,6 +12,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { slugifyTitle } from '@/lib/blog';
 
 // Blog post categories
 const categories = [
@@ -51,6 +52,7 @@ export default function EditBlogPostPage() {
   
   const [formData, setFormData] = useState({
     title: '',
+    slug: '',
     category: '',
     content: '',
     excerpt: '',
@@ -76,6 +78,7 @@ export default function EditBlogPostPage() {
           setOriginalBlogPost(data as BlogPost);
           setFormData({
             title: data.title || '',
+            slug: data.slug || slugifyTitle(data.title || ''),
             category: data.category || '',
             content: data.content || '',
             excerpt: data.excerpt || '',
@@ -140,6 +143,7 @@ export default function EditBlogPostPage() {
         .from('blog_posts')
         .update({
           title: formData.title,
+          slug: formData.slug || slugifyTitle(formData.title),
           excerpt: formData.excerpt,
           content: formData.content,
           category: formData.category,
@@ -217,6 +221,17 @@ export default function EditBlogPostPage() {
                 onChange={handleChange}
                 placeholder="Enter post title"
                 required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="slug">URL slug</Label>
+              <Input
+                id="slug"
+                name="slug"
+                value={formData.slug}
+                onChange={handleChange}
+                placeholder="url-friendly-slug"
               />
             </div>
             

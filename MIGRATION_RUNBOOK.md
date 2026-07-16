@@ -19,7 +19,6 @@ Use this runbook for **new Supabase projects** or to verify production has every
 ### Automated (requires psql + `SUPABASE_DB_PASSWORD` in `.env.local`)
 
 ```bash
-# See run-migrations.sh — prints full ordered list; run files manually or extend the script
 ./run-migrations.sh --list
 ```
 
@@ -34,7 +33,7 @@ Use this runbook for **new Supabase projects** or to verify production has every
 | 3 | `trainer-platform-schema.sql` | Trainer/client roles, programs, meal plans, conversations | ✅ | schema.sql |
 | 4 | `update-rls-policies.sql` | RLS updates for trainer platform tables | ✅ | trainer-platform-schema.sql |
 | 5 | `workout-nutrition-rls.sql` | Workout + nutrition row-level security | ✅ | trainer-platform-schema.sql |
-| 6 | `storage-schema.sql` | Storage buckets (avatars, progress photos) | ✅ | — |
+| 6 | `storage-schema.sql` | Storage bucket `user-uploads` + RLS | ✅ | — |
 | 7 | `admin-schema.sql` | Admin stats RPC, role helpers | ✅ | user_roles |
 | 8 | `blog-schema.sql` | `blog_posts` table + RLS | ✅ | user_roles |
 | 9 | `contact-schema.sql` | `contact_messages` table + RLS | ✅ | user_roles |
@@ -57,58 +56,51 @@ Use this runbook for **new Supabase projects** or to verify production has every
 | 26 | `trainer-activity.sql` | Trainer dashboard stats + activity RPC | ✅ | notifications.sql |
 | 27 | `sleep-unique-constraint.sql` | UNIQUE (user_id, date) on sleep_tracking | ✅ | schema.sql |
 | 28 | `blog-slug.sql` | Add slug column for public blog URLs | ✅ | blog-schema.sql |
-| 29 | `message-read-receipts.sql` | Read receipt columns + client unread RPC | ✅ | messaging-access.sql |
+| 29 | `message-read-receipts.sql` | Client unread count RPC | ✅ | messaging-access.sql |
 | 30 | `message-attachments.sql` | `attachment_url`, `message_type` on messages | ✅ | messaging-access.sql |
 | 31 | `user-preferences.sql` | Notification/privacy/unit preferences | ✅ | user_profiles |
 | 32 | `meal-favorites.sql` | Saved meals library | Optional | meal-diary.sql |
-| 33 | `stripe-subscriptions.sql` | Stripe IDs on trainer profiles | Phase 10 | trainer-platform-schema.sql |
+| 33 | `stripe-subscriptions.sql` | Stripe IDs on trainer profiles | ✅ | trainer-platform-schema.sql |
 | 34 | `session-request-notifications.sql` | Notify on session approve/decline | ✅ | session-requests.sql, notifications.sql |
+| 35 | `message-storage-rls.sql` | Storage RLS for `messages/{user_id}/` uploads | ✅ | storage-schema.sql, message-attachments.sql |
+
+**Note:** Message attachments use the `user-uploads` bucket at path `messages/{user_id}/{filename}` (see NG-101).
 
 ---
 
-## Superseded / do not use alone
-
-| File | Notes |
-|------|-------|
-| `run-migrations.sh` (old) | Only ran 2 files — use this runbook instead |
-
----
-
-## Production verification checklist (ZF-002)
-
-In SQL Editor, confirm these exist:
+## Production verification checklist
 
 ```sql
 -- Tables
-SELECT tablename FROM pg_tables
-WHERE schemaname = 'public'
+SELECT tablename FROM pg_tables WHERE schemaname = 'public'
 AND tablename IN (
   'user_notifications', 'conversations', 'messages',
-  'trainer_invitations', 'blog_posts', 'contact_messages',
-  'food_diary_entries', 'session_requests'
+  'client_invitations', 'blog_posts', 'contact_messages',
+  'food_diary_entries', 'session_requests', 'meal_favorites'
 );
 
 -- Key functions
-SELECT proname FROM pg_proc
-WHERE proname IN (
+SELECT proname FROM pg_proc WHERE proname IN (
   'get_trainer_dashboard_stats',
   'get_unread_notification_count',
   'get_client_unread_message_count',
-  'notify_client_trainers'
+  'notify_session_request_status'
 );
-```
 
-Apply any missing files from the ordered list above.
+-- New columns
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'messages' AND column_name IN ('attachment_url', 'message_type');
+```
 
 ---
 
-## Auth URL configuration (ZF-004)
+## Auth URL configuration
 
 In Supabase → **Authentication → URL Configuration**:
 
 | Setting | Value |
 |---------|-------|
-| Site URL | `https://zarcfit.vercel.app` (or your domain) |
+| Site URL | `https://zarcfit.vercel.app` |
 | Redirect URLs | `https://zarcfit.vercel.app/auth/callback` |
 | | `https://zarcfit.vercel.app/auth/login` |
 | | `https://zarcfit.vercel.app/auth/reset-password` |
@@ -116,17 +108,10 @@ In Supabase → **Authentication → URL Configuration**:
 
 ---
 
-## Vercel environment variables (ZF-003)
+## Vercel environment variables
 
-| Variable | Required | Notes |
-|----------|----------|-------|
-| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Project API URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Public anon key |
-| `NEXT_PUBLIC_SITE_URL` | ✅ | Canonical site URL for auth emails |
-| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Server routes (health import, sleep API) |
-| `USDA_FDC_API_KEY` | Recommended | Food search API |
-| `STRIPE_SECRET_KEY` | Phase 10 | Billing |
-| `STRIPE_WEBHOOK_SECRET` | Phase 10 | Webhook verification |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Phase 10 | Checkout |
+See `.env.example` for the full list. Required: `NEXT_PUBLIC_SUPABASE_*`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL`.
 
-See `.env.example` for the full list.
+---
+
+*See [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) for post-migration launch tasks.*

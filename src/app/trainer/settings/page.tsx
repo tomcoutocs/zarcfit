@@ -156,6 +156,9 @@ export default function TrainerSettingsPage() {
 
     if (result) {
       setSettingsSuccess('Booking preferences updated successfully');
+      if (settingsForm.notification_email) {
+        fetch('/api/trainer/notification-preferences', { method: 'POST' }).catch(() => {});
+      }
     } else {
       setError('Failed to update booking preferences. Please try again.');
     }
@@ -176,7 +179,7 @@ export default function TrainerSettingsPage() {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priceId, customerEmail: user.email }),
+        body: JSON.stringify({ priceId }),
       });
       const data = await res.json();
       if (data.url) window.location.href = data.url;
@@ -198,7 +201,6 @@ export default function TrainerSettingsPage() {
       const res = await fetch('/api/stripe/portal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerId: stripeCustomerId }),
       });
       const data = await res.json();
       if (data.url) window.location.href = data.url;
