@@ -21,6 +21,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { TrendingUp, Plus, Pencil, Trash2, Scale, Camera } from 'lucide-react';
+import { PhotoCompare } from '@/components/progress/PhotoCompare';
 import { uploadUserImage } from '@/lib/supabase/storage';
 import {
   LineChart,
@@ -389,6 +390,8 @@ export default function ProgressPage() {
               </CardContent>
             </Card>
           )}
+
+          <PhotoCompare records={records} />
 
           {photoRecords.length > 0 && (
             <Card>

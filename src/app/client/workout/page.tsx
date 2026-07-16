@@ -39,7 +39,9 @@ import {
   Clock,
   ClipboardList,
   CheckCircle2,
+  BarChart3,
 } from 'lucide-react';
+import { WorkoutAnalytics } from '@/components/workout/WorkoutAnalytics';
 
 const DAYS: { value: number; short: string; full: string }[] = [
   { value: 1, short: 'Mon', full: 'Monday' },
@@ -88,6 +90,7 @@ export default function WorkoutPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [activeTab, setActiveTab] = useState('today');
 
   const [programs, setPrograms] = useState<WorkoutProgram[]>([]);
   const [activeProgram, setActiveProgram] = useState<WorkoutProgram | null>(null);
@@ -263,6 +266,7 @@ export default function WorkoutPage() {
       setSuccess(`${session.name} logged successfully.`);
       setDurationMinutes('');
       setWorkoutNotes('');
+      setActiveTab('logs');
       await fetchLogs();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save workout.');
@@ -371,11 +375,12 @@ export default function WorkoutPage() {
         </Alert>
       )}
 
-      <Tabs defaultValue="today" className="w-full">
-        <TabsList className="grid w-full md:w-auto grid-cols-3 mb-8">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full md:w-auto grid-cols-2 md:grid-cols-4 mb-8">
           <TabsTrigger value="today">Today&apos;s Workout</TabsTrigger>
           <TabsTrigger value="logs">History</TabsTrigger>
           <TabsTrigger value="programs">My Program</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="today" className="space-y-6">
@@ -866,6 +871,19 @@ export default function WorkoutPage() {
                 </Card>
               );
             })
+          )}
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-4">
+          {user?.id ? (
+            <WorkoutAnalytics userId={user.id} />
+          ) : (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">Sign in to view workout analytics</p>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
       </Tabs>

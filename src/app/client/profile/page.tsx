@@ -13,6 +13,7 @@ import { userProfilesApi } from '@/lib/supabase/dashboard-api';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { HealthImportSettings } from '@/components/integrations/health-import-settings';
+import { ProfilePreferences } from '@/components/profile/ProfilePreferences';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -208,8 +209,8 @@ export default function ProfilePage() {
                 </p>
               </div>
               <div>
-                <h3 className="font-medium">Subscription</h3>
-                <p className="text-sm text-muted-foreground">Free Plan</p>
+                <h3 className="font-medium">Coaching</h3>
+                <p className="text-sm text-muted-foreground">Coaching via trainer invitation</p>
               </div>
             </div>
           </CardContent>
@@ -372,25 +373,7 @@ export default function ProfilePage() {
               <TabsContent value="preferences">
                 <div className="space-y-6">
                   <HealthImportSettings />
-                  <div>
-                    <h3 className="font-medium mb-2">Notification Preferences</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Manage how and when you receive notifications
-                    </p>
-                    <Button variant="outline" disabled>
-                      Coming Soon
-                    </Button>
-                  </div>
-                  
-                  <div className="pt-4 border-t">
-                    <h3 className="font-medium mb-2">Privacy Settings</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Control your data and privacy settings
-                    </p>
-                    <Button variant="outline" disabled>
-                      Coming Soon
-                    </Button>
-                  </div>
+                  {user?.id && <ProfilePreferences userId={user.id} />}
                 </div>
               </TabsContent>
             </Tabs>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { clientManagementApi, TrainerWithProfile } from '@/lib/supabase/trainer-api';
+import { clientManagementApi, TrainerWithProfile, trainerSettingsApi, TrainerSettings } from '@/lib/supabase/trainer-api';
 import { sessionRequestsApi, SessionRequest } from '@/lib/supabase/session-requests-api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,19 @@ export function SessionRequestPanel() {
     end_time: '10:00',
     message: '',
   });
+  const [trainerSettings, setTrainerSettings] = useState<TrainerSettings | null>(null);
+
+  useEffect(() => {
+    async function loadTrainerSettings() {
+      if (!form.trainer_id) {
+        setTrainerSettings(null);
+        return;
+      }
+      const settings = await trainerSettingsApi.getSettings(form.trainer_id);
+      setTrainerSettings(settings);
+    }
+    loadTrainerSettings();
+  }, [form.trainer_id]);
 
   const loadData = async () => {
     if (!user?.id) return;
@@ -136,6 +149,31 @@ export function SessionRequestPanel() {
               </SelectContent>
             </Select>
           </div>
+
+          {trainerSettings && (
+            <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-1">
+              <p>
+                <span className="font-medium">Timezone:</span>{' '}
+                {trainerSettings.timezone || 'UTC'}
+              </p>
+              {trainerSettings.working_hours &&
+                typeof trainerSettings.working_hours === 'object' && (
+                  <p>
+                    <span className="font-medium">Working hours:</span>{' '}
+                    {Object.entries(trainerSettings.working_hours as Record<string, unknown>)
+                      .filter(([, v]) => v)
+                      .map(([day, hours]) => `${day}: ${String(hours)}`)
+                      .join(' · ') || 'Not set'}
+                  </p>
+                )}
+              {trainerSettings.default_session_duration && (
+                <p>
+                  <span className="font-medium">Default session:</span>{' '}
+                  {trainerSettings.default_session_duration} min
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">

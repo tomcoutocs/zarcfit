@@ -1,20 +1,50 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Check, ChevronRight, Users } from 'lucide-react';
 import PageHero from '@/components/layout/PageHero';
-import { TRAINER_PLANS, ENTERPRISE_PLAN } from '@/lib/trainer-plans';
+import { TRAINER_PLANS, ENTERPRISE_PLAN, getPlanStripePriceId } from '@/lib/trainer-plans';
 import AnimatedContent from '@/components/AnimatedContent';
 import SpotlightCard from '@/components/SpotlightCard';
+import { useAuth } from '@/context/auth-context';
+import { toast } from 'sonner';
 
 const SPOTLIGHT = 'rgba(72, 120, 150, 0.12)';
 
 export default function PlansPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const [checkoutPlanId, setCheckoutPlanId] = useState<string | null>(null);
+
+  const handlePlanAction = async (planId: string) => {
+    const priceId = getPlanStripePriceId(planId);
+    if (user?.email && priceId) {
+      setCheckoutPlanId(planId);
+      try {
+        const res = await fetch('/api/stripe/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ priceId, customerEmail: user.email }),
+        });
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        }
+        toast.error(data.error || 'Checkout unavailable');
+      } catch {
+        toast.error('Checkout failed');
+      } finally {
+        setCheckoutPlanId(null);
+      }
+      return;
+    }
+    router.push('/auth/signup');
+  };
 
   return (
     <>
@@ -74,9 +104,14 @@ export default function PlansPage() {
                   <Button
                     className="w-full font-medium"
                     variant={plan.popular ? 'default' : 'outline'}
-                    onClick={() => router.push('/auth/signup')}
+                    disabled={checkoutPlanId === plan.id}
+                    onClick={() => handlePlanAction(plan.id)}
                   >
-                    Start as trainer
+                    {user?.email && getPlanStripePriceId(plan.id)
+                      ? checkoutPlanId === plan.id
+                        ? 'Redirecting...'
+                        : 'Subscribe'
+                      : 'Start as trainer'}
                     <ChevronRight className="ml-1 h-4 w-4" />
                   </Button>
                 </CardFooter>

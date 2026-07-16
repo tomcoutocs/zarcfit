@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -31,6 +32,7 @@ function formatMonthYear(year: number, month: number) {
 
 export default function CalendarPage() {
   const [state, actions] = useCalendar();
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month');
   
   // Local state for dialog
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -89,7 +91,7 @@ export default function CalendarPage() {
       </DashboardPageHeader>
       
       <Card>
-        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <CardHeader className="pb-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <Button 
               variant="outline" 
@@ -111,14 +113,23 @@ export default function CalendarPage() {
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-          
-          <Button 
-            variant="outline" 
-            onClick={actions.goToToday}
-            disabled={state.loading}
-          >
-            Today
-          </Button>
+
+          <div className="flex items-center gap-2">
+            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'month' | 'week' | 'day')}>
+              <TabsList>
+                <TabsTrigger value="month">Month</TabsTrigger>
+                <TabsTrigger value="week">Week</TabsTrigger>
+                <TabsTrigger value="day">Day</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Button 
+              variant="outline" 
+              onClick={actions.goToToday}
+              disabled={state.loading}
+            >
+              Today
+            </Button>
+          </div>
         </CardHeader>
         
         <CardContent>
@@ -137,7 +148,7 @@ export default function CalendarPage() {
                 Retry
               </Button>
             </div>
-          ) : (
+          ) : viewMode === 'month' ? (
             <div className="w-full">
               <CalendarHeader />
               <CalendarGrid 
@@ -147,9 +158,54 @@ export default function CalendarPage() {
                 onEventClick={handleEventClick}
                 onDateClick={handleDateClick}
               />
-              <p className="mt-4 text-center text-sm text-muted-foreground">
-                Week and day views are coming soon.
-              </p>
+            </div>
+          ) : viewMode === 'week' ? (
+            <div className="space-y-3">
+              {state.events.slice(0, 14).map((event) => (
+                <div
+                  key={event.id}
+                  className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 hover:bg-muted/50"
+                  onClick={() => handleEventClick(event)}
+                >
+                  <div className={`${getEventIconStyles(event.event_type)} rounded-full p-2`}>
+                    {getEventIcon(event.event_type)}
+                  </div>
+                  <div>
+                    <p className="font-medium">{event.title}</p>
+                    <p className="text-sm text-muted-foreground">{formatEventDate(event)}</p>
+                  </div>
+                </div>
+              ))}
+              {state.events.length === 0 && (
+                <p className="py-8 text-center text-muted-foreground">No events this week</p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {state.events
+                .filter((e) => {
+                  const d = new Date(e.start_time ?? e.date);
+                  const today = new Date();
+                  return d.toDateString() === today.toDateString();
+                })
+                .map((event) => (
+                  <div
+                    key={event.id}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 hover:bg-muted/50"
+                    onClick={() => handleEventClick(event)}
+                  >
+                    <div className={`${getEventIconStyles(event.event_type)} rounded-full p-2`}>
+                      {getEventIcon(event.event_type)}
+                    </div>
+                    <div>
+                      <p className="font-medium">{event.title}</p>
+                      <p className="text-sm text-muted-foreground">{formatEventDate(event)}</p>
+                    </div>
+                  </div>
+                ))}
+              {state.events.filter((e) => new Date(e.start_time ?? e.date).toDateString() === new Date().toDateString()).length === 0 && (
+                <p className="py-8 text-center text-muted-foreground">No events scheduled for today</p>
+              )}
             </div>
           )}
         </CardContent>

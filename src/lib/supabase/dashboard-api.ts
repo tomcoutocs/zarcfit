@@ -25,6 +25,9 @@ export type UserProfile = {
   date_of_birth?: string;
   gender?: string;
   height_cm?: number;
+  notification_preferences?: Record<string, boolean>;
+  privacy_settings?: Record<string, boolean>;
+  unit_preferences?: { weight?: string; height?: string; week_starts_on?: number };
   created_at?: string;
   updated_at?: string;
 };
@@ -293,6 +296,9 @@ export const userProfilesApi = {
         date_of_birth: profile.date_of_birth,
         gender: profile.gender,
         height_cm: profile.height_cm,
+        notification_preferences: profile.notification_preferences,
+        privacy_settings: profile.privacy_settings,
+        unit_preferences: profile.unit_preferences,
         updated_at: new Date().toISOString()
       })
       .eq('id', profile.id)
@@ -490,6 +496,81 @@ export const planTemplatesApi = {
     }
 
     return (data as { status: string; plan_id?: string }) || { status: 'error' };
+  },
+
+  duplicateWorkoutTemplate: async (sourceId: string, trainerId: string): Promise<WorkoutProgram | null> => {
+    const source = await workoutProgramsApi.getProgram(sourceId);
+    if (!source) return null;
+    const copy = await workoutProgramsApi.createProgram({
+      user_id: trainerId,
+      name: `${source.name} (Copy)`,
+      description: source.description,
+      difficulty: source.difficulty,
+      goal: source.goal,
+      duration_weeks: source.duration_weeks,
+      sessions_per_week: source.sessions_per_week,
+      is_active: true,
+      is_template: true,
+      created_by_trainer_id: trainerId,
+    });
+    if (!copy?.id) return null;
+    const sessions = await workoutProgramsApi.getProgramSessions(sourceId);
+    for (const session of sessions) {
+      if (!session.id) continue;
+      const detail = await workoutSessionsApi.getSessionWithExercises(session.id);
+      if (!detail) continue;
+      const newSession = await workoutSessionsApi.createSession({
+        program_id: copy.id,
+        name: session.name,
+        day_of_week: session.day_of_week,
+        week_number: session.week_number,
+        notes: session.notes,
+      });
+      if (!newSession?.id) continue;
+      for (const ex of detail.exercises) {
+        await workoutSessionsApi.addExercise({
+          workout_session_id: newSession.id,
+          exercise_id: ex.exercise_id,
+          sets: ex.sets,
+          reps: ex.reps,
+          rest_seconds: ex.rest_seconds,
+          order_index: ex.order_index,
+          notes: ex.notes,
+        });
+      }
+    }
+    return copy;
+  },
+
+  duplicateNutritionTemplate: async (sourceId: string, trainerId: string): Promise<NutritionPlan | null> => {
+    const sourcePlan = await nutritionPlansApi.getPlan(sourceId);
+    if (!sourcePlan) return null;
+    const copy = await nutritionPlansApi.createNutritionPlan({
+      user_id: trainerId,
+      name: `${sourcePlan.name} (Copy)`,
+      description: sourcePlan.description,
+      daily_calories: sourcePlan.daily_calories,
+      protein_grams: sourcePlan.protein_grams,
+      carbs_grams: sourcePlan.carbs_grams,
+      fat_grams: sourcePlan.fat_grams,
+      is_active: true,
+      is_template: true,
+      created_by_trainer_id: trainerId,
+    });
+    if (!copy?.id) return null;
+    const meals = await mealsApi.getMealsForNutritionPlan(sourceId);
+    for (const meal of meals) {
+      await mealsApi.createMeal(copy.id, meal.day_of_week, {
+        name: meal.name,
+        meal_type: meal.meal_type,
+        calories: meal.calories,
+        protein_grams: meal.protein_grams,
+        carbs_grams: meal.carbs_grams,
+        fat_grams: meal.fat_grams,
+        notes: meal.notes,
+      });
+    }
+    return copy;
   },
 };
 
@@ -1379,4 +1460,45 @@ export const sleepTrackingApi = {
 
     return true;
   }
-}; 
+};
+
+export type MealFavorite = {
+  id: string;
+  user_id: string;
+  name: string;
+  food_data: Record<string, unknown>;
+  created_at: string;
+};
+
+export const mealFavoritesApi = {
+  getAll: async (userId: string): Promise<MealFavorite[]> => {
+    const { data, error } = await supabase
+      .from('meal_favorites')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('Error fetching meal favorites:', error);
+      return [];
+    }
+    return (data as MealFavorite[]) || [];
+  },
+
+  save: async (userId: string, name: string, foodData: Record<string, unknown>): Promise<MealFavorite | null> => {
+    const { data, error } = await supabase
+      .from('meal_favorites')
+      .insert([{ user_id: userId, name, food_data: foodData }])
+      .select()
+      .single();
+    if (error) {
+      console.error('Error saving meal favorite:', error);
+      return null;
+    }
+    return data as MealFavorite;
+  },
+
+  remove: async (id: string): Promise<boolean> => {
+    const { error } = await supabase.from('meal_favorites').delete().eq('id', id);
+    return !error;
+  },
+};

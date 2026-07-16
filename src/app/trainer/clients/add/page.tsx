@@ -79,6 +79,22 @@ export default function InviteClientPage() {
         setSentToEmail(formData.email);
         setInvitationLink(buildInvitationUrl(result.invitation.token));
         setSuccess(true);
+
+        try {
+          await fetch('/api/invitations/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: formData.email,
+              invitationUrl: buildInvitationUrl(result.invitation.token),
+              trainerName: user.user_metadata?.firstName || 'Your trainer',
+              personalMessage: formData.personalMessage,
+            }),
+          });
+        } catch (emailErr) {
+          console.warn('Invitation email send failed:', emailErr);
+        }
+
         setFormData({
           email: '',
           firstName: '',
@@ -160,7 +176,7 @@ export default function InviteClientPage() {
                 </div>
                 <p className="text-sm text-muted-foreground flex items-start gap-2">
                   <Link2 className="h-4 w-4 mt-0.5 shrink-0" />
-                  Email delivery is not automated yet — copy this link and send it to your client directly.
+                  An invitation email was sent if delivery is configured — you can also copy the link below.
                 </p>
               </div>
 

@@ -10,9 +10,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
 import ConnectionReset from '@/components/ConnectionReset';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
-import { clientManagementApi, notificationsApi, TrainerWithProfile, UserNotification } from '@/lib/supabase/trainer-api';
+import { clientManagementApi, TrainerWithProfile, notificationsApi } from '@/lib/supabase/trainer-api';
+import { useRealtimeNotifications } from '@/hooks/use-realtime-notifications';
 import NotificationsFeed from '@/components/NotificationsFeed';
+import { ClientOnboardingChecklist } from '@/components/client/ClientOnboardingChecklist';
 import { MessageSquare, UserRound } from 'lucide-react';
+import { workoutLogsApi } from '@/lib/supabase/dashboard-api';
+import { DashboardPageSkeleton } from '@/components/ui/dashboard-skeleton';
 
 function trainerDisplayName(trainer: TrainerWithProfile) {
   return trainer.trainer_business_name || trainer.trainer_name || 'Your trainer';
@@ -113,40 +117,32 @@ function MyTrainerCard({ userId }: { userId: string }) {
 export default function DashboardPage() {
   const { user } = useAuth();
   const dashboardData = useDashboard(user?.id);
+  const { notifications, unreadCount, refresh } = useRealtimeNotifications(10);
   const [showConnectionReset, setShowConnectionReset] = useState(false);
-  const [notifications, setNotifications] = useState<UserNotification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [hasTrainer, setHasTrainer] = useState(false);
+  const [hasWorkoutLog, setHasWorkoutLog] = useState(false);
 
   useEffect(() => {
-    async function loadNotifications() {
+    async function loadOnboarding() {
       if (!user?.id) return;
-      const [items, unread] = await Promise.all([
-        notificationsApi.getNotifications(10),
-        notificationsApi.getUnreadCount(),
+      const [trainers, logs] = await Promise.all([
+        clientManagementApi.getMyTrainers(user.id),
+        workoutLogsApi.getUserLogs(user.id, 1),
       ]);
-      setNotifications(items);
-      setUnreadCount(unread);
+      setHasTrainer(trainers.some((t) => t.status === 'active'));
+      setHasWorkoutLog(logs.length > 0);
     }
-
-    loadNotifications();
+    loadOnboarding();
   }, [user?.id]);
 
   const handleMarkRead = async (notificationId: string) => {
     const ok = await notificationsApi.markRead(notificationId);
-    if (!ok) return;
-
-    setNotifications((prev) =>
-      prev.map((item) =>
-        item.id === notificationId ? { ...item, is_read: true } : item
-      )
-    );
-    setUnreadCount((count) => Math.max(0, count - 1));
+    if (ok) refresh();
   };
 
   const handleMarkAllRead = async () => {
     await notificationsApi.markAllRead();
-    setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
-    setUnreadCount(0);
+    refresh();
   };
   
   // Extract warnings and errors from dashboardData
@@ -206,6 +202,14 @@ export default function DashboardPage() {
       />
 
       {user?.id && <MyTrainerCard userId={user.id} />}
+
+      {user?.id && (
+        <ClientOnboardingChecklist
+          hasTrainer={hasTrainer}
+          hasProgram={dashboardData.programs.length > 0}
+          hasWorkoutLog={hasWorkoutLog}
+        />
+      )}
 
       {user?.id && (
         <NotificationsFeed
@@ -299,9 +303,7 @@ ON CONFLICT (id) DO NOTHING;`}
       )}
       
       {dashboardData.loading ? (
-        <div className="flex items-center justify-center h-40">
-          <p>Loading dashboard data...</p>
-        </div>
+        <DashboardPageSkeleton />
       ) : dashboardData.error ? (
         <Card>
           <CardHeader>

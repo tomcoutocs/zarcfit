@@ -13,6 +13,7 @@ import {
   Settings,
   LogOut,
   Home,
+  Mail,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -85,6 +86,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             >
               <Users className="h-5 w-5" />
               <span>Users</span>
+            </Link>
+            <Link 
+              href="/admin/contact"
+              className="sidebar-nav-item transition-colors hover:bg-muted/50"
+            >
+              <Mail className="h-5 w-5" />
+              <span>Contact Messages</span>
             </Link>
             <Link 
               href="/admin/settings"

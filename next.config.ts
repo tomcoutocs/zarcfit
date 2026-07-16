@@ -1,7 +1,16 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  images: {
+if (process.env.NODE_ENV === 'production') {
+  const required = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY'];
+  const missing = required.filter((key) => !process.env[key]?.trim());
+  if (missing.length > 0) {
+    console.warn(
+      `[ZarcFit] Missing production env vars: ${missing.join(', ')}. Auth and data fetching may fail.`
+    );
+  }
+}
+
+const nextConfig: NextConfig = {  images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'i.pravatar.cc' },

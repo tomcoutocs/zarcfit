@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent } from '@/components/ui/card';
 import { FoodSearchResult } from '@/lib/nutrition/food-types';
+import { ServingSizeDialog } from '@/components/nutrition/serving-size-dialog';
 import { Search, Loader2 } from 'lucide-react';
 
 type FoodSearchProps = {
@@ -24,6 +25,8 @@ export function FoodSearch({
   const [results, setResults] = useState<FoodSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState('');
+  const [pendingFood, setPendingFood] = useState<FoodSearchResult | null>(null);
+  const [servingDialogOpen, setServingDialogOpen] = useState(false);
 
   const runSearch = useCallback(async (searchTerm: string) => {
     if (searchTerm.trim().length < 2) {
@@ -96,9 +99,8 @@ export function FoodSearch({
                 type="button"
                 className="w-full text-left p-2 rounded-md hover:bg-accent text-sm"
                 onClick={() => {
-                  onSelect(food);
-                  setQuery('');
-                  setResults([]);
+                  setPendingFood(food);
+                  setServingDialogOpen(true);
                 }}
               >
                 <p className="font-medium">{food.name}</p>
@@ -113,6 +115,18 @@ export function FoodSearch({
           </CardContent>
         </Card>
       )}
+
+      <ServingSizeDialog
+        food={pendingFood}
+        open={servingDialogOpen}
+        onOpenChange={setServingDialogOpen}
+        onConfirm={(scaled) => {
+          onSelect(scaled);
+          setQuery('');
+          setResults([]);
+          setPendingFood(null);
+        }}
+      />
     </div>
   );
 }

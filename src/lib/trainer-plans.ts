@@ -6,7 +6,24 @@ export type TrainerPlan = {
   clientLimit: number;
   popular?: boolean;
   features: string[];
+  stripePriceId?: string;
 };
+
+/** Resolve Stripe price ID from env (client-safe NEXT_PUBLIC_* or server STRIPE_PRICE_*). */
+export function getPlanStripePriceId(planId: string): string | undefined {
+  const envMap: Record<string, string | undefined> = {
+    starter:
+      process.env.NEXT_PUBLIC_STRIPE_PRICE_STARTER ||
+      process.env.STRIPE_PRICE_STARTER,
+    growth:
+      process.env.NEXT_PUBLIC_STRIPE_PRICE_GROWTH ||
+      process.env.STRIPE_PRICE_PRO,
+    pro:
+      process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO ||
+      process.env.STRIPE_PRICE_ENTERPRISE,
+  };
+  return envMap[planId];
+}
 
 export const TRAINER_PLANS: TrainerPlan[] = [
   {

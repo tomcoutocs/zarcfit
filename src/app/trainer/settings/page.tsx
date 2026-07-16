@@ -11,7 +11,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { ImageUpload } from '@/components/ui/image-upload';
+import { toast } from 'sonner';
 
 const emptyProfileForm = {
   business_name: '',
@@ -43,6 +45,10 @@ export default function TrainerSettingsPage() {
   const [settingsSuccess, setSettingsSuccess] = useState('');
   const [error, setError] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [subscriptionTier, setSubscriptionTier] = useState<string>('free');
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string>('active');
+  const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null);
+  const [billingLoading, setBillingLoading] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -65,6 +71,11 @@ export default function TrainerSettingsPage() {
           certifications: (profile.certifications || []).join(', '),
         });
         setAvatarUrl(profile.avatar_url || '');
+        setSubscriptionTier(profile.subscription_tier || 'free');
+        setSubscriptionStatus(profile.subscription_status || 'active');
+        setStripeCustomerId(
+          (profile as TrainerProfile & { stripe_customer_id?: string }).stripe_customer_id || null
+        );
       }
 
       if (settings) {
@@ -147,6 +158,55 @@ export default function TrainerSettingsPage() {
       setSettingsSuccess('Booking preferences updated successfully');
     } else {
       setError('Failed to update booking preferences. Please try again.');
+    }
+  };
+
+  const handleSubscribe = async () => {
+    if (!user?.email) return;
+    setBillingLoading(true);
+    const priceId =
+      process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO ||
+      process.env.NEXT_PUBLIC_STRIPE_PRICE_STARTER;
+    if (!priceId) {
+      toast.error('Stripe price not configured');
+      setBillingLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId, customerEmail: user.email }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+      else toast.error(data.error || 'Checkout failed');
+    } catch {
+      toast.error('Checkout failed');
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
+  const handleManageBilling = async () => {
+    if (!stripeCustomerId) {
+      toast.error('No billing account found — subscribe first');
+      return;
+    }
+    setBillingLoading(true);
+    try {
+      const res = await fetch('/api/stripe/portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId: stripeCustomerId }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+      else toast.error(data.error || 'Could not open billing portal');
+    } catch {
+      toast.error('Could not open billing portal');
+    } finally {
+      setBillingLoading(false);
     }
   };
 
@@ -351,6 +411,31 @@ export default function TrainerSettingsPage() {
               {savingSettings ? 'Saving...' : 'Save Preferences'}
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Billing</CardTitle>
+          <CardDescription>Manage your trainer subscription</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary" className="capitalize">
+              {subscriptionTier} plan
+            </Badge>
+            <Badge variant={subscriptionStatus === 'active' ? 'default' : 'outline'} className="capitalize">
+              {subscriptionStatus}
+            </Badge>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={handleSubscribe} disabled={billingLoading}>
+              {billingLoading ? 'Loading...' : 'Subscribe'}
+            </Button>
+            <Button variant="outline" onClick={handleManageBilling} disabled={billingLoading || !stripeCustomerId}>
+              Manage billing
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

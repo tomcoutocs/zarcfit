@@ -136,6 +136,8 @@ export type Message = {
   content: string;
   is_read: boolean;
   read_at?: string;
+  attachment_url?: string;
+  message_type?: string;
   created_at?: string;
 };
 
@@ -709,6 +711,26 @@ export const messagingApi = {
     }
 
     return data;
+  },
+
+  searchMessages: async (conversationId: string, query: string): Promise<Message[]> => {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .ilike('content', `%${trimmed}%`)
+      .order('created_at', { ascending: true })
+      .limit(100);
+
+    if (error) {
+      console.error('Error searching messages:', error);
+      return [];
+    }
+
+    return data || [];
   },
 
   // Mark messages as read

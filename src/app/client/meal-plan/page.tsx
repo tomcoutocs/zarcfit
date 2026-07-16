@@ -5,8 +5,10 @@ import { useAuth } from '@/context/auth-context';
 import {
   nutritionPlansApi,
   mealsApi,
+  mealFavoritesApi,
   NutritionPlan,
   Meal,
+  MealFavorite,
 } from '@/lib/supabase/dashboard-api';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
 import { DailyFoodDiary } from '@/components/nutrition/daily-food-diary';
@@ -42,7 +44,11 @@ import {
   Pencil,
   Trash2,
   Settings,
+  Copy,
+  Star,
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { DashboardPageSkeleton } from '@/components/ui/dashboard-skeleton';
 
 const DAYS: { value: number; short: string; full: string }[] = [
   { value: 1, short: 'Mon', full: 'Monday' },
@@ -98,6 +104,10 @@ export default function MealPlanPage() {
   const [editingMeal, setEditingMeal] = useState<MealWithDay | null>(null);
   const [mealForm, setMealForm] = useState(emptyMealForm);
   const [savingMeal, setSavingMeal] = useState(false);
+  const [copyMeal, setCopyMeal] = useState<MealWithDay | null>(null);
+  const [copyTargetDay, setCopyTargetDay] = useState(1);
+  const [copyingMeal, setCopyingMeal] = useState(false);
+  const [favorites, setFavorites] = useState<MealFavorite[]>([]);
   const [diaryTotals, setDiaryTotals] = useState({
     calories: 0,
     protein: 0,
@@ -130,10 +140,15 @@ export default function MealPlanPage() {
       const activePlan = await nutritionPlansApi.getActiveNutritionPlan(user.id);
       setPlan(activePlan);
       if (activePlan?.id) {
-        const planMeals = await mealsApi.getMealsForNutritionPlan(activePlan.id);
+        const [planMeals, userFavorites] = await Promise.all([
+          mealsApi.getMealsForNutritionPlan(activePlan.id),
+          mealFavoritesApi.getAll(user.id),
+        ]);
         setMeals(planMeals);
+        setFavorites(userFavorites);
       } else {
         setMeals([]);
+        setFavorites(await mealFavoritesApi.getAll(user.id));
       }
     } catch (err) {
       console.error(err);
@@ -258,6 +273,78 @@ export default function MealPlanPage() {
     if (success) fetchData();
   };
 
+  const handleCopyMeal = async () => {
+    if (!plan?.id || !copyMeal) return;
+    setCopyingMeal(true);
+    const result = await mealsApi.createMeal(plan.id, copyTargetDay, {
+      name: copyMeal.name,
+      meal_type: copyMeal.meal_type,
+      calories: copyMeal.calories,
+      protein_grams: copyMeal.protein_grams,
+      carbs_grams: copyMeal.carbs_grams,
+      fat_grams: copyMeal.fat_grams,
+      recipe: copyMeal.recipe,
+      notes: copyMeal.notes,
+    });
+    setCopyingMeal(false);
+    if (result) {
+      toast.success(`Copied to ${DAYS.find((d) => d.value === copyTargetDay)?.full}`);
+      setCopyMeal(null);
+      setActiveDay(copyTargetDay);
+      fetchData();
+    } else {
+      toast.error('Failed to copy meal');
+    }
+  };
+
+  const handleSaveFavorite = async (meal: MealWithDay) => {
+    if (!user?.id) return;
+    const saved = await mealFavoritesApi.save(user.id, meal.name, {
+      meal_type: meal.meal_type,
+      calories: meal.calories,
+      protein_grams: meal.protein_grams,
+      carbs_grams: meal.carbs_grams,
+      fat_grams: meal.fat_grams,
+      recipe: meal.recipe,
+      notes: meal.notes,
+    });
+    if (saved) {
+      toast.success('Saved to favorites');
+      setFavorites((prev) => [saved, ...prev]);
+    } else {
+      toast.error('Failed to save favorite');
+    }
+  };
+
+  const handleAddFavoriteToDay = async (favorite: MealFavorite) => {
+    if (!plan?.id) return;
+    const data = favorite.food_data as Partial<Meal>;
+    const result = await mealsApi.createMeal(plan.id, activeDay, {
+      name: favorite.name,
+      meal_type: data.meal_type || 'snack',
+      calories: data.calories as number | undefined,
+      protein_grams: data.protein_grams as number | undefined,
+      carbs_grams: data.carbs_grams as number | undefined,
+      fat_grams: data.fat_grams as number | undefined,
+      recipe: data.recipe as string | undefined,
+      notes: data.notes as string | undefined,
+    });
+    if (result) {
+      toast.success(`Added ${favorite.name} to ${DAYS.find((d) => d.value === activeDay)?.full}`);
+      fetchData();
+    } else {
+      toast.error('Failed to add meal');
+    }
+  };
+
+  const handleRemoveFavorite = async (id: string) => {
+    const ok = await mealFavoritesApi.remove(id);
+    if (ok) {
+      setFavorites((prev) => prev.filter((f) => f.id !== id));
+      toast.success('Removed from favorites');
+    }
+  };
+
   const mealsForDay = useMemo(
     () => meals.filter(m => m.day_of_week === activeDay),
     [meals, activeDay]
@@ -283,11 +370,7 @@ export default function MealPlanPage() {
   }, [mealsForDay]);
 
   if (loading) {
-    return (
-      <div className="flex justify-center py-24">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
-      </div>
-    );
+    return <DashboardPageSkeleton />;
   }
 
   if (!plan) {
@@ -480,6 +563,13 @@ export default function MealPlanPage() {
         targets={macroTargets}
       />
 
+      <Alert className="mb-4">
+        <AlertDescription>
+          <strong>Daily Diary</strong> tracks what you actually eat today. <strong>Weekly Plan</strong> shows
+          meals your trainer assigned — log extras in the diary to hit your macro targets.
+        </AlertDescription>
+      </Alert>
+
       <Tabs defaultValue="diary" className="w-full">
         <TabsList className="mb-6">
           <TabsTrigger value="diary">Daily Diary</TabsTrigger>
@@ -491,6 +581,41 @@ export default function MealPlanPage() {
         </TabsContent>
 
         <TabsContent value="plan" className="space-y-8">
+      {favorites.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Star className="h-4 w-4 text-amber-500" />
+              Meal Favorites
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {favorites.map((fav) => (
+                <div key={fav.id} className="flex items-center gap-1 rounded-full border px-3 py-1 text-sm">
+                  <button
+                    type="button"
+                    className="hover:text-primary"
+                    onClick={() => handleAddFavoriteToDay(fav)}
+                  >
+                    {fav.name}
+                  </button>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-destructive ml-1"
+                    onClick={() => handleRemoveFavorite(fav.id)}
+                    aria-label={`Remove ${fav.name}`}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">Click a favorite to add it to the selected day.</p>
+          </CardContent>
+        </Card>
+      )}
+
       <MacroProgressBars
         title={`${DAYS.find((d) => d.value === activeDay)?.full} Planned Macros`}
         subtitle="Meals planned for this day vs your targets"
@@ -571,6 +696,25 @@ export default function MealPlanPage() {
                             </div>
                           </div>
                           <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Save to favorites"
+                              onClick={() => handleSaveFavorite(meal)}
+                            >
+                              <Star className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Copy to another day"
+                              onClick={() => {
+                                setCopyMeal(meal);
+                                setCopyTargetDay(activeDay === meal.day_of_week ? (activeDay % 7) + 1 : activeDay);
+                              }}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
                             <Button variant="ghost" size="icon" onClick={() => openEditMealDialog(meal)}>
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -590,6 +734,38 @@ export default function MealPlanPage() {
       </Tabs>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!copyMeal} onOpenChange={(open) => !open && setCopyMeal(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Copy meal to another day</DialogTitle>
+            <DialogDescription>
+              Duplicate &ldquo;{copyMeal?.name}&rdquo; to a different day in your weekly plan.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="copy_target_day">Target day</Label>
+            <Select value={copyTargetDay.toString()} onValueChange={(v) => setCopyTargetDay(Number(v))}>
+              <SelectTrigger id="copy_target_day">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DAYS.map((day) => (
+                  <SelectItem key={day.value} value={day.value.toString()}>
+                    {day.full}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCopyMeal(null)}>Cancel</Button>
+            <Button onClick={handleCopyMeal} disabled={copyingMeal}>
+              {copyingMeal ? 'Copying...' : 'Copy meal'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

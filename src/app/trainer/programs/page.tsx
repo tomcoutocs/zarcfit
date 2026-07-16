@@ -34,8 +34,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Dumbbell, Plus, Trash2, Pencil, Layers, UserPlus } from 'lucide-react';
+import { Dumbbell, Plus, Trash2, Pencil, Layers, UserPlus, Copy } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 type ProgramWithClient = WorkoutProgram & { client_name: string };
 
@@ -66,6 +67,7 @@ function ProgramsContent() {
   const [editingTemplate, setEditingTemplate] = useState<WorkoutProgram | null>(null);
   const [saving, setSaving] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
 
   const fetchData = useCallback(async () => {
@@ -192,6 +194,19 @@ function ProgramsContent() {
     if (!confirm('Delete this template? This cannot be undone.')) return;
     const ok = await workoutProgramsApi.deleteProgram(programId);
     if (ok) fetchData();
+  };
+
+  const handleDuplicateTemplate = async (template: WorkoutProgram) => {
+    if (!user?.id || !template.id) return;
+    setDuplicatingId(template.id);
+    const copy = await planTemplatesApi.duplicateWorkoutTemplate(template.id, user.id);
+    setDuplicatingId(null);
+    if (copy) {
+      toast.success(`"${copy.name}" created`);
+      fetchData();
+    } else {
+      toast.error('Failed to duplicate template');
+    }
   };
 
   return (
@@ -372,6 +387,16 @@ function ProgramsContent() {
                           Builder
                         </Button>
                       </Link>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1"
+                        disabled={duplicatingId === template.id}
+                        onClick={() => handleDuplicateTemplate(template)}
+                      >
+                        <Copy className="h-4 w-4" />
+                        {duplicatingId === template.id ? 'Copying...' : 'Copy'}
+                      </Button>
                       <Button size="icon" variant="ghost" onClick={() => openEditTemplateDialog(template)}>
                         <Pencil className="h-4 w-4" />
                       </Button>

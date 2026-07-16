@@ -36,6 +36,8 @@ import {
   Calendar,
   Pin,
   Trash2,
+  UserPlus,
+  Utensils,
 } from 'lucide-react';
 
 export default function ClientDetailPage() {
@@ -312,10 +314,26 @@ export default function ClientDetailPage() {
         <TabsContent value="workouts">
           <Card>
             <CardHeader>
-              <CardTitle>Workout History</CardTitle>
-              <CardDescription>
-                View and track client workouts
-              </CardDescription>
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div>
+                  <CardTitle>Workout History</CardTitle>
+                  <CardDescription>
+                    View and track client workouts
+                  </CardDescription>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Link href={`/trainer/programs?client=${clientId}`}>
+                    <Button size="sm" variant="outline" className="gap-1">
+                      <UserPlus className="h-4 w-4" />
+                      Assign Program
+                    </Button>
+                  </Link>
+                  <Button size="sm" variant="outline" className="gap-1" onClick={handleMessage}>
+                    <MessageSquare className="h-4 w-4" />
+                    Message
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {logs.length === 0 ? (
@@ -345,10 +363,26 @@ export default function ClientDetailPage() {
         <TabsContent value="nutrition">
           <Card>
             <CardHeader>
-              <CardTitle>Nutrition Tracking</CardTitle>
-              <CardDescription>
-                Meal plans and nutrition logs
-              </CardDescription>
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div>
+                  <CardTitle>Nutrition Tracking</CardTitle>
+                  <CardDescription>
+                    Meal plans and nutrition logs
+                  </CardDescription>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Link href={`/trainer/meal-plans?client=${clientId}`}>
+                    <Button size="sm" variant="outline" className="gap-1">
+                      <Utensils className="h-4 w-4" />
+                      Assign Meal Plan
+                    </Button>
+                  </Link>
+                  <Button size="sm" variant="outline" className="gap-1" onClick={handleMessage}>
+                    <MessageSquare className="h-4 w-4" />
+                    Message
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {nutritionPlans.length === 0 ? (

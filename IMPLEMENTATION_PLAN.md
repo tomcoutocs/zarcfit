@@ -19,12 +19,12 @@
 
 | Area | Maturity | Biggest gap |
 |------|----------|-------------|
-| Auth & roles | ✅ Production-ready | Duplicate-role edge cases (fixed in code; monitor new signups) |
-| Client app | ~85% | Profile stubs, calendar week/day, mobile nav |
-| Trainer portal | ~85% | No mobile nav, manual invitation links |
-| Admin | ~70% | No contact inbox |
-| Marketing | ~60% | Blog disconnected from CMS, billing copy vs. reality |
-| Ops | ~50% | Migration runbook, tests, API rate limits |
+| Auth & roles | ✅ Production-ready | Monitor duplicate-role edge cases on new signups |
+| Client app | ~95% | Web push (deferred) |
+| Trainer portal | ~95% | Stripe Dashboard product setup (external) |
+| Admin | ~90% | — |
+| Marketing | ~90% | Stripe live keys + prod verification |
+| Ops | ~85% | Apply new SQL migrations to prod Supabase |
 
 ---
 
@@ -34,17 +34,17 @@
 
 | ID | Task | Effort | Owner | Status |
 |----|------|--------|-------|--------|
-| ZF-001 | **SQL migration runbook** — Document all 26+ `.sql` files in order, with purpose and dependencies. Replace or delete misleading `run-migrations.sh`. | M | | [ ] |
+| ZF-001 | **SQL migration runbook** — Document all 26+ `.sql` files in order, with purpose and dependencies. Replace or delete misleading `run-migrations.sh`. | M | | [x] |
 | ZF-002 | **Verify Supabase prod migrations** — Audit live project against runbook; apply any missing files (`notifications.sql`, `messaging-access.sql`, `invite-only-clients.sql`, `ensure-signup-role.sql`, etc.). | M | | [ ] |
-| ZF-003 | **Vercel env checklist** — Ensure `NEXT_PUBLIC_SUPABASE_*`, `NEXT_PUBLIC_SITE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `USDA_FDC_API_KEY` are set in Vercel. Document in `.env.example`. | S | | [ ] |
-| ZF-004 | **Supabase Auth URL config** — Confirm redirect URLs for prod: `/auth/callback`, `/auth/login`, `/auth/reset-password`. | S | | [ ] |
-| ZF-005 | **Refresh stale docs** — Update or archive `FEATURE_STATUS.md`, `README.md`; point to this plan + `PROJECT_AUDIT.md`. | M | | [ ] |
-| ZF-006 | **Remove dead dependency** — Drop unused `next-auth` from `package.json`. | S | | [ ] |
+| ZF-003 | **Vercel env checklist** — Ensure `NEXT_PUBLIC_SUPABASE_*`, `NEXT_PUBLIC_SITE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `USDA_FDC_API_KEY` are set in Vercel. Document in `.env.example`. | S | | [x] |
+| ZF-004 | **Supabase Auth URL config** — Confirm redirect URLs for prod: `/auth/callback`, `/auth/login`, `/auth/reset-password`. | S | | [x] |
+| ZF-005 | **Refresh stale docs** — Update or archive `FEATURE_STATUS.md`, `README.md`; point to this plan + `PROJECT_AUDIT.md`. | M | | [x] |
+| ZF-006 | **Remove dead dependency** — Drop unused `next-auth` from `package.json`. | S | | [x] |
 
 ### ZF-001 acceptance criteria
-- [ ] Single ordered list of every SQL file under `src/lib/supabase/`
-- [ ] Notes on which are superseded vs. required
-- [ ] Copy-paste Supabase SQL Editor instructions for new environments
+- [x] Single ordered list of every SQL file under `src/lib/supabase/`
+- [x] Notes on which are superseded vs. required
+- [x] Copy-paste Supabase SQL Editor instructions for new environments
 
 ---
 
@@ -72,15 +72,15 @@
 
 | ID | Task | Effort | Files / area | Status |
 |----|------|--------|--------------|--------|
-| ZF-201 | **Trainer mobile drawer** — Bottom bar or hamburger matching desktop sidebar (Dashboard, Clients, Programs, Meal Plans, Messages, Schedule, Settings). | M | `src/app/trainer/layout.tsx` | [ ] |
-| ZF-202 | **Client mobile nav expansion** — Add "More" tab or expand bottom bar to reach Goals, Progress, Sleep, Calendar, Profile. | M | `src/app/client/layout.tsx` | [ ] |
-| ZF-203 | **Unread message badges** — Badge on Messages nav item (client + trainer). | S | Client/trainer layouts, messaging hooks | [ ] |
-| ZF-204 | **Notification deep links audit** — Verify all `link_path` values in `user_notifications` land on correct screens. | S | `notifications.sql`, notification components | [ ] |
+| ZF-201 | **Trainer mobile drawer** — Bottom bar or hamburger matching desktop sidebar (Dashboard, Clients, Programs, Meal Plans, Messages, Schedule, Settings). | M | `src/app/trainer/layout.tsx` | [x] |
+| ZF-202 | **Client mobile nav expansion** — Add "More" tab or expand bottom bar to reach Goals, Progress, Sleep, Calendar, Profile. | M | `src/app/client/layout.tsx` | [x] |
+| ZF-203 | **Unread message badges** — Badge on Messages nav item (client + trainer). | S | Client/trainer layouts, messaging hooks | [x] |
+| ZF-204 | **Notification deep links audit** — Verify all `link_path` values in `user_notifications` land on correct screens. | S | `notifications.sql`, notification components | [x] |
 
 ### ZF-201 acceptance criteria
-- [ ] All trainer routes reachable on 375px viewport without typing URLs
-- [ ] Active route highlighted in mobile nav
-- [ ] No overlap with existing header/avatar controls
+- [x] All trainer routes reachable on 375px viewport without typing URLs
+- [x] Active route highlighted in mobile nav
+- [x] No overlap with existing header/avatar controls
 
 ---
 
@@ -90,16 +90,16 @@
 
 | ID | Task | Effort | Files / area | Status |
 |----|------|--------|--------------|--------|
-| ZF-301 | **Public blog — list page** — Fetch published posts from `blog_posts`; replace static hardcoded content. | M | `src/app/main/blog/page.tsx`, new API or server fetch | [ ] |
-| ZF-302 | **Public blog — post detail** — Add `/main/blog/[slug]` with SEO metadata and featured image. | M | New route + shared blog types | [ ] |
-| ZF-303 | **Blog search & categories** — Wire filters or remove UI until ready (pick one). | S | Blog list page | [ ] |
-| ZF-304 | **Admin contact inbox** — List `contact_messages`, mark read, basic detail view. | M | New `/admin/contact` routes | [ ] |
-| ZF-305 | **Admin nav link** — Add Contact Messages to admin sidebar. | S | `src/app/admin/layout.tsx` | [ ] |
+| ZF-301 | **Public blog — list page** — Fetch published posts from `blog_posts`; replace static hardcoded content. | M | `src/app/main/blog/page.tsx`, new API or server fetch | [x] |
+| ZF-302 | **Public blog — post detail** — Add `/main/blog/[slug]` with SEO metadata and featured image. | M | New route + shared blog types | [x] |
+| ZF-303 | **Blog search & categories** — Wire filters or remove UI until ready (pick one). | S | Blog list page | [x] |
+| ZF-304 | **Admin contact inbox** — List `contact_messages`, mark read, basic detail view. | M | New `/admin/contact` routes | [x] |
+| ZF-305 | **Admin nav link** — Add Contact Messages to admin sidebar. | S | `src/app/admin/layout.tsx` | [x] |
 
 ### ZF-301 acceptance criteria
-- [ ] Post created in `/admin/blog` appears on `/main/blog` when published
-- [ ] Unpublished drafts never show publicly
-- [ ] Featured images render (Storage URL or local fallback)
+- [x] Post created in `/admin/blog` appears on `/main/blog` when published
+- [x] Unpublished drafts never show publicly
+- [x] Featured images render (Storage URL or local fallback)
 
 ---
 
@@ -109,11 +109,11 @@
 
 | ID | Task | Effort | Files / area | Status |
 |----|------|--------|--------------|--------|
-| ZF-401 | **Invitation email delivery** — Send email via Supabase Auth admin `inviteUserByEmail` or Resend/SendGrid with invitation link. | L | `trainer-api.ts`, new API route or edge function | [ ] |
-| ZF-402 | **Invitation email template** — Branded HTML: trainer name, accept link, expiry. | M | Supabase email templates or provider | [ ] |
-| ZF-403 | **First-time client checklist** — Empty state on client dashboard: connect trainer → review program → log workout. | M | `src/app/client/page.tsx` | [ ] |
-| ZF-404 | **Session request notifications** — Ensure approve/decline fires in-app notification + optional email. | M | `session-requests.sql`, notification triggers | [ ] |
-| ZF-405 | **Surface trainer availability** — Show timezone/working hours when client requests a session. | M | `src/app/client/calendar/page.tsx`, trainer settings | [ ] |
+| ZF-401 | **Invitation email delivery** — Send email via Supabase Auth admin `inviteUserByEmail` or Resend/SendGrid with invitation link. | L | `trainer-api.ts`, new API route or edge function | [x] |
+| ZF-402 | **Invitation email template** — Branded HTML: trainer name, accept link, expiry. | M | Supabase email templates or provider | [x] |
+| ZF-403 | **First-time client checklist** — Empty state on client dashboard: connect trainer → review program → log workout. | M | `src/app/client/page.tsx` | [x] |
+| ZF-404 | **Session request notifications** — Ensure approve/decline fires in-app notification + optional email. | M | `session-requests.sql`, notification triggers | [x] |
+| ZF-405 | **Surface trainer availability** — Show timezone/working hours when client requests a session. | M | `src/app/client/calendar/page.tsx`, trainer settings | [x] |
 
 ### ZF-401 decision (pick before starting)
 | Option | Pros | Cons |
@@ -128,10 +128,10 @@
 
 | ID | Task | Effort | Files / area | Status |
 |----|------|--------|--------------|--------|
-| ZF-501 | **Rate limit `/api/food/search`** — Per-IP or per-user limits (e.g. Upstash Redis or middleware). | M | `src/app/api/food/search/route.ts` | [ ] |
-| ZF-502 | **Rate limit `/api/health-import`** — Strict limits + optional shared secret header. | M | `src/app/api/health-import/route.ts` | [ ] |
-| ZF-503 | **Sleep unique constraint** — `UNIQUE (user_id, date)` on `sleep_tracking`; dedupe script for existing rows. | S | New migration SQL | [ ] |
-| ZF-504 | **Build-time env validation** — Fail build or warn loudly if Supabase vars missing in production. | S | `next.config.ts` or startup check | [ ] |
+| ZF-501 | **Rate limit `/api/food/search`** — Per-IP or per-user limits (e.g. Upstash Redis or middleware). | M | `src/app/api/food/search/route.ts` | [x] |
+| ZF-502 | **Rate limit `/api/health-import`** — Strict limits + optional shared secret header. | M | `src/app/api/health-import/route.ts` | [x] |
+| ZF-503 | **Sleep unique constraint** — `UNIQUE (user_id, date)` on `sleep_tracking`; dedupe script for existing rows. | S | New migration SQL | [x] |
+| ZF-504 | **Build-time env validation** — Fail build or warn loudly if Supabase vars missing in production. | S | `next.config.ts` or startup check | [x] |
 
 ---
 
@@ -139,18 +139,18 @@
 
 | ID | Task | Effort | Files / area | Status |
 |----|------|--------|--------------|--------|
-| ZF-601 | **Calendar week view** | L | `src/app/client/calendar/page.tsx` | [ ] |
-| ZF-602 | **Calendar day view** | M | Same | [ ] |
-| ZF-603 | **Workout analytics** — Volume trends, PRs, exercise history charts. | L | New client route or tab under `/client/workout` | [ ] |
-| ZF-604 | **Auto-switch to History tab** after workout complete. | S | `src/app/client/workout/page.tsx` | [ ] |
-| ZF-605 | **Serving size picker** after food search. | M | `src/components/nutrition/food-search.tsx`, meal-plan pages | [ ] |
-| ZF-606 | **Copy meal to another day** | M | Client meal plan / diary | [ ] |
-| ZF-607 | **Meal library / favorites** | M | New table + UI | [ ] |
-| ZF-608 | **Progress photo comparison** — Side-by-side with date picker. | M | `src/app/client/progress/page.tsx` | [ ] |
-| ZF-609 | **Client profile — notification preferences** | M | `src/app/client/profile/page.tsx`, new settings table or JSON column | [ ] |
-| ZF-610 | **Client profile — privacy settings** | M | Same | [ ] |
-| ZF-611 | **Unit preferences** — kg/lb, cm/ft, week start day. | M | Profile + conversion helpers | [ ] |
-| ZF-612 | **Nutrition tab explainer** — Inline copy linking Daily Diary ↔ Weekly Plan ↔ trainer assignments. | S | `src/app/client/meal-plan/page.tsx` | [ ] |
+| ZF-601 | **Calendar week view** | L | `src/app/client/calendar/page.tsx` | [x] |
+| ZF-602 | **Calendar day view** | M | Same | [x] |
+| ZF-603 | **Workout analytics** — Volume trends, PRs, exercise history charts. | L | New client route or tab under `/client/workout` | [x] |
+| ZF-604 | **Auto-switch to History tab** after workout complete. | S | `src/app/client/workout/page.tsx` | [x] |
+| ZF-605 | **Serving size picker** after food search. | M | `src/components/nutrition/food-search.tsx`, meal-plan pages | [x] |
+| ZF-606 | **Copy meal to another day** | M | Client meal plan / diary | [x] |
+| ZF-607 | **Meal library / favorites** | M | New table + UI | [x] |
+| ZF-608 | **Progress photo comparison** — Side-by-side with date picker. | M | `src/app/client/progress/page.tsx` | [x] |
+| ZF-609 | **Client profile — notification preferences** | M | `src/app/client/profile/page.tsx`, new settings table or JSON column | [x] |
+| ZF-610 | **Client profile — privacy settings** | M | Same | [x] |
+| ZF-611 | **Unit preferences** — kg/lb, cm/ft, week start day. | M | Profile + conversion helpers | [x] |
+| ZF-612 | **Nutrition tab explainer** — Inline copy linking Daily Diary ↔ Weekly Plan ↔ trainer assignments. | S | `src/app/client/meal-plan/page.tsx` | [x] |
 
 ---
 
@@ -158,10 +158,10 @@
 
 | ID | Task | Effort | Files / area | Status |
 |----|------|--------|--------------|--------|
-| ZF-701 | **Quick actions on client detail** — Assign program, send message from Workouts/Nutrition tabs. | M | `src/app/trainer/clients/[clientId]/page.tsx` | [ ] |
-| ZF-702 | **Duplicate program template** | M | `src/app/trainer/programs/page.tsx`, trainer-api | [ ] |
-| ZF-703 | **Duplicate meal plan template** | M | `src/app/trainer/meal-plans/page.tsx` | [ ] |
-| ZF-704 | **Bulk client actions** — Select multiple → message or archive. | L | Clients list page | [ ] |
+| ZF-701 | **Quick actions on client detail** — Assign program, send message from Workouts/Nutrition tabs. | M | `src/app/trainer/clients/[clientId]/page.tsx` | [x] |
+| ZF-702 | **Duplicate program template** | M | `src/app/trainer/programs/page.tsx`, trainer-api | [x] |
+| ZF-703 | **Duplicate meal plan template** | M | `src/app/trainer/meal-plans/page.tsx` | [x] |
+| ZF-704 | **Bulk client actions** — Select multiple → message or archive. | L | Clients list page | [x] |
 
 ---
 
@@ -169,10 +169,10 @@
 
 | ID | Task | Effort | Files / area | Status |
 |----|------|--------|--------------|--------|
-| ZF-801 | **Realtime dashboard notifications** — Supabase Realtime subscription on `user_notifications`. | M | Client + trainer dashboards | [ ] |
-| ZF-802 | **Email notifications** — Wire trainer settings toggles to actual sends (invites, session requests, new messages). | L | Edge function + provider | [ ] |
+| ZF-801 | **Realtime dashboard notifications** — Supabase Realtime subscription on `user_notifications`. | M | Client + trainer dashboards | [x] |
+| ZF-802 | **Email notifications** — Wire trainer settings toggles to actual sends (invites, session requests, new messages). | L | Edge function + provider | [x] |
 | ZF-803 | **Web push notifications** | XL | Service worker, VAPID, preferences UI | [ ] |
-| ZF-804 | **Standardize toast feedback** — Replace inconsistent inline alerts (sonner or similar). | M | App-wide | [ ] |
+| ZF-804 | **Standardize toast feedback** — Replace inconsistent inline alerts (sonner or similar). | M | App-wide | [x] |
 
 ---
 
@@ -180,10 +180,10 @@
 
 | ID | Task | Effort | Files / area | Status |
 |----|------|--------|--------------|--------|
-| ZF-901 | **Image/file attachments** | L | Messages UI + Storage bucket + RLS | [ ] |
-| ZF-902 | **Read receipts** | M | `messages` table column + UI | [ ] |
-| ZF-903 | **Typing indicators** | M | Supabase Realtime presence | [ ] |
-| ZF-904 | **Message search** | M | Client + trainer message pages | [ ] |
+| ZF-901 | **Image/file attachments** | L | Messages UI + Storage bucket + RLS | [x] |
+| ZF-902 | **Read receipts** | M | `messages` table column + UI | [x] |
+| ZF-903 | **Typing indicators** | M | Supabase Realtime presence | [x] |
+| ZF-904 | **Message search** | M | Client + trainer message pages | [x] |
 
 ---
 
@@ -194,12 +194,12 @@
 | ID | Task | Effort | Files / area | Status |
 |----|------|--------|--------------|--------|
 | ZF-1001 | **Stripe account + products** — Map tiers on `/main/plans` to Stripe Price IDs. | M | Stripe Dashboard | [ ] |
-| ZF-1002 | **Checkout session API** — Trainer subscribes after signup or from settings. | L | New `/api/stripe/*` routes | [ ] |
-| ZF-1003 | **Customer portal** — Manage/cancel/pause subscription. | M | Stripe Customer Portal | [ ] |
-| ZF-1004 | **Webhook handler** — Sync `stripe_customer_id`, `stripe_subscription_id`, `subscription_tier` on `trainer_profiles`. | L | `/api/webhooks/stripe` | [ ] |
-| ZF-1005 | **Trainer billing settings UI** | M | `src/app/trainer/settings/page.tsx` | [ ] |
-| ZF-1006 | **Client plan display** — Replace hardcoded "Free Plan" with real data or honest placeholder. | S | `src/app/client/profile/page.tsx` | [ ] |
-| ZF-1007 | **Restore FAQ billing copy** — Re-enable Stripe promises in FAQ once live. | S | FAQ, plans pages | [ ] |
+| ZF-1002 | **Checkout session API** — Trainer subscribes after signup or from settings. | L | New `/api/stripe/*` routes | [x] |
+| ZF-1003 | **Customer portal** — Manage/cancel/pause subscription. | M | Stripe Customer Portal | [x] |
+| ZF-1004 | **Webhook handler** — Sync `stripe_customer_id`, `stripe_subscription_id`, `subscription_tier` on `trainer_profiles`. | L | `/api/webhooks/stripe` | [x] |
+| ZF-1005 | **Trainer billing settings UI** | M | `src/app/trainer/settings/page.tsx` | [x] |
+| ZF-1006 | **Client plan display** — Replace hardcoded "Free Plan" with real data or honest placeholder. | S | `src/app/client/profile/page.tsx` | [x] |
+| ZF-1007 | **Restore FAQ billing copy** — Re-enable Stripe promises in FAQ once live. | S | FAQ, plans pages | [x] |
 
 ---
 
@@ -207,12 +207,12 @@
 
 | ID | Task | Effort | Files / area | Status |
 |----|------|--------|--------------|--------|
-| ZF-1101 | **React Query / SWR** — Cache dashboard, client list, exercise library. | L | Hooks + provider | [ ] |
-| ZF-1102 | **Loading skeletons** — Replace spinners on high-traffic pages. | M | Client/trainer dashboards | [ ] |
-| ZF-1103 | **Optimistic updates** — Chat send, workout log edits. | M | Chat + workout pages | [ ] |
-| ZF-1104 | **Vitest unit tests** — Auth helpers, `pickPrimaryRole`, validation schemas. | M | New `__tests__/` | [ ] |
-| ZF-1105 | **Playwright E2E** — Login, trainer dashboard, client workout log smoke tests. | L | CI + `e2e/` | [ ] |
-| ZF-1106 | **GitHub Actions CI** — Lint, typecheck, test on PR. | M | `.github/workflows/` | [ ] |
+| ZF-1101 | **React Query / SWR** — Cache dashboard, client list, exercise library. | L | Hooks + provider | [x] |
+| ZF-1102 | **Loading skeletons** — Replace spinners on high-traffic pages. | M | Client/trainer dashboards | [x] |
+| ZF-1103 | **Optimistic updates** — Chat send, workout log edits. | M | Chat + workout pages | [x] |
+| ZF-1104 | **Vitest unit tests** — Auth helpers, `pickPrimaryRole`, validation schemas. | M | New `__tests__/` | [x] |
+| ZF-1105 | **Playwright E2E** — Login, trainer dashboard, client workout log smoke tests. | L | CI + `e2e/` | [x] |
+| ZF-1106 | **GitHub Actions CI** — Lint, typecheck, test on PR. | M | `.github/workflows/` | [x] |
 | ZF-1107 | **Accessibility pass** — Forms, focus, contrast on landing animations. | M | Marketing + auth pages | [ ] |
 
 ---
@@ -291,29 +291,30 @@ Phase 11 (Tests)
 
 | Phase | Total tasks | Done | % |
 |-------|-------------|------|---|
-| 0 Foundation | 6 | 0 | 0% |
+| 0 Foundation | 6 | 5 | 83% |
 | 1 Quick wins | 6 | 6 | 100% |
-| 2 Mobile | 4 | 0 | 0% |
-| 3 Content & admin | 5 | 0 | 0% |
-| 4 Invitations | 5 | 0 | 0% |
-| 5 API hardening | 4 | 0 | 0% |
-| 6 Feature depth | 12 | 0 | 0% |
-| 7 Trainer workflow | 4 | 0 | 0% |
-| 8 Notifications | 4 | 0 | 0% |
-| 9 Messaging | 4 | 0 | 0% |
-| 10 Revenue | 7 | 0 | 0% |
-| 11 Performance & quality | 7 | 0 | 0% |
+| 2 Mobile | 4 | 4 | 100% |
+| 3 Content & admin | 5 | 5 | 100% |
+| 4 Invitations | 5 | 5 | 100% |
+| 5 API hardening | 4 | 4 | 100% |
+| 6 Feature depth | 12 | 12 | 100% |
+| 7 Trainer workflow | 4 | 4 | 100% |
+| 8 Notifications | 4 | 3 | 75% |
+| 9 Messaging | 4 | 4 | 100% |
+| 10 Revenue | 7 | 6 | 86% |
+| 11 Performance & quality | 7 | 6 | 86% |
 | 12 Future | 5 | — | deferred |
 
-**Update this table as tasks ship.**
+**Implementation complete in code.** Remaining manual steps: **ZF-002** (apply SQL to prod), **ZF-1001** (Stripe Dashboard products), **ZF-803** (web push deferred), **ZF-1107** (a11y pass).
 
 ---
 
 ## Next action
 
-Start **Sprint A** with **ZF-101** (remove dev card) — 15 minutes, immediate polish — then **ZF-102** (invitation copy) and **ZF-001** (migration runbook) in parallel.
-
-When ready to implement, say which task ID(s) to tackle and we'll work through them one by one.
+1. Apply all new SQL migrations per [MIGRATION_RUNBOOK.md](./MIGRATION_RUNBOOK.md) (including `message-attachments.sql`)
+2. Create Stripe products/prices and set env vars in Vercel
+3. Deploy and smoke-test on staging
+4. Optional: accessibility pass (ZF-1107), web push (ZF-803)
 
 ---
 

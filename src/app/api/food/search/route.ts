@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { FoodSearchResult } from '@/lib/nutrition/food-types';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 const USDA_NUTRIENT = {
   calories: 1008,
@@ -120,6 +121,15 @@ async function searchOpenFoodFacts(query: string): Promise<FoodSearchResult[]> {
 }
 
 export async function GET(request: NextRequest) {
+  const ip = getClientIp(request);
+  const limit = rateLimit(`food-search:${ip}`, 30, 60_000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfterSec ?? 60) } }
+    );
+  }
+
   const query = request.nextUrl.searchParams.get('q')?.trim();
   if (!query || query.length < 2) {
     return NextResponse.json({ foods: [] });

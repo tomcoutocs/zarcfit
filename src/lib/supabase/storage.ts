@@ -33,3 +33,31 @@ export async function uploadUserImage(
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
   return { url: data.publicUrl };
 }
+
+export async function uploadMessageAttachment(
+  userId: string,
+  file: File
+): Promise<{ url: string | null; error?: string }> {
+  if (!file.type.startsWith('image/')) {
+    return { url: null, error: 'Please select an image file.' };
+  }
+  if (file.size > MAX_BYTES) {
+    return { url: null, error: 'Image must be 5 MB or smaller.' };
+  }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const path = `messages/${userId}/${Date.now()}.${ext}`;
+  const supabase = createSupabaseBrowserClient();
+
+  const { error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (uploadError) {
+    console.error('Message attachment upload error:', uploadError);
+    return { url: null, error: uploadError.message };
+  }
+
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+  return { url: data.publicUrl };
+}

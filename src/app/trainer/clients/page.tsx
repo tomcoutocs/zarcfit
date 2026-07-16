@@ -36,6 +36,8 @@ import {
   Check,
   X,
   Send,
+  Pause,
+  MessageSquare,
 } from 'lucide-react';
 import {
   Select,
@@ -45,6 +47,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 function invitationName(invitation: ClientInvitation) {
   const name = [invitation.first_name, invitation.last_name].filter(Boolean).join(' ');
@@ -57,6 +62,7 @@ function invitationInitials(invitation: ClientInvitation) {
 
 function ClientsContent() {
   const { user } = useAuth();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const defaultTab = searchParams.get('tab') === 'invitations' ? 'invitations' : 'clients';
   const [clients, setClients] = useState<ClientWithProfile[]>([]);
@@ -68,6 +74,8 @@ function ClientsContent() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
+  const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!user?.id) return;
@@ -151,6 +159,43 @@ function ClientsContent() {
     }
 
     setCancellingId(null);
+  };
+
+  const toggleClientSelection = (clientId: string, checked: boolean) => {
+    setSelectedClientIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(clientId);
+      else next.delete(clientId);
+      return next;
+    });
+  };
+
+  const handleBulkPause = async () => {
+    if (!user?.id || selectedClientIds.size === 0) return;
+    setBulkLoading(true);
+    setActionError('');
+
+    const results = await Promise.all(
+      Array.from(selectedClientIds).map((clientId) =>
+        clientManagementApi.updateClientStatus(user.id, clientId, 'paused')
+      )
+    );
+
+    setBulkLoading(false);
+
+    if (results.every(Boolean)) {
+      toast.success(`Paused ${selectedClientIds.size} client(s)`);
+      setSelectedClientIds(new Set());
+      fetchData();
+    } else {
+      toast.error('Some clients could not be paused');
+    }
+  };
+
+  const handleBulkMessage = () => {
+    const firstId = Array.from(selectedClientIds)[0];
+    if (!firstId) return;
+    router.push(`/trainer/messages?client=${firstId}`);
   };
 
   const getStatusBadge = (status: string) => {
@@ -285,6 +330,44 @@ function ClientsContent() {
             </CardContent>
           </Card>
 
+          {selectedClientIds.size > 0 && (
+            <Card>
+              <CardContent className="py-3 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-medium">
+                  {selectedClientIds.size} client{selectedClientIds.size !== 1 ? 's' : ''} selected
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1"
+                    disabled={bulkLoading}
+                    onClick={handleBulkPause}
+                  >
+                    <Pause className="h-4 w-4" />
+                    Pause selected
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1"
+                    onClick={handleBulkMessage}
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    Message first selected
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSelectedClientIds(new Set())}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {filteredClients.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
@@ -312,29 +395,38 @@ function ClientsContent() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredClients.map((client) => (
-                <Link key={client.id} href={`/trainer/clients/${client.client_id}`}>
-                  <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-12 w-12">
+                <Card key={client.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Checkbox
+                          checked={selectedClientIds.has(client.client_id)}
+                          onCheckedChange={(checked) =>
+                            toggleClientSelection(client.client_id, checked === true)
+                          }
+                          aria-label={`Select ${client.client_name}`}
+                        />
+                        <Link href={`/trainer/clients/${client.client_id}`} className="flex items-center gap-3 min-w-0">
+                          <Avatar className="h-12 w-12 shrink-0">
                             <AvatarImage src={client.client_profile?.avatar_url} />
                             <AvatarFallback>
                               {client.client_name.substring(0, 2).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
-                          <div>
-                            <CardTitle className="text-lg">
+                          <div className="min-w-0">
+                            <CardTitle className="text-lg truncate">
                               {client.client_name}
                             </CardTitle>
-                            <CardDescription className="text-sm">
+                            <CardDescription className="text-sm truncate">
                               {client.client_email}
                             </CardDescription>
                           </div>
-                        </div>
+                        </Link>
                       </div>
-                    </CardHeader>
-                    <CardContent>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <Link href={`/trainer/clients/${client.client_id}`}>
                       <div className="flex items-center justify-between">
                         {getStatusBadge(client.status)}
                         <p className="text-sm text-muted-foreground">
@@ -348,9 +440,9 @@ function ClientsContent() {
                           {client.notes}
                         </p>
                       )}
-                    </CardContent>
-                  </Card>
-                </Link>
+                    </Link>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}

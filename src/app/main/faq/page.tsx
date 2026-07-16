@@ -119,7 +119,9 @@ export default function FAQPage() {
         <div className="mb-12">
           <h2 className="text-2xl font-bold mb-6">Membership & Billing</h2>
           <p className="mb-4 text-sm text-muted-foreground">
-            Online billing and self-serve subscription management are coming soon. Trainer accounts are free to create and explore today.
+            Trainer subscriptions are managed through Stripe. Subscribe from the{' '}
+            <a href="/main/plans" className="text-primary underline">Plans page</a> or your{' '}
+            <a href="/trainer/settings" className="text-primary underline">account settings</a>.
           </p>
           
           <Accordion type="single" collapsible className="w-full">
@@ -132,8 +134,8 @@ export default function FAQPage() {
                 </p>
                 <ul className="list-disc pl-6 space-y-2">
                   <li>Creating a trainer account is free — no credit card required to get started</li>
-                  <li>Paid subscriptions will be available when online billing launches</li>
-                  <li>Until then, all trainer platform features remain available while we&apos;re in early access</li>
+                  <li>Subscribe to a paid tier when you&apos;re ready — checkout is handled securely by Stripe</li>
+                  <li>Upgrade or downgrade anytime from your trainer settings</li>
                 </ul>
                 <p className="mt-4">
                   Questions about pricing? <a href="/main/contact" className="text-primary underline">Contact our team</a>.
@@ -145,14 +147,16 @@ export default function FAQPage() {
               <AccordionTrigger>Can I pause or cancel my membership?</AccordionTrigger>
               <AccordionContent>
                 <p className="mb-4">
-                  Self-serve pause and cancel options will be available in your trainer account settings once online billing is live.
+                  Manage your subscription from <a href="/trainer/settings" className="text-primary underline">Trainer Settings → Billing</a>.
+                  Stripe&apos;s customer portal lets you pause, cancel, or update payment details.
                 </p>
                 <ul className="list-disc pl-6 space-y-2">
-                  <li><strong>Today:</strong> There is no active subscription to pause or cancel while billing is in early access</li>
-                  <li><strong>Coming soon:</strong> Pause, cancel, and billing history from your account dashboard</li>
+                  <li><strong>Pause:</strong> Temporarily suspend billing while keeping your account</li>
+                  <li><strong>Cancel:</strong> End your subscription at the end of the current billing period</li>
+                  <li><strong>Billing history:</strong> View invoices and receipts in the Stripe portal</li>
                 </ul>
                 <p className="mt-4">
-                  Need help in the meantime? Reach out through our{' '}
+                  Need help? Reach out through our{' '}
                   <a href="/main/contact" className="text-primary underline">contact form</a>.
                 </p>
               </AccordionContent>
@@ -162,7 +166,8 @@ export default function FAQPage() {
               <AccordionTrigger>Do you offer refunds if I&apos;m not satisfied?</AccordionTrigger>
               <AccordionContent>
                 <p>
-                  Refund policies for paid plans will be published when online billing launches. During early access, trainer accounts are free to explore.
+                  We offer a 14-day satisfaction guarantee on paid trainer plans. Contact support within 14 days of your first charge for a full refund.
+                  See our <a href="/terms" className="text-primary underline">Terms of Service</a> for details.
                 </p>
                 <p className="mt-4">
                   If something isn&apos;t working for you, please{' '}

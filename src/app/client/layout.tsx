@@ -2,7 +2,21 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { MessageSquare, Dumbbell, Utensils, Calendar, User, LogOut, Menu, X, Moon, LayoutDashboard, Target, TrendingUp } from 'lucide-react';
+import {
+  MessageSquare,
+  Dumbbell,
+  Utensils,
+  Calendar,
+  User,
+  LogOut,
+  Menu,
+  X,
+  Moon,
+  LayoutDashboard,
+  Target,
+  TrendingUp,
+  MoreHorizontal,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/context/auth-context';
@@ -10,16 +24,19 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import AnimatedPage from '@/components/layout/AnimatedPage';
 import AppAmbient from '@/components/layout/AppAmbient';
+import { NavBadge } from '@/components/layout/NavBadge';
+import { useUnreadMessageCount } from '@/hooks/use-unread-messages';
 
 interface NavItemProps {
   href: string;
   icon: React.ReactNode;
   label: string;
   isActive?: boolean;
+  badge?: number;
   onClick?: () => void;
 }
 
-function NavItem({ href, icon, label, isActive = false, onClick }: NavItemProps) {
+function NavItem({ href, icon, label, isActive = false, badge = 0, onClick }: NavItemProps) {
   return (
     <Link
       href={href}
@@ -32,32 +49,30 @@ function NavItem({ href, icon, label, isActive = false, onClick }: NavItemProps)
       )}
     >
       {icon}
-      <span>{label}</span>
+      <span className="flex-1">{label}</span>
+      <NavBadge count={badge} className="ml-0" />
     </Link>
   );
 }
 
 const navItems = [
-  { href: '/client', icon: LayoutDashboard, label: 'Overview' },
-  { href: '/client/chat', icon: MessageSquare, label: 'Chat' },
-  { href: '/client/workout', icon: Dumbbell, label: 'Workout Tracking' },
-  { href: '/client/meal-plan', icon: Utensils, label: 'Meal Plan' },
-  { href: '/client/sleep', icon: Moon, label: 'Sleep Tracking' },
-  { href: '/client/goals', icon: Target, label: 'Goals' },
-  { href: '/client/progress', icon: TrendingUp, label: 'Progress' },
-  { href: '/client/calendar', icon: Calendar, label: 'Calendar' },
-  { href: '/client/profile', icon: User, label: 'Profile' },
+  { href: '/client', icon: LayoutDashboard, label: 'Overview', mobilePrimary: true },
+  { href: '/client/chat', icon: MessageSquare, label: 'Chat', mobilePrimary: true, badgeKey: 'messages' as const },
+  { href: '/client/workout', icon: Dumbbell, label: 'Workout Tracking', mobilePrimary: true },
+  { href: '/client/meal-plan', icon: Utensils, label: 'Meal Plan', mobilePrimary: true },
+  { href: '/client/sleep', icon: Moon, label: 'Sleep Tracking', mobilePrimary: false },
+  { href: '/client/goals', icon: Target, label: 'Goals', mobilePrimary: false },
+  { href: '/client/progress', icon: TrendingUp, label: 'Progress', mobilePrimary: false },
+  { href: '/client/calendar', icon: Calendar, label: 'Calendar', mobilePrimary: false },
+  { href: '/client/profile', icon: User, label: 'Profile', mobilePrimary: false },
 ];
 
-export default function ClientLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const { signOut } = useAuth();
   const router = useRouter();
+  const unreadMessages = useUnreadMessageCount();
 
   const handleSignOut = async () => {
     await signOut();
@@ -69,11 +84,19 @@ export default function ClientLayout({
     return pathname === href || pathname.startsWith(href + '/');
   };
 
+  const getBadge = (item: (typeof navItems)[0]) => {
+    if (item.badgeKey === 'messages') return unreadMessages;
+    return 0;
+  };
+
+  const primaryNav = navItems.filter((n) => n.mobilePrimary);
+  const secondaryNav = navItems.filter((n) => !n.mobilePrimary);
+
   return (
     <ProtectedRoute>
       <div className="dashboard-shell flex min-h-screen bg-background">
         <AppAmbient />
-        {/* Sidebar */}
+
         <aside className="sidebar-organic hidden w-64 flex-col md:flex">
           <div className="border-b border-sidebar-border p-5">
             <Link href="/" className="flex items-center gap-2.5">
@@ -94,6 +117,7 @@ export default function ClientLayout({
                 icon={<item.icon className="h-5 w-5" />}
                 label={item.label}
                 isActive={isActive(item.href)}
+                badge={getBadge(item)}
               />
             ))}
           </nav>
@@ -110,9 +134,7 @@ export default function ClientLayout({
           </div>
         </aside>
 
-        {/* Main */}
         <div className="flex flex-1 flex-col">
-          {/* Mobile header */}
           <div className="border-b border-border/50 bg-background/80 backdrop-blur-xl md:hidden">
             <div className="flex items-center justify-between p-4">
               <Link href="/" className="flex items-center gap-2">
@@ -141,6 +163,7 @@ export default function ClientLayout({
                       icon={<item.icon className="h-5 w-5" />}
                       label={item.label}
                       isActive={isActive(item.href)}
+                      badge={getBadge(item)}
                       onClick={() => setMobileMenuOpen(false)}
                     />
                   ))}
@@ -151,25 +174,41 @@ export default function ClientLayout({
                 </nav>
               </div>
             ) : (
-              <div className="grid grid-cols-4 gap-1 border-t border-border/50 p-2">
-                {navItems.slice(0, 4).map((item) => (
+              <div className="grid grid-cols-5 gap-1 border-t border-border/50 p-2">
+                {primaryNav.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      'flex flex-col items-center rounded-lg p-2 text-xs',
+                      'relative flex flex-col items-center rounded-lg p-2 text-[10px]',
                       isActive(item.href) ? 'text-primary' : 'text-muted-foreground'
                     )}
                   >
-                    <item.icon className="mb-1 h-5 w-5" />
+                    <item.icon className="mb-0.5 h-5 w-5" />
                     <span className="truncate">{item.label.split(' ')[0]}</span>
+                    {getBadge(item) > 0 && (
+                      <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary" />
+                    )}
                   </Link>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen(true)}
+                  className={cn(
+                    'flex flex-col items-center rounded-lg p-2 text-[10px]',
+                    secondaryNav.some((n) => isActive(n.href))
+                      ? 'text-primary'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  <MoreHorizontal className="mb-0.5 h-5 w-5" />
+                  <span>More</span>
+                </button>
               </div>
             )}
           </div>
 
-          <main className="relative flex-1 overflow-auto bg-muted/15 p-4 md:p-6 lg:p-8">
+          <main className="relative flex-1 overflow-auto bg-muted/15 p-4 pb-20 md:p-6 md:pb-6 lg:p-8">
             <AnimatedPage ambient={false}>{children}</AnimatedPage>
           </main>
         </div>
