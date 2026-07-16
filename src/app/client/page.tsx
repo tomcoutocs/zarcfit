@@ -496,36 +496,6 @@ ON CONFLICT (id) DO NOTHING;`}
           </Card>
         </div>
       )}
-      
-      {/* Implementation Notes Card */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Dashboard Implementation</CardTitle>
-          <CardDescription>How the dashboard data is fetched from Supabase</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <p>
-              The dashboard uses the following Supabase tables to store user data:
-            </p>
-            <ul className="list-disc pl-5 space-y-1">
-              <li><code>user_profiles</code> - Personal information</li>
-              <li><code>workout_programs</code> - Training programs</li>
-              <li><code>progress_tracking</code> - Weight, measurements, and photos</li>
-              <li><code>goals</code> - Fitness targets</li>
-              <li><code>calendar_events</code> - Workout schedule and events</li>
-              <li><code>nutrition_plans</code> - Meal plans and nutritional data</li>
-            </ul>
-            <p>
-              Data is fetched using our custom API functions from <code>src/lib/supabase/dashboard-api.ts</code> and
-              custom hooks from <code>src/hooks/use-dashboard.ts</code> that manage loading states and error handling.
-            </p>
-            <p>
-              Row Level Security (RLS) ensures that users can only access their own data.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 } 

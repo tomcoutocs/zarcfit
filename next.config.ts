@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
       // trainer-platform restructure. /client is now canonical; keep old
       // links working by redirecting here.
       { source: '/dashboard', destination: '/client', permanent: false },
+      { source: '/dashboard/:path*', destination: '/client/:path*', permanent: false },
       { source: '/main/programs', destination: '/main/plans', permanent: false },
       { source: '/main/coaching', destination: '/main/plans', permanent: false },
     ];

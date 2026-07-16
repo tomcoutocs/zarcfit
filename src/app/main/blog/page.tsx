@@ -7,6 +7,17 @@ import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import PageHero from '@/components/layout/PageHero';
 
+const BLOG_IMAGES = {
+  featured: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50e?w=1200&h=800&fit=crop',
+  protein: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800&h=600&fit=crop',
+  squat: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&h=600&fit=crop',
+  recovery: 'https://images.unsplash.com/photo-1540497077202-7a8ac384a558?w=800&h=600&fit=crop',
+  timing: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800&h=600&fit=crop',
+  mealPrep: 'https://images.unsplash.com/photo-1498837167922-ddd27525cd3e?w=800&h=600&fit=crop',
+  plateaus: 'https://images.unsplash.com/photo-1549060279-7e168fcee0c6?w=800&h=600&fit=crop',
+  hiit: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800&h=600&fit=crop',
+} as const;
+
 // Badge component
 const Badge = ({ children, className, variant = "default" }: 
 { children: React.ReactNode; className?: string; variant?: "default" | "secondary" | "outline" }) => {
@@ -47,7 +58,7 @@ export default function BlogPage() {
           <div className="group rounded-lg overflow-hidden border shadow-sm">
             <div className="relative h-[300px] md:h-[400px]">
               <Image
-                src="/assets/images/blog-featured.jpg"
+                src={BLOG_IMAGES.featured}
                 alt="How to Stay Consistent with Your Fitness Routine"
                 fill
                 className="object-cover transition-transform group-hover:scale-105 duration-300"
@@ -93,7 +104,7 @@ export default function BlogPage() {
             <Card className="group">
               <div className="relative h-48 overflow-hidden rounded-t-lg">
                 <Image
-                  src="/assets/images/blog-1.jpg"
+                  src={BLOG_IMAGES.protein}
                   alt="The Ultimate Guide to Protein Intake"
                   fill
                   className="object-cover transition-transform group-hover:scale-105 duration-300"
@@ -124,7 +135,7 @@ export default function BlogPage() {
             <Card className="group">
               <div className="relative h-48 overflow-hidden rounded-t-lg">
                 <Image
-                  src="/assets/images/blog-2.jpg"
+                  src={BLOG_IMAGES.squat}
                   alt="5 Common Squat Mistakes to Avoid"
                   fill
                   className="object-cover transition-transform group-hover:scale-105 duration-300"
@@ -155,7 +166,7 @@ export default function BlogPage() {
             <Card className="group">
               <div className="relative h-48 overflow-hidden rounded-t-lg">
                 <Image
-                  src="/assets/images/blog-3.jpg"
+                  src={BLOG_IMAGES.recovery}
                   alt="Why Recovery Is Just as Important as Training"
                   fill
                   className="object-cover transition-transform group-hover:scale-105 duration-300"
@@ -194,7 +205,7 @@ export default function BlogPage() {
               <div className="flex flex-col md:flex-row">
                 <div className="relative w-full md:w-1/3 h-48 md:h-auto overflow-hidden rounded-t-lg md:rounded-l-lg md:rounded-tr-none">
                   <Image
-                    src="/assets/images/blog-4.jpg"
+                    src={BLOG_IMAGES.timing}
                     alt="The Best Time to Work Out: Morning vs. Evening"
                     fill
                     className="object-cover"
@@ -229,7 +240,7 @@ export default function BlogPage() {
               <div className="flex flex-col md:flex-row">
                 <div className="relative w-full md:w-1/3 h-48 md:h-auto overflow-hidden rounded-t-lg md:rounded-l-lg md:rounded-tr-none">
                   <Image
-                    src="/assets/images/blog-5.jpg"
+                    src={BLOG_IMAGES.mealPrep}
                     alt="Simple Meal Prep for Busy Professionals"
                     fill
                     className="object-cover"
@@ -264,7 +275,7 @@ export default function BlogPage() {
               <div className="flex flex-col md:flex-row">
                 <div className="relative w-full md:w-1/3 h-48 md:h-auto overflow-hidden rounded-t-lg md:rounded-l-lg md:rounded-tr-none">
                   <Image
-                    src="/assets/images/blog-6.jpg"
+                    src={BLOG_IMAGES.plateaus}
                     alt="Overcoming Fitness Plateaus"
                     fill
                     className="object-cover"
@@ -299,7 +310,7 @@ export default function BlogPage() {
               <div className="flex flex-col md:flex-row">
                 <div className="relative w-full md:w-1/3 h-48 md:h-auto overflow-hidden rounded-t-lg md:rounded-l-lg md:rounded-tr-none">
                   <Image
-                    src="/assets/images/blog-7.jpg"
+                    src={BLOG_IMAGES.hiit}
                     alt="The Science of HIIT: Benefits & Protocols"
                     fill
                     className="object-cover"

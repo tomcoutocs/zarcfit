@@ -134,7 +134,7 @@ function ClientsContent() {
 
   const handleCancelInvitation = async (invitation: ClientInvitation) => {
     if (!user?.id || !invitation.id) return;
-    if (!confirm(`Cancel the invitation sent to ${invitation.email}?`)) return;
+    if (!confirm(`Cancel the invitation for ${invitation.email}?`)) return;
 
     setCancellingId(invitation.id);
     setActionError('');
@@ -196,7 +196,7 @@ function ClientsContent() {
         <div>
           <h1 className="text-3xl font-bold">Clients</h1>
           <p className="text-muted-foreground">
-            Manage your client roster and track sent invitations
+            Manage your client roster and track pending invitation links
           </p>
         </div>
         <Link href="/trainer/clients/add">
@@ -359,9 +359,9 @@ function ClientsContent() {
         <TabsContent value="invitations" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Sent Invitations</CardTitle>
+              <CardTitle>Pending Invitations</CardTitle>
               <CardDescription>
-                Email invitations you&apos;ve sent to people who don&apos;t have a ZarcFit account yet
+                Invitation links you&apos;ve created — copy and share them with clients who don&apos;t have a ZarcFit account yet
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -396,18 +396,18 @@ function ClientsContent() {
                   <h3 className="text-lg font-semibold mb-2">
                     {searchQuery || invitationFilter !== 'all'
                       ? 'No invitations found'
-                      : 'No invitations sent yet'}
+                      : 'No invitations created yet'}
                   </h3>
                   <p className="text-muted-foreground mb-4 max-w-sm">
                     {searchQuery || invitationFilter !== 'all'
                       ? 'Try adjusting your search or filters'
-                      : 'Send an email invitation from the Add Client page to invite someone new to ZarcFit'}
+                      : 'Create an invitation from the Add Client page, then copy the link to share with your client'}
                   </p>
                   {!searchQuery && invitationFilter === 'all' && (
                     <Link href="/trainer/clients/add">
                       <Button>
                         <Plus className="h-4 w-4 mr-2" />
-                        Send Invitation
+                        Create Invitation
                       </Button>
                     </Link>
                   )}

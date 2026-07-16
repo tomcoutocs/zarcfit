@@ -21,12 +21,15 @@ export default function PlansPage() {
       <PageHero
         badge="Trainer pricing"
         title="Plans for coaches"
-        subtitle="Monthly subscriptions based on how many clients you manage and the features you need to run your coaching business."
+        subtitle="Planned monthly tiers for coaches — free to explore while billing is in early access."
         size="compact"
       />
 
       <div className="container mx-auto px-4 py-12">
         <div className="mx-auto max-w-5xl">
+          <p className="mb-8 rounded-lg border border-border bg-muted/40 px-4 py-3 text-center text-sm text-muted-foreground">
+            Trainer accounts are free during early access. Paid subscriptions and online checkout are coming soon — create your account now to start coaching.
+          </p>
           <div className="mb-12 grid grid-cols-1 gap-8 md:grid-cols-3">
             {TRAINER_PLANS.map((plan, index) => (
               <AnimatedContent key={plan.id} distance={50} delay={index * 0.08} duration={0.7}>
@@ -153,7 +156,7 @@ export default function PlansPage() {
           <div className="mt-12 rounded-xl border border-border bg-card p-8 text-center">
             <h2 className="mb-3 text-2xl font-semibold tracking-tight">Ready to coach on ZarcFit?</h2>
             <p className="mx-auto mb-6 max-w-2xl text-muted-foreground">
-              Create your trainer account, pick a plan, and start inviting clients. You can upgrade as your roster grows.
+              Create your free trainer account and start inviting clients. Choose a plan when paid billing launches.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Button size="lg" onClick={() => router.push('/auth/signup')}>

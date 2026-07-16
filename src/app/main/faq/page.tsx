@@ -118,22 +118,25 @@ export default function FAQPage() {
         {/* Membership & Billing */}
         <div className="mb-12">
           <h2 className="text-2xl font-bold mb-6">Membership & Billing</h2>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Online billing and self-serve subscription management are coming soon. Trainer accounts are free to create and explore today.
+          </p>
           
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="billing-1">
-              <AccordionTrigger>How does your membership billing work?</AccordionTrigger>
+              <AccordionTrigger>How does trainer pricing work?</AccordionTrigger>
               <AccordionContent>
                 <p className="mb-4">
-                  Our membership billing is straightforward and transparent:
+                  ZarcFit offers trainer plans based on how many clients you manage and the features you need. You can review tiers on our{' '}
+                  <a href="/main/plans" className="text-primary underline">Plans page</a>.
                 </p>
                 <ul className="list-disc pl-6 space-y-2">
-                  <li>Monthly memberships are billed on the same day each month</li>
-                  <li>Annual memberships offer a 20% discount compared to monthly billing</li>
-                  <li>One-time program purchases are charged once at checkout</li>
-                  <li>All payments are processed securely through Stripe</li>
+                  <li>Creating a trainer account is free — no credit card required to get started</li>
+                  <li>Paid subscriptions will be available when online billing launches</li>
+                  <li>Until then, all trainer platform features remain available while we&apos;re in early access</li>
                 </ul>
                 <p className="mt-4">
-                  You can view your billing history and update payment methods at any time in your account dashboard.
+                  Questions about pricing? <a href="/main/contact" className="text-primary underline">Contact our team</a>.
                 </p>
               </AccordionContent>
             </AccordionItem>
@@ -142,14 +145,15 @@ export default function FAQPage() {
               <AccordionTrigger>Can I pause or cancel my membership?</AccordionTrigger>
               <AccordionContent>
                 <p className="mb-4">
-                  Yes, we offer flexible options for our members:
+                  Self-serve pause and cancel options will be available in your trainer account settings once online billing is live.
                 </p>
                 <ul className="list-disc pl-6 space-y-2">
-                  <li><strong>Pausing:</strong> You can pause your monthly membership for up to 3 months per year. During this time, you won&apos;t be billed, but you&apos;ll retain access to your previous materials.</li>
-                  <li><strong>Cancellation:</strong> Monthly memberships can be canceled at any time through your account dashboard with no cancellation fees. Your access will continue until the end of your current billing period.</li>
+                  <li><strong>Today:</strong> There is no active subscription to pause or cancel while billing is in early access</li>
+                  <li><strong>Coming soon:</strong> Pause, cancel, and billing history from your account dashboard</li>
                 </ul>
                 <p className="mt-4">
-                  Annual memberships can be canceled, but refunds are prorated based on the time remaining in your subscription.
+                  Need help in the meantime? Reach out through our{' '}
+                  <a href="/main/contact" className="text-primary underline">contact form</a>.
                 </p>
               </AccordionContent>
             </AccordionItem>
@@ -158,18 +162,11 @@ export default function FAQPage() {
               <AccordionTrigger>Do you offer refunds if I&apos;m not satisfied?</AccordionTrigger>
               <AccordionContent>
                 <p>
-                  Yes, we stand behind our programs with a 14-day satisfaction guarantee. If you&apos;re not satisfied with your purchase within the first 14 days, you can request a full refund by contacting our support team.
+                  Refund policies for paid plans will be published when online billing launches. During early access, trainer accounts are free to explore.
                 </p>
-                <p className="my-4">
-                  To be eligible for a refund, we ask that you have:
-                </p>
-                <ul className="list-disc pl-6 space-y-2">
-                  <li>Completed at least 4 workouts from the program</li>
-                  <li>Followed the nutrition guidelines provided</li>
-                  <li>Reached out to our support team for assistance prior to requesting a refund</li>
-                </ul>
                 <p className="mt-4">
-                  This ensures you&apos;ve given the program a fair chance while also allowing us to address any concerns you might have.
+                  If something isn&apos;t working for you, please{' '}
+                  <a href="/main/contact" className="text-primary underline">contact support</a> — we&apos;re happy to help.
                 </p>
               </AccordionContent>
             </AccordionItem>

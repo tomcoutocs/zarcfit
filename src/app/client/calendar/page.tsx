@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   ChevronLeft, 
   ChevronRight,
@@ -78,14 +77,6 @@ export default function CalendarPage() {
     <div className="space-y-8">
       <DashboardPageHeader title="Calendar" description="Schedule workouts, meals, and events">
         <div className="flex items-center gap-2">
-          <Tabs defaultValue="month" className="w-[300px]">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="month">Month</TabsTrigger>
-              <TabsTrigger value="week">Week</TabsTrigger>
-              <TabsTrigger value="day">Day</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          
           <Button className="gap-2 glow-primary" onClick={() => {
             setSelectedEvent(undefined);
             setSelectedDate(new Date());
@@ -147,51 +138,19 @@ export default function CalendarPage() {
               </Button>
             </div>
           ) : (
-            <Tabs defaultValue="month" className="w-full">
-              <TabsContent value="month" className="mt-0">
-                <CalendarHeader />
-                <CalendarGrid 
-                  year={state.currentYear}
-                  month={state.currentMonth}
-                  events={state.events}
-                  onEventClick={handleEventClick}
-                  onDateClick={handleDateClick}
-                />
-              </TabsContent>
-              
-              <TabsContent value="week" className="mt-0">
-                <div className="flex flex-col">
-                  <CalendarHeader />
-                  <div className="grid grid-cols-7 gap-1 h-[600px]">
-                    {/* Week view would be implemented here */}
-                    <div className="col-span-7 flex items-center justify-center h-full">
-                      <span className="text-muted-foreground">Week view coming soon</span>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="day" className="mt-0">
-                <div className="flex flex-col">
-                  <div className="text-center p-4 border-b">
-                    <div className="text-lg font-medium">
-                      {new Date().toLocaleDateString(undefined, {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </div>
-                  </div>
-                  <div className="flex flex-col h-[600px]">
-                    {/* Day view would be implemented here */}
-                    <div className="flex items-center justify-center h-full">
-                      <span className="text-muted-foreground">Day view coming soon</span>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
+            <div className="w-full">
+              <CalendarHeader />
+              <CalendarGrid 
+                year={state.currentYear}
+                month={state.currentMonth}
+                events={state.events}
+                onEventClick={handleEventClick}
+                onDateClick={handleDateClick}
+              />
+              <p className="mt-4 text-center text-sm text-muted-foreground">
+                Week and day views are coming soon.
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>

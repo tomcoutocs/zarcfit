@@ -270,7 +270,7 @@ export default function ContactPage() {
             <div>
               <h3 className="font-bold text-lg mb-2">Can I pause my subscription?</h3>
               <p className="text-muted-foreground">
-                Yes, you can pause your subscription for up to 3 months through your account settings or by contacting support.
+                Self-serve pause and cancel options will be available when online billing launches. Contact support if you need help in the meantime.
               </p>
             </div>
           </div>
