@@ -25,7 +25,9 @@
 | Marketing | 95% | FAQ search; billing copy aligned |
 | Security | 92% | API routes auth-guarded |
 | Stripe | 85% | Code done; Dashboard setup manual |
-| Testing | 75% | 10 unit tests + 7 E2E smoke |
+| Testing | 80% | 19 unit tests + 8 E2E smoke |
+
+**See also:** [IMPLEMENTATION_PLAN_V3.md](./IMPLEMENTATION_PLAN_V3.md) for v3 progress.
 | Ops / docs | 95% | Runbook, setup guide, STRIPE_SETUP |
 
 **MVP launch gate:** Complete manual Stripe Dashboard setup (NG-201, NG-203, NG-204) in Vercel.
@@ -158,3 +160,5 @@
 ---
 
 *v1 plan (ZF-001 through ZF-1205) completed in commit `388b066`. v2 phases 1–5 implemented July 16, 2026.*
+
+**→ Active plan:** [IMPLEMENTATION_PLAN_V3.md](./IMPLEMENTATION_PLAN_V3.md) — launch finish, quick wins, AI drafts (July 17, 2026).

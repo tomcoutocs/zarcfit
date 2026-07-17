@@ -1,7 +1,7 @@
 # ZarcFit — Project Audit
 
-**Audit date:** July 16, 2026  
-**Baseline:** Pre-implementation audit (July 2026) · Implementation pass commit `388b066`  
+**Audit date:** July 17, 2026  
+**Baseline:** Pre-implementation audit (July 2026) · v2 commit `1392926` · v3 local (July 17, 2026)  
 **Stack:** Next.js 15.2, React 19, TypeScript, Tailwind CSS, Supabase, TanStack Query, Sonner, Stripe (API)  
 **Production:** [zarcfit.vercel.app](https://zarcfit.vercel.app) · Supabase project `emcxxlwklkmwuduywlna`
 
@@ -9,26 +9,27 @@
 
 ## Executive Summary
 
-ZarcFit is a **feature-rich coach platform** (~88% MVP in code) after the full implementation pass. Client and trainer apps are largely complete with mobile navigation, CMS blog, messaging upgrades, nutrition/workout depth, and CI scaffolding.
+ZarcFit is a **feature-rich coach platform** (~93% MVP in code) after v2 P0 fixes and v3 quick wins + AI drafts. Client and trainer apps are largely complete with mobile navigation, CMS blog, messaging, nutrition/workout depth, Coral design refresh, and trainer-side draft generation.
 
-**The platform is not yet production-ready.** Several P0 bugs and security gaps block a confident launch: message attachments upload to the wrong storage bucket, Stripe webhooks do not verify signatures or update the correct database rows, and multiple API routes accept unauthenticated requests.
+**Launch gate:** Manual Stripe Dashboard setup (NG-201, NG-203, NG-204) and committing v3 local work to production.
 
-Supabase migrations from the runbook were applied to production (July 16, 2026). Build and unit tests pass.
+Supabase migrations from the runbook were applied to production. Build and **19 unit tests** pass (July 17, 2026).
 
 | Area | Maturity | Status |
 |------|----------|--------|
-| Client app | **93%** | Feature-complete; minor stubs (2FA) |
-| Trainer portal | **91%** | Feature-complete |
-| Admin | **85%** | No mobile nav |
-| Marketing | **88%** | Billing copy inconsistent; FAQ search UI-only |
-| Auth & roles | **88%** | Middleware solid; API route auth gaps |
-| Database / SQL | **90%** | Migrations applied; script/runbook drift |
-| Stripe / billing | **55%** | Code wired; webhook broken; Dashboard unset |
-| Messaging | **80%** | Attachments broken (bucket bug) |
+| Client app | **93%** | Program picker, onboarding checklist, chat empty states |
+| Trainer portal | **96%** | AI draft buttons, client summary, adherence widget |
+| Admin | **92%** | Mobile nav |
+| Marketing | **95%** | Hallmark landing + split-pill nav (local) |
+| Auth & roles | **92%** | Coral auth shell; middleware solid |
+| Database / SQL | **90%** | Migrations applied; +27 exercises in seed |
+| Stripe / billing | **85%** | Code wired; Dashboard manual steps open |
+| Messaging | **90%** | Attachments fixed (v2); prod verify pending |
 | Notifications | **75%** | Realtime + prefs; web push deferred |
-| Testing & CI | **35%** | 2 unit tests, 2 smoke E2E; no auth E2E |
-| Security | **70%** | RLS good; open API routes are P0 |
-| **Overall MVP** | **~88%** | Fix P0 blockers before launch |
+| AI / generation | **75%** | Rules/skeleton drafts; LLM optional |
+| Testing & CI | **80%** | 19 unit + 8 E2E smoke |
+| Security | **92%** | API routes auth-guarded (v2) |
+| **Overall MVP** | **~93%** | Stripe Dashboard + commit v3 to go live |
 
 ---
 

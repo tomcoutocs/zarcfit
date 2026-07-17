@@ -33,9 +33,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Utensils, Plus, Trash2, Pencil, Layers, UserPlus, Copy } from 'lucide-react';
+import { Utensils, Plus, Trash2, Pencil, Layers, UserPlus, Copy, Calculator } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { suggestMacros, MacroInput } from '@/lib/nutrition/macro-calculator';
 
 type PlanWithClient = NutritionPlan & { client_name: string };
 
@@ -45,6 +46,15 @@ const emptyForm = {
   protein_grams: '',
   carbs_grams: '',
   fat_grams: '',
+};
+
+const emptyMacroCalc = {
+  weightKg: '',
+  heightCm: '',
+  age: '',
+  sex: 'male' as MacroInput['sex'],
+  activity: 'moderate' as MacroInput['activity'],
+  goal: 'maintain' as MacroInput['goal'],
 };
 
 function MealPlansContent() {
@@ -66,6 +76,11 @@ function MealPlansContent() {
   const [saving, setSaving] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renamingCopy, setRenamingCopy] = useState<NutritionPlan | null>(null);
+  const [renameName, setRenameName] = useState('');
+  const [renaming, setRenaming] = useState(false);
+  const [macroCalc, setMacroCalc] = useState(emptyMacroCalc);
   const [form, setForm] = useState(emptyForm);
 
   const fetchData = useCallback(async () => {
@@ -111,6 +126,7 @@ function MealPlansContent() {
   const openCreateTemplateDialog = () => {
     setEditingTemplate(null);
     setForm(emptyForm);
+    setMacroCalc(emptyMacroCalc);
     setTemplateDialogOpen(true);
   };
 
@@ -199,11 +215,59 @@ function MealPlansContent() {
     const copy = await planTemplatesApi.duplicateNutritionTemplate(template.id, user.id);
     setDuplicatingId(null);
     if (copy) {
-      toast.success(`"${copy.name}" created`);
+      setRenamingCopy(copy);
+      setRenameName(copy.name);
+      setRenameDialogOpen(true);
       fetchData();
     } else {
       toast.error('Failed to duplicate template');
     }
+  };
+
+  const handleRenameCopy = async () => {
+    if (!renamingCopy?.id || !renameName.trim()) return;
+    setRenaming(true);
+    const result = await nutritionPlansApi.updateNutritionPlan({
+      ...renamingCopy,
+      name: renameName.trim(),
+    });
+    setRenaming(false);
+    if (result) {
+      setRenameDialogOpen(false);
+      setRenamingCopy(null);
+      toast.success('Template renamed');
+      fetchData();
+    } else {
+      toast.error('Failed to rename template');
+    }
+  };
+
+  const handleCalculateMacros = () => {
+    const weightKg = Number(macroCalc.weightKg);
+    const heightCm = Number(macroCalc.heightCm);
+    const age = Number(macroCalc.age);
+    if (!weightKg || !heightCm || !age) {
+      toast.error('Enter weight, height, and age to calculate macros');
+      return;
+    }
+
+    const suggestion = suggestMacros({
+      weightKg,
+      heightCm,
+      age,
+      sex: macroCalc.sex,
+      activity: macroCalc.activity,
+      goal: macroCalc.goal,
+    });
+
+    setForm((prev) => ({
+      ...prev,
+      daily_calories: suggestion.daily_calories.toString(),
+      protein_grams: suggestion.protein_grams.toString(),
+      carbs_grams: suggestion.carbs_grams.toString(),
+      fat_grams: suggestion.fat_grams.toString(),
+    }));
+    toast.success('Macro targets applied');
   };
 
   return (
@@ -275,6 +339,106 @@ function MealPlansContent() {
                   />
                 </div>
               </div>
+
+              {!editingTemplate && (
+                <div className="rounded-lg border p-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Calculator className="h-4 w-4 text-muted-foreground" />
+                    <p className="text-sm font-medium">Calculate macros (optional)</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="calc_weight">Weight (kg)</Label>
+                      <Input
+                        id="calc_weight"
+                        type="number"
+                        value={macroCalc.weightKg}
+                        onChange={(e) => setMacroCalc((prev) => ({ ...prev, weightKg: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="calc_height">Height (cm)</Label>
+                      <Input
+                        id="calc_height"
+                        type="number"
+                        value={macroCalc.heightCm}
+                        onChange={(e) => setMacroCalc((prev) => ({ ...prev, heightCm: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="calc_age">Age</Label>
+                      <Input
+                        id="calc_age"
+                        type="number"
+                        value={macroCalc.age}
+                        onChange={(e) => setMacroCalc((prev) => ({ ...prev, age: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="calc_sex">Sex</Label>
+                      <Select
+                        value={macroCalc.sex}
+                        onValueChange={(value) =>
+                          setMacroCalc((prev) => ({ ...prev, sex: value as MacroInput['sex'] }))
+                        }
+                      >
+                        <SelectTrigger id="calc_sex">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="calc_activity">Activity</Label>
+                      <Select
+                        value={macroCalc.activity}
+                        onValueChange={(value) =>
+                          setMacroCalc((prev) => ({
+                            ...prev,
+                            activity: value as MacroInput['activity'],
+                          }))
+                        }
+                      >
+                        <SelectTrigger id="calc_activity">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sedentary">Sedentary</SelectItem>
+                          <SelectItem value="light">Light</SelectItem>
+                          <SelectItem value="moderate">Moderate</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="very_active">Very active</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="calc_goal">Goal</Label>
+                      <Select
+                        value={macroCalc.goal}
+                        onValueChange={(value) =>
+                          setMacroCalc((prev) => ({ ...prev, goal: value as MacroInput['goal'] }))
+                        }
+                      >
+                        <SelectTrigger id="calc_goal">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="lose">Lose weight</SelectItem>
+                          <SelectItem value="maintain">Maintain</SelectItem>
+                          <SelectItem value="gain">Gain muscle</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <Button type="button" variant="secondary" className="gap-2" onClick={handleCalculateMacros}>
+                    <Calculator className="h-4 w-4" />
+                    Apply calculated targets
+                  </Button>
+                </div>
+              )}
             </div>
 
             <DialogFooter>
@@ -421,6 +585,12 @@ function MealPlansContent() {
                         {plan.is_active ? 'Active' : 'Inactive'}
                       </Badge>
                     </div>
+                    <Link href={`/trainer/meal-plans/${plan.id}`}>
+                      <Button size="sm" variant="outline" className="gap-1">
+                        <Layers className="h-4 w-4" />
+                        Open builder
+                      </Button>
+                    </Link>
                   </CardContent>
                 </Card>
               ))}
@@ -458,6 +628,34 @@ function MealPlansContent() {
             </Button>
             <Button onClick={handleAssign} disabled={assigning || !assignClientId}>
               {assigning ? 'Applying...' : 'Apply Plan'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename copied template</DialogTitle>
+            <DialogDescription>
+              Give your duplicated template a unique name before using it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="rename_plan">Template name</Label>
+            <Input
+              id="rename_plan"
+              value={renameName}
+              onChange={(e) => setRenameName(e.target.value)}
+              placeholder="e.g. Lean Bulk 2800 (Client A)"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>
+              Skip
+            </Button>
+            <Button onClick={handleRenameCopy} disabled={renaming || !renameName.trim()}>
+              {renaming ? 'Saving...' : 'Save Name'}
             </Button>
           </DialogFooter>
         </DialogContent>

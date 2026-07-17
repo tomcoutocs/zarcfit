@@ -14,17 +14,20 @@ type ChecklistItem = {
 type ClientOnboardingChecklistProps = {
   hasTrainer: boolean;
   hasProgram: boolean;
+  hasMealPlan: boolean;
   hasWorkoutLog: boolean;
 };
 
 export function ClientOnboardingChecklist({
   hasTrainer,
   hasProgram,
+  hasMealPlan,
   hasWorkoutLog,
 }: ClientOnboardingChecklistProps) {
   const items: ChecklistItem[] = [
     { label: 'Connect with your trainer', done: hasTrainer, href: '/client/profile' },
     { label: 'Review your assigned program', done: hasProgram, href: '/client/workout' },
+    { label: 'Review your meal plan', done: hasMealPlan, href: '/client/meal-plan' },
     { label: 'Log your first workout', done: hasWorkoutLog, href: '/client/workout' },
   ];
 

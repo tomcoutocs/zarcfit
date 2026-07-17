@@ -28,6 +28,8 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Link from 'next/link';
+import { ClientActivitySummary } from '@/components/trainer/ClientActivitySummary';
+import { AdherenceWidget } from '@/components/trainer/AdherenceWidget';
 import {
   ArrowLeft,
   Activity,
@@ -56,6 +58,7 @@ export default function ClientDetailPage() {
   const [notes, setNotes] = useState<ClientNote[]>([]);
   const [newNote, setNewNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [diaryDaysLogged, setDiaryDaysLogged] = useState(0);
 
   useEffect(() => {
     async function fetchClientData() {
@@ -235,6 +238,19 @@ export default function ClientDetailPage() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2">
+            <ClientActivitySummary
+              notes={notes}
+              logs={logs}
+              diaryDaysLogged={diaryDaysLogged}
+            />
+            <AdherenceWidget
+              clientId={clientId}
+              logs={logs}
+              onDiaryDaysChange={setDiaryDaysLogged}
+            />
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>

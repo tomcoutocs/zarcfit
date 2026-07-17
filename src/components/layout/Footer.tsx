@@ -53,13 +53,16 @@ export default function Footer() {
           </div>
 
           <div>
-            <h3 className="mb-4 text-sm font-medium text-foreground">Connect</h3>
+            <h3 className="mb-4 text-sm font-medium text-foreground">Legal</h3>
             <ul className="space-y-2.5 text-sm">
-              {['Instagram', 'Facebook', 'YouTube', 'Twitter'].map((social) => (
-                <li key={social}>
-                  <a href="#" className="text-muted-foreground transition-colors hover:text-primary">
-                    {social}
-                  </a>
+              {[
+                { href: '/privacy', label: 'Privacy Policy' },
+                { href: '/terms', label: 'Terms of Service' },
+              ].map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className="text-muted-foreground transition-colors hover:text-primary">
+                    {link.label}
+                  </Link>
                 </li>
               ))}
             </ul>

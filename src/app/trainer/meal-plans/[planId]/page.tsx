@@ -14,6 +14,7 @@ import {
 import { FoodSearchResult, MacroTotals } from '@/lib/nutrition/food-types';
 import { FoodSearch } from '@/components/nutrition/food-search';
 import { MacroProgressBars } from '@/components/nutrition/macro-progress-bars';
+import GenerateMealWeekButton from '@/components/trainer/GenerateMealWeekButton';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -328,12 +329,17 @@ export default function TrainerMealPlanBuilderPage() {
         title={plan?.name || 'Meal Plan Builder'}
         description="Build daily meals, search foods for macros, and track targets"
       >
-        <Link href="/trainer/meal-plans">
-          <Button variant="outline" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Meal Plans
-          </Button>
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {planId && (
+            <GenerateMealWeekButton nutritionPlanId={planId} onApplied={loadData} />
+          )}
+          <Link href="/trainer/meal-plans">
+            <Button variant="outline" className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Meal Plans
+            </Button>
+          </Link>
+        </div>
       </DashboardPageHeader>
 
       {error && (

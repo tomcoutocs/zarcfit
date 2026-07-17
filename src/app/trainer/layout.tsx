@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import AnimatedPage from '@/components/layout/AnimatedPage';
-import AppAmbient from '@/components/layout/AppAmbient';
 import { NavBadge } from '@/components/layout/NavBadge';
 import { useUnreadMessageCount } from '@/hooks/use-unread-messages';
 import {
@@ -58,15 +57,19 @@ export default function TrainerLayout({ children }: { children: React.ReactNode 
 
   return (
     <div className="dashboard-shell min-h-screen bg-background">
-      <AppAmbient />
 
       {/* Desktop sidebar */}
       <aside className="sidebar-organic fixed inset-y-0 left-0 z-50 hidden w-64 lg:block">
         <div className="flex h-full flex-col">
-          <div className="border-b border-border/40 p-6">
-            <Link href="/trainer/dashboard">
-              <h1 className="text-2xl font-bold text-primary">ZarcoFit</h1>
-              <p className="text-sm text-muted-foreground">Trainer Portal</p>
+          <div className="border-b border-border p-6">
+            <Link href="/trainer/dashboard" className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-muted text-primary">
+                <Dumbbell className="h-4 w-4" />
+              </div>
+              <div>
+                <h1 className="font-display text-lg font-semibold tracking-tight">ZarcFit</h1>
+                <p className="text-xs text-muted-foreground">Trainer portal</p>
+              </div>
             </Link>
           </div>
 
@@ -111,10 +114,13 @@ export default function TrainerLayout({ children }: { children: React.ReactNode 
       </aside>
 
       {/* Mobile header + nav */}
-      <header className="sticky top-0 z-40 border-b border-border/40 bg-card/50 backdrop-blur-xl lg:hidden">
+      <header className="sticky top-0 z-40 border-b border-border bg-card lg:hidden">
         <div className="flex items-center justify-between p-4">
-          <Link href="/trainer/dashboard">
-            <h1 className="text-xl font-bold text-primary">ZarcoFit</h1>
+          <Link href="/trainer/dashboard" className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-muted text-primary">
+              <Dumbbell className="h-4 w-4" />
+            </div>
+            <span className="font-display text-lg font-semibold">ZarcFit</span>
           </Link>
           <div className="flex items-center gap-2">
             <Link href="/trainer/settings">

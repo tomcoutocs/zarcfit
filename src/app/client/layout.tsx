@@ -23,7 +23,6 @@ import { useAuth } from '@/context/auth-context';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import AnimatedPage from '@/components/layout/AnimatedPage';
-import AppAmbient from '@/components/layout/AppAmbient';
 import { NavBadge } from '@/components/layout/NavBadge';
 import { useUnreadMessageCount } from '@/hooks/use-unread-messages';
 
@@ -95,17 +94,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   return (
     <ProtectedRoute>
       <div className="dashboard-shell flex min-h-screen bg-background">
-        <AppAmbient />
 
         <aside className="sidebar-organic hidden w-64 flex-col md:flex">
           <div className="border-b border-sidebar-border p-5">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 ring-1 ring-primary/20">
-                <Dumbbell className="h-4 w-4 text-primary" />
+            <Link href="/client" className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-muted text-primary">
+                <Dumbbell className="h-4 w-4" />
               </div>
-              <span className="text-lg font-bold tracking-tight">
-                Zarc<span className="text-primary">Fit</span>
-              </span>
+              <span className="font-display text-lg font-semibold tracking-tight">ZarcFit</span>
             </Link>
           </div>
 
@@ -208,7 +204,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             )}
           </div>
 
-          <main className="relative flex-1 overflow-auto bg-muted/15 p-4 pb-20 md:p-6 md:pb-6 lg:p-8">
+          <main className="relative flex-1 overflow-auto bg-background p-4 pb-20 md:p-6 md:pb-6 lg:p-8">
             <AnimatedPage ambient={false}>{children}</AnimatedPage>
           </main>
         </div>

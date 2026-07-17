@@ -65,7 +65,36 @@ SELECT * FROM (VALUES
   ('Kettlebell Swing', 'Full Body', 'Kettlebell', 'intermediate'),
   ('Burpee', 'Full Body', 'Bodyweight', 'intermediate'),
   ('Battle Ropes', 'Full Body', 'Equipment', 'intermediate'),
-  ('Jump Rope', 'Cardio', 'Equipment', 'beginner')
+  ('Jump Rope', 'Cardio', 'Equipment', 'beginner'),
+
+  -- Additional library (v3 expansion)
+  ('Decline Bench Press', 'Chest', 'Barbell', 'intermediate'),
+  ('Pec Deck', 'Chest', 'Machine', 'beginner'),
+  ('Wide-Grip Pull-Up', 'Back', 'Bodyweight', 'advanced'),
+  ('T-Bar Row', 'Back', 'Barbell', 'intermediate'),
+  ('Straight-Arm Pulldown', 'Back', 'Cable', 'beginner'),
+  ('Goblet Squat', 'Legs', 'Dumbbell', 'beginner'),
+  ('Hack Squat', 'Legs', 'Machine', 'intermediate'),
+  ('Step-Up', 'Legs', 'Dumbbell', 'beginner'),
+  ('Glute Bridge', 'Legs', 'Bodyweight', 'beginner'),
+  ('Nordic Curl', 'Legs', 'Bodyweight', 'advanced'),
+  ('Upright Row', 'Shoulders', 'Barbell', 'intermediate'),
+  ('Reverse Fly', 'Shoulders', 'Dumbbell', 'beginner'),
+  ('Shrugs', 'Shoulders', 'Dumbbell', 'beginner'),
+  ('Preacher Curl', 'Arms', 'Barbell', 'beginner'),
+  ('Concentration Curl', 'Arms', 'Dumbbell', 'beginner'),
+  ('Close-Grip Bench Press', 'Arms', 'Barbell', 'intermediate'),
+  ('Rope Tricep Pushdown', 'Arms', 'Cable', 'beginner'),
+  ('Dead Bug', 'Core', 'Bodyweight', 'beginner'),
+  ('Pallof Press', 'Core', 'Cable', 'beginner'),
+  ('Side Plank', 'Core', 'Bodyweight', 'beginner'),
+  ('Mountain Climber', 'Core', 'Bodyweight', 'beginner'),
+  ('Assault Bike', 'Cardio', 'Machine', 'beginner'),
+  ('Stair Climber', 'Cardio', 'Machine', 'beginner'),
+  ('Farmer Carry', 'Full Body', 'Dumbbell', 'intermediate'),
+  ('Medicine Ball Slam', 'Full Body', 'Equipment', 'intermediate'),
+  ('Box Jump', 'Full Body', 'Equipment', 'intermediate'),
+  ('Sled Push', 'Full Body', 'Equipment', 'intermediate')
 ) AS seed(name, muscle_group, equipment, difficulty)
 WHERE NOT EXISTS (
   SELECT 1 FROM exercises e WHERE e.name = seed.name

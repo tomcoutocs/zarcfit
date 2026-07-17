@@ -1,7 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
+import { ClientContextStrip } from '@/components/trainer/ClientContextStrip';
+import GenerateWorkoutDraftButton from '@/components/trainer/GenerateWorkoutDraftButton';
+import { swapExerciseSuggestion } from '@/lib/ai/workout-generator';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
 import {
@@ -43,6 +46,7 @@ import {
   ChevronUp,
   ChevronDown,
   Layers,
+  Shuffle,
 } from 'lucide-react';
 
 const DAYS = [
@@ -263,6 +267,16 @@ export default function ProgramBuilderPage() {
     await loadSessionExercises(sessionId);
   };
 
+  const handleSwapExercise = async (
+    sessionId: string,
+    we: SessionExercise,
+    newExerciseId: string
+  ) => {
+    if (!we.id) return;
+    await workoutSessionsApi.updateExercise({ ...we, exercise_id: newExerciseId });
+    await loadSessionExercises(sessionId);
+  };
+
   const handleDeleteExercise = async (sessionId: string, exerciseId: string) => {
     const ok = await workoutSessionsApi.deleteExercise(exerciseId);
     if (ok) await loadSessionExercises(sessionId);
@@ -304,13 +318,28 @@ export default function ProgramBuilderPage() {
         title={program?.name || 'Program Builder'}
         description="Build sessions, add exercises, and set sets, reps, and rest"
       >
-        <Link href="/trainer/programs">
-          <Button variant="outline" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Programs
-          </Button>
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {programId && (
+            <GenerateWorkoutDraftButton
+              programId={programId}
+              defaultGoal={program?.goal || program?.description || ''}
+              defaultSessionsPerWeek={program?.sessions_per_week || 3}
+              defaultDurationWeeks={program?.duration_weeks || 4}
+              onApplied={loadData}
+            />
+          )}
+          <Link href="/trainer/programs">
+            <Button variant="outline" className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Programs
+            </Button>
+          </Link>
+        </div>
       </DashboardPageHeader>
+
+      <Suspense fallback={null}>
+        <ClientContextStrip />
+      </Suspense>
 
       {error && (
         <Alert variant="destructive">
@@ -528,7 +557,23 @@ export default function ProgramBuilderPage() {
                                             : ''}
                                         </p>
                                       </div>
-                                      <div className="flex gap-1">
+                                      <div className="flex gap-1 items-center">
+                                        {we.exercise_id && swapExerciseSuggestion(exercises, we.exercise_id).length > 0 && (
+                                          <Select
+                                            onValueChange={(id) => handleSwapExercise(sessionId, we, id)}
+                                          >
+                                            <SelectTrigger className="h-8 w-8 p-0 border-0 shadow-none" aria-label="Swap exercise">
+                                              <Shuffle className="h-4 w-4 mx-auto" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              {swapExerciseSuggestion(exercises, we.exercise_id).map((alt) => (
+                                                <SelectItem key={alt.id} value={alt.id!}>
+                                                  {alt.name}
+                                                </SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        )}
                                         <Button
                                           size="icon"
                                           variant="ghost"

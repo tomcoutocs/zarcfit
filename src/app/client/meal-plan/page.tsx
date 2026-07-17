@@ -46,7 +46,9 @@ import {
   Settings,
   Copy,
   Star,
+  MessageSquare,
 } from 'lucide-react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { DashboardPageSkeleton } from '@/components/ui/dashboard-skeleton';
 
@@ -389,22 +391,30 @@ export default function MealPlanPage() {
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
               Set your daily calorie and macro targets to start planning and logging meals.
             </p>
-            <Dialog open={planDialogOpen} onOpenChange={setPlanDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-2" onClick={openPlanDialog}>
-                  <Plus className="h-4 w-4" />
-                  Create Nutrition Plan
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Dialog open={planDialogOpen} onOpenChange={setPlanDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2" onClick={openPlanDialog}>
+                    <Plus className="h-4 w-4" />
+                    Create Nutrition Plan
+                  </Button>
+                </DialogTrigger>
+                <PlanDialogContent
+                  planForm={planForm}
+                  setPlanForm={setPlanForm}
+                  onSave={handleSavePlan}
+                  onCancel={() => setPlanDialogOpen(false)}
+                  saving={savingPlan}
+                  isEditing={false}
+                />
+              </Dialog>
+              <Link href="/client/chat">
+                <Button variant="outline" className="gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  Message your trainer
                 </Button>
-              </DialogTrigger>
-              <PlanDialogContent
-                planForm={planForm}
-                setPlanForm={setPlanForm}
-                onSave={handleSavePlan}
-                onCancel={() => setPlanDialogOpen(false)}
-                saving={savingPlan}
-                isEditing={false}
-              />
-            </Dialog>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>

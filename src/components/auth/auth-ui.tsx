@@ -6,8 +6,6 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Check, Eye, EyeOff, Mail, ShieldCheck, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import SpotlightCard from '@/components/SpotlightCard';
-import ShinyText from '@/components/ShinyText';
 import { cn } from '@/lib/utils';
 import { PASSWORD_REQUIREMENTS } from '@/lib/validation/auth';
 
@@ -83,20 +81,11 @@ type AuthFormCardProps = {
 
 export function AuthFormCard({ title, description, children, footer, progress }: AuthFormCardProps) {
   return (
-    <SpotlightCard className="w-full p-0">
+    <div className="w-full rounded-xl border border-border bg-card shadow-sm">
       <div className="space-y-3 px-6 pb-6 pt-6 text-center sm:px-8">
         {progress && <AuthProgress {...progress} />}
         <div className="space-y-1.5">
-          <h2 className="text-2xl font-bold tracking-tight">
-            <ShinyText
-              text={title}
-              speed={3.2}
-              color="oklch(0.92 0.004 260)"
-              shineColor="oklch(0.72 0.08 200)"
-              spread={100}
-              className="text-2xl font-bold"
-            />
-          </h2>
+          <h2 className="font-display text-2xl font-semibold tracking-tight text-foreground">{title}</h2>
           {description && (
             <p className="mx-auto max-w-sm text-sm leading-relaxed text-muted-foreground">
               {description}
@@ -110,7 +99,7 @@ export function AuthFormCard({ title, description, children, footer, progress }:
       {footer && (
         <div className="flex flex-col gap-4 px-6 pb-6 sm:px-8">{footer}</div>
       )}
-    </SpotlightCard>
+    </div>
   );
 }
 

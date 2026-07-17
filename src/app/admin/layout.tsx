@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import AnimatedPage from '@/components/layout/AnimatedPage';
-import AppAmbient from '@/components/layout/AppAmbient';
 import { cn } from '@/lib/utils';
 import {
   FileText,
@@ -73,8 +72,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   );
 
   return (
-    <div className="dashboard-shell relative flex min-h-screen">
-      <AppAmbient />
+    <div className="dashboard-shell relative flex min-h-screen bg-background">
 
       {/* Desktop sidebar */}
       <aside className="sidebar-organic hidden w-64 lg:block">
@@ -134,7 +132,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         )}
 
-        <main className="relative flex-1 overflow-auto bg-muted/15 p-4 lg:p-6">
+        <main className="relative flex-1 overflow-auto bg-background p-4 lg:p-6">
           <AnimatedPage ambient={false}>{children}</AnimatedPage>
         </main>
       </div>

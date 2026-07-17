@@ -68,6 +68,10 @@ function ProgramsContent() {
   const [saving, setSaving] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renamingCopy, setRenamingCopy] = useState<WorkoutProgram | null>(null);
+  const [renameName, setRenameName] = useState('');
+  const [renaming, setRenaming] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
   const fetchData = useCallback(async () => {
@@ -202,10 +206,30 @@ function ProgramsContent() {
     const copy = await planTemplatesApi.duplicateWorkoutTemplate(template.id, user.id);
     setDuplicatingId(null);
     if (copy) {
-      toast.success(`"${copy.name}" created`);
+      setRenamingCopy(copy);
+      setRenameName(copy.name);
+      setRenameDialogOpen(true);
       fetchData();
     } else {
       toast.error('Failed to duplicate template');
+    }
+  };
+
+  const handleRenameCopy = async () => {
+    if (!renamingCopy?.id || !renameName.trim()) return;
+    setRenaming(true);
+    const result = await workoutProgramsApi.updateProgram({
+      ...renamingCopy,
+      name: renameName.trim(),
+    });
+    setRenaming(false);
+    if (result) {
+      setRenameDialogOpen(false);
+      setRenamingCopy(null);
+      toast.success('Template renamed');
+      fetchData();
+    } else {
+      toast.error('Failed to rename template');
     }
   };
 
@@ -476,6 +500,34 @@ function ProgramsContent() {
             </Button>
             <Button onClick={handleAssign} disabled={assigning || !assignClientId}>
               {assigning ? 'Applying...' : 'Apply Plan'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename copied template</DialogTitle>
+            <DialogDescription>
+              Give your duplicated template a unique name before using it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="rename_program">Template name</Label>
+            <Input
+              id="rename_program"
+              value={renameName}
+              onChange={(e) => setRenameName(e.target.value)}
+              placeholder="e.g. 8-Week Strength (Client A)"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>
+              Skip
+            </Button>
+            <Button onClick={handleRenameCopy} disabled={renaming || !renameName.trim()}>
+              {renaming ? 'Saving...' : 'Save Name'}
             </Button>
           </DialogFooter>
         </DialogContent>

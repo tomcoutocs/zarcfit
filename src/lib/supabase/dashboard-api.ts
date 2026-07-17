@@ -567,10 +567,46 @@ export const planTemplatesApi = {
         protein_grams: meal.protein_grams,
         carbs_grams: meal.carbs_grams,
         fat_grams: meal.fat_grams,
+        recipe: meal.recipe,
         notes: meal.notes,
       });
     }
     return copy;
+  },
+};
+
+export type ProgramAssignment = {
+  id?: string;
+  program_id: string;
+  client_id: string;
+  assigned_by?: string;
+  start_date?: string;
+  end_date?: string;
+  status?: 'active' | 'completed' | 'paused' | 'cancelled';
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export const programAssignmentsApi = {
+  getClientAssignments: async (clientId: string): Promise<ProgramAssignment[]> => {
+    const { data, error } = await supabase
+      .from('program_assignments')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('start_date', { ascending: false });
+
+    if (error && (error.message?.includes('relation') || error.message?.includes('does not exist'))) {
+      console.warn('Table program_assignments does not exist yet.');
+      return [];
+    }
+
+    if (error) {
+      console.error('Error fetching program assignments:', error);
+      return [];
+    }
+
+    return data || [];
   },
 };
 

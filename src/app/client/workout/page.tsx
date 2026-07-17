@@ -8,12 +8,14 @@ import {
   exercisesApi,
   workoutProgramsApi,
   workoutSessionsApi,
+  programAssignmentsApi,
   WorkoutLog,
   Exercise,
   ExerciseLog,
   WorkoutProgram,
   WorkoutSession,
   WorkoutExercise,
+  ProgramAssignment,
 } from '@/lib/supabase/dashboard-api';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -40,7 +42,9 @@ import {
   ClipboardList,
   CheckCircle2,
   BarChart3,
+  MessageSquare,
 } from 'lucide-react';
+import Link from 'next/link';
 import { WorkoutAnalytics } from '@/components/workout/WorkoutAnalytics';
 
 const DAYS: { value: number; short: string; full: string }[] = [
@@ -93,6 +97,8 @@ export default function WorkoutPage() {
   const [activeTab, setActiveTab] = useState('today');
 
   const [programs, setPrograms] = useState<WorkoutProgram[]>([]);
+  const [assignments, setAssignments] = useState<ProgramAssignment[]>([]);
+  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const [activeProgram, setActiveProgram] = useState<WorkoutProgram | null>(null);
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [exercisesBySession, setExercisesBySession] = useState<Record<string, SessionExercise[]>>({});
@@ -130,38 +136,70 @@ export default function WorkoutPage() {
     }
   }, [user?.id]);
 
+  const loadSessionsForProgram = useCallback(async (programId: string) => {
+    const programSessions = await workoutProgramsApi.getProgramSessions(programId);
+    setSessions(programSessions);
+
+    const exerciseMap: Record<string, SessionExercise[]> = {};
+    await Promise.all(
+      programSessions.map(async (session) => {
+        if (!session.id) return;
+        const detail = await workoutSessionsApi.getSessionWithExercises(session.id);
+        exerciseMap[session.id] = detail?.exercises || [];
+      })
+    );
+    setExercisesBySession(exerciseMap);
+  }, []);
+
   const loadProgramData = useCallback(async () => {
     if (!user?.id) return;
     setProgramsLoading(true);
     try {
-      const data = await workoutProgramsApi.getUserPrograms(user.id);
+      const [data, assignmentList] = await Promise.all([
+        workoutProgramsApi.getUserPrograms(user.id),
+        programAssignmentsApi.getClientAssignments(user.id),
+      ]);
       setPrograms(data);
-      const active = data.find((p) => p.is_active) || data[0] || null;
-      setActiveProgram(active);
+      setAssignments(assignmentList);
 
-      if (active?.id) {
-        const programSessions = await workoutProgramsApi.getProgramSessions(active.id);
-        setSessions(programSessions);
-
-        const exerciseMap: Record<string, SessionExercise[]> = {};
-        await Promise.all(
-          programSessions.map(async (session) => {
-            if (!session.id) return;
-            const detail = await workoutSessionsApi.getSessionWithExercises(session.id);
-            exerciseMap[session.id] = detail?.exercises || [];
-          })
-        );
-        setExercisesBySession(exerciseMap);
-      } else {
-        setSessions([]);
-        setExercisesBySession({});
-      }
+      setSelectedProgramId((prev) => {
+        if (prev && data.some((program) => program.id === prev)) return prev;
+        return data.find((program) => program.is_active)?.id || data[0]?.id || null;
+      });
     } catch (err) {
       console.error(err);
     } finally {
       setProgramsLoading(false);
     }
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!selectedProgramId) {
+      setActiveProgram(null);
+      setSessions([]);
+      setExercisesBySession({});
+      return;
+    }
+
+    const program = programs.find((item) => item.id === selectedProgramId) || null;
+    setActiveProgram(program);
+
+    let cancelled = false;
+    (async () => {
+      setProgramsLoading(true);
+      try {
+        await loadSessionsForProgram(selectedProgramId);
+      } catch (err) {
+        if (!cancelled) console.error(err);
+      } finally {
+        if (!cancelled) setProgramsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProgramId, programs, loadSessionsForProgram]);
 
   useEffect(() => {
     fetchLogs();
@@ -357,6 +395,20 @@ export default function WorkoutPage() {
 
   const selectedDayLabel = DAYS.find((d) => d.value === selectedDay)?.full || '';
 
+  const assignmentByProgramId = useMemo(() => {
+    const map: Record<string, ProgramAssignment> = {};
+    assignments.forEach((assignment) => {
+      if (assignment.program_id) {
+        map[assignment.program_id] = assignment;
+      }
+    });
+    return map;
+  }, [assignments]);
+
+  const handleProgramSelect = (programId: string) => {
+    setSelectedProgramId(programId);
+  };
+
   return (
     <div className="space-y-8">
       <DashboardPageHeader
@@ -396,10 +448,40 @@ export default function WorkoutPage() {
                 <p className="text-sm text-muted-foreground mt-1">
                   Your trainer will assign a workout plan you can log here
                 </p>
+                <Link href="/client/chat">
+                  <Button variant="outline" className="gap-2 mt-4">
+                    <MessageSquare className="h-4 w-4" />
+                    Message your trainer
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           ) : (
             <>
+              {programs.length > 1 && (
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="active_program">Active Program</Label>
+                      <Select
+                        value={selectedProgramId || undefined}
+                        onValueChange={handleProgramSelect}
+                      >
+                        <SelectTrigger id="active_program">
+                          <SelectValue placeholder="Select a program" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {programs.map((program) => (
+                            <SelectItem key={program.id} value={program.id!}>
+                              {program.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">{activeProgram.name}</CardTitle>
@@ -771,12 +853,19 @@ export default function WorkoutPage() {
               <CardContent className="py-12 text-center">
                 <ClipboardList className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">No programs have been assigned to you yet</p>
+                <Link href="/client/chat">
+                  <Button variant="outline" className="gap-2 mt-4">
+                    <MessageSquare className="h-4 w-4" />
+                    Message your trainer
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           ) : (
             programs.map((program) => {
               const isExpanded = expandedProgramId === program.id;
               const programSessions = program.id ? sessionsByProgram[program.id] || [] : [];
+              const assignment = program.id ? assignmentByProgramId[program.id] : undefined;
               return (
                 <Card key={program.id}>
                   <CardHeader className="pb-3">
@@ -786,11 +875,21 @@ export default function WorkoutPage() {
                         {program.description && (
                           <CardDescription className="mt-1">{program.description}</CardDescription>
                         )}
-                        <div className="flex items-center gap-2 mt-2">
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
                           {program.difficulty && (
                             <Badge variant="secondary">{program.difficulty}</Badge>
                           )}
                           {program.is_active && <Badge>Active</Badge>}
+                          {assignment?.start_date && (
+                            <Badge variant="outline">
+                              Started {new Date(assignment.start_date).toLocaleDateString()}
+                            </Badge>
+                          )}
+                          {assignment?.status && (
+                            <Badge variant={assignment.status === 'active' ? 'default' : 'secondary'}>
+                              {assignment.status}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                       <Button

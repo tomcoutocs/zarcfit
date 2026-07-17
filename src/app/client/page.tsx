@@ -207,6 +207,7 @@ export default function DashboardPage() {
         <ClientOnboardingChecklist
           hasTrainer={hasTrainer}
           hasProgram={dashboardData.programs.length > 0}
+          hasMealPlan={dashboardData.nutritionPlans.length > 0}
           hasWorkoutLog={hasWorkoutLog}
         />
       )}
