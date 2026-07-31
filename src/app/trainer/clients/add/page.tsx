@@ -1,16 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
-import { buildInvitationUrl, invitationApi } from '@/lib/supabase/trainer-api';
+import { buildInvitationUrl, invitationApi, billingApi, ClientUsage } from '@/lib/supabase/trainer-api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ArrowLeft, Link2, Send, AlertCircle, CheckCircle, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Link2, Send, AlertCircle, CheckCircle, Copy, Check, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 export default function InviteClientPage() {
@@ -22,6 +22,19 @@ export default function InviteClientPage() {
   const [sentToEmail, setSentToEmail] = useState('');
   const [invitationLink, setInvitationLink] = useState('');
   const [copied, setCopied] = useState(false);
+  const [usage, setUsage] = useState<ClientUsage | null>(null);
+  const [usageLoading, setUsageLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadUsage() {
+      if (!user?.id) return;
+      setUsageLoading(true);
+      const result = await billingApi.getClientUsage(user.id);
+      setUsage(result);
+      setUsageLoading(false);
+    }
+    loadUsage();
+  }, [user?.id]);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -58,6 +71,11 @@ export default function InviteClientPage() {
 
     if (!/\S+@\S+\.\S+/.test(formData.email)) {
       setError('Please enter a valid email address');
+      return;
+    }
+
+    if (usage?.atCap) {
+      setError(`You've reached your plan's client limit (${usage.limit}). Upgrade to invite more clients.`);
       return;
     }
 
@@ -103,6 +121,9 @@ export default function InviteClientPage() {
         });
       } else if (result.status === 'is_trainer') {
         setError('This email belongs to a trainer account. Trainers cannot be added as clients.');
+      } else if (result.status === 'limit_reached') {
+        setError(`You've reached your plan's client limit (${result.limit}). Upgrade to invite more clients.`);
+        setUsage((prev) => (prev ? { ...prev, atCap: true } : prev));
       } else {
         setError('Failed to create invitation. Please try again.');
       }
@@ -138,6 +159,26 @@ export default function InviteClientPage() {
           Create an invitation link and share it with your client — they can only join ZarcFit through your invite
         </p>
       </div>
+
+      {!usageLoading && usage?.atCap && !success && (
+        <Alert className="border-primary/40 bg-primary/5">
+          <Sparkles className="h-4 w-4" />
+          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              You&apos;re using all {usage.limit} client slots on your current plan
+              ({usage.activeCount} active
+              {usage.pausedCount > 0 ? `, ${usage.pausedCount} paused` : ''}
+              {usage.pendingInvitationCount > 0 ? `, ${usage.pendingInvitationCount} pending invite${usage.pendingInvitationCount === 1 ? '' : 's'}` : ''}
+              ). Upgrade to invite more clients.
+            </span>
+            <Link href="/trainer/settings">
+              <Button size="sm" className="shrink-0 gap-2">
+                Upgrade plan
+              </Button>
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {success ? (
         <Card>
@@ -271,7 +312,7 @@ export default function InviteClientPage() {
               </div>
 
               <div className="flex gap-3">
-                <Button type="submit" disabled={loading} className="gap-2">
+                <Button type="submit" disabled={loading || Boolean(usage?.atCap)} className="gap-2">
                   {loading ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />

@@ -575,21 +575,31 @@ export default function MealPlanPage() {
 
       <Alert className="mb-4">
         <AlertDescription>
-          <strong>Daily Diary</strong> tracks what you actually eat today. <strong>Weekly Plan</strong> shows
-          meals your trainer assigned — log extras in the diary to hit your macro targets.
+          {plan.plan_type === 'flexible' ? (
+            <>
+              Your trainer set <strong>macro targets only</strong> for you — no fixed meals. Log
+              whatever you eat in the <strong>Daily Diary</strong> and aim to hit the targets above.
+            </>
+          ) : (
+            <>
+              <strong>Daily Diary</strong> tracks what you actually eat today. <strong>Weekly Plan</strong> shows
+              meals your trainer assigned — log extras in the diary to hit your macro targets.
+            </>
+          )}
         </AlertDescription>
       </Alert>
 
       <Tabs defaultValue="diary" className="w-full">
         <TabsList className="mb-6">
           <TabsTrigger value="diary">Daily Diary</TabsTrigger>
-          <TabsTrigger value="plan">Weekly Plan</TabsTrigger>
+          {plan.plan_type !== 'flexible' && <TabsTrigger value="plan">Weekly Plan</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="diary">
           <DailyFoodDiary onTotalsChange={handleDiaryTotalsChange} />
         </TabsContent>
 
+        {plan.plan_type !== 'flexible' && (
         <TabsContent value="plan" className="space-y-8">
       {favorites.length > 0 && (
         <Card>
@@ -743,6 +753,7 @@ export default function MealPlanPage() {
         ))}
       </Tabs>
         </TabsContent>
+        )}
       </Tabs>
 
       <Dialog open={!!copyMeal} onOpenChange={(open) => !open && setCopyMeal(null)}>

@@ -33,6 +33,7 @@ const defaultEvent: EventFormData = {
   event_type: 'workout',
   has_reminder: false,
   is_recurring: false,
+  meeting_url: '',
 };
 
 interface EventDialogProps {
@@ -71,6 +72,7 @@ export function EventDialog({
           event_type: selectedEvent.event_type,
           has_reminder: selectedEvent.has_reminder,
           is_recurring: selectedEvent.is_recurring,
+          meeting_url: selectedEvent.meeting_url || '',
         });
       } else if (selectedDate) {
         // New event mode with preselected date
@@ -177,6 +179,7 @@ export function EventDialog({
                     <SelectItem value="nutrition">Nutrition</SelectItem>
                     <SelectItem value="recovery">Rest & Recovery</SelectItem>
                     <SelectItem value="milestone">Goal & Milestone</SelectItem>
+                    <SelectItem value="unavailable">Unavailable</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -227,6 +230,27 @@ export function EventDialog({
               </div>
             )}
             
+            <div className="grid gap-2">
+              <Label htmlFor="meeting_url">Meeting Link</Label>
+              <Input
+                id="meeting_url"
+                type="url"
+                placeholder="https://zoom.us/j/..."
+                value={formData.meeting_url || ''}
+                onChange={(e) => handleChange('meeting_url', e.target.value)}
+              />
+              {formData.meeting_url && (
+                <a
+                  href={formData.meeting_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary underline underline-offset-2"
+                >
+                  Open link
+                </a>
+              )}
+            </div>
+
             <div className="grid gap-2">
               <Label htmlFor="description">Description</Label>
               <Textarea

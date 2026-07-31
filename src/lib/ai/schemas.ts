@@ -53,11 +53,18 @@ export const workoutDraftRequestSchema = z.object({
   duration_weeks: z.number().int().min(1).max(12),
   equipment: z.enum(['gym', 'home', 'any']).default('any'),
   client_id: z.string().uuid().optional(),
+  use_ai: z.boolean().optional(),
 });
 
 export const mealDraftRequestSchema = z.object({
   nutrition_plan_id: z.string().uuid(),
-  dietary_tags: z.array(z.string()).max(8).optional(),
+  dietary_tags: z.array(z.string()).max(16).optional(),
   client_id: z.string().uuid().optional(),
   use_ai: z.boolean().optional(),
+});
+
+export const regenerateWeekRequestSchema = z.object({
+  program_id: z.string().uuid(),
+  week_number: z.number().int().min(1).max(52),
+  client_id: z.string().uuid(),
 });

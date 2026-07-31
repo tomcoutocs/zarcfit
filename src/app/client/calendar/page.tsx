@@ -12,7 +12,9 @@ import {
   Dumbbell,
   Utensils,
   MessageSquare,
-  Calendar
+  Calendar,
+  Ban,
+  Link as LinkIcon
 } from 'lucide-react';
 import { CalendarGrid } from '@/components/calendar/calendar-grid';
 import { CalendarHeader } from '@/components/calendar/calendar-header';
@@ -242,6 +244,18 @@ export default function CalendarPage() {
                       <div className="text-sm text-muted-foreground">
                         {formatEventDate(event)}
                       </div>
+                      {event.meeting_url && (
+                        <a
+                          href={event.meeting_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="mt-1 inline-flex items-center gap-1 text-xs text-primary underline underline-offset-2"
+                        >
+                          <LinkIcon className="h-3 w-3" />
+                          Join meeting
+                        </a>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -406,6 +420,8 @@ function getEventIconStyles(type: string) {
       return 'bg-orange-100';
     case 'milestone':
       return 'bg-pink-100';
+    case 'unavailable':
+      return 'bg-gray-200';
     default:
       return 'bg-gray-100';
   }
@@ -423,6 +439,8 @@ function getEventIcon(type: string) {
       return <Calendar className="h-4 w-4 text-orange-600" />;
     case 'milestone':
       return <Calendar className="h-4 w-4 text-pink-600" />;
+    case 'unavailable':
+      return <Ban className="h-4 w-4 text-gray-600" />;
     default:
       return <Calendar className="h-4 w-4 text-gray-600" />;
   }

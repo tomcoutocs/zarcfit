@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { generateWorkoutDraftRules, validateWorkoutDraft, swapExerciseSuggestion } from '@/lib/ai/workout-generator';
-import { generateMealSkeleton, validateMealDraft } from '@/lib/ai/meal-generator';
+import {
+  generateWorkoutDraftRules,
+  validateWorkoutDraft,
+  swapExerciseSuggestion,
+  regenerateWeekFromRatings,
+} from '@/lib/ai/workout-generator';
+import { generateMealSkeleton, validateMealDraft, findDietaryViolations } from '@/lib/ai/meal-generator';
 import type { Exercise } from '@/lib/supabase/dashboard-api';
 
 const mockExercises: Exercise[] = [
@@ -45,6 +50,32 @@ describe('workout-generator', () => {
     expect(swaps.every((e) => e.muscle_group === 'Chest')).toBe(true);
     expect(swaps.every((e) => e.id !== mockExercises[0].id)).toBe(true);
   });
+
+  it('regenerates week when exercises rated too hard', () => {
+    const hardId = mockExercises[0].id!;
+    const sessions = [
+      {
+        name: 'Day 1',
+        day_of_week: 1,
+        week_number: 1,
+        exercises: [
+          {
+            exercise_id: hardId,
+            sets: 3,
+            reps: '8-10',
+            rest_seconds: 60,
+          },
+        ],
+      },
+    ];
+    const { sessions: updated, adjustments } = regenerateWeekFromRatings({
+      sessions,
+      exercises: mockExercises,
+      ratings: [{ exercise_id: hardId, avg_difficulty: 4.5, log_count: 2 }],
+    });
+    expect(updated[0].exercises[0].sets).toBeLessThanOrEqual(3);
+    expect(adjustments.length).toBeGreaterThan(0);
+  });
 });
 
 describe('meal-generator', () => {
@@ -65,5 +96,21 @@ describe('meal-generator', () => {
     const draft = generateMealSkeleton(targets);
     const validation = validateMealDraft(draft, targets, 0.05);
     expect(validation.valid).toBe(true);
+  });
+
+  it('uses vegan-safe foods when tagged vegan', () => {
+    const draft = generateMealSkeleton(targets, ['vegan']);
+    expect(findDietaryViolations(draft, ['vegan'])).toHaveLength(0);
+  });
+
+  it('flags meat in a vegan draft', () => {
+    const draft = generateMealSkeleton(targets);
+    // Default skeleton includes chicken/beef/salmon — must be rejected for vegan.
+    expect(findDietaryViolations(draft, ['vegan']).length).toBeGreaterThan(0);
+  });
+
+  it('ignores restriction checks when no vegan/vegetarian tag is present', () => {
+    const draft = generateMealSkeleton(targets);
+    expect(findDietaryViolations(draft, ['gluten-free'])).toHaveLength(0);
   });
 });

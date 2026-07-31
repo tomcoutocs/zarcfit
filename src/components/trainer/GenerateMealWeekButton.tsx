@@ -14,17 +14,32 @@ import { Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { mealsApi } from '@/lib/supabase/dashboard-api';
 import type { MealDraft } from '@/lib/ai/schemas';
+import { TagChipInput } from '@/components/nutrition/tag-chip-input';
+import { DIETARY_RESTRICTION_SUGGESTIONS } from '@/components/nutrition/ClientIntakeForm';
 
 type Props = {
   nutritionPlanId: string;
   onApplied: () => void;
+  clientId?: string;
+  initialDietaryTags?: string[];
 };
 
-export default function GenerateMealWeekButton({ nutritionPlanId, onApplied }: Props) {
+export default function GenerateMealWeekButton({
+  nutritionPlanId,
+  onApplied,
+  clientId,
+  initialDietaryTags = [],
+}: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<MealDraft | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [dietaryTags, setDietaryTags] = useState<string[]>(initialDietaryTags);
+
+  const handleOpen = () => {
+    setDietaryTags(initialDietaryTags);
+    setOpen(true);
+  };
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -33,7 +48,12 @@ export default function GenerateMealWeekButton({ nutritionPlanId, onApplied }: P
       const res = await fetch('/api/ai/meal-draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nutrition_plan_id: nutritionPlanId }),
+        body: JSON.stringify({
+          nutrition_plan_id: nutritionPlanId,
+          client_id: clientId || undefined,
+          dietary_tags: dietaryTags.length > 0 ? dietaryTags : undefined,
+          use_ai: true,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || data.error || 'Generation failed');
@@ -76,7 +96,7 @@ export default function GenerateMealWeekButton({ nutritionPlanId, onApplied }: P
 
   return (
     <>
-      <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => setOpen(true)}>
+      <Button type="button" variant="outline" size="sm" className="gap-2" onClick={handleOpen}>
         <Sparkles className="h-4 w-4" />
         Generate week
       </Button>
@@ -105,9 +125,20 @@ export default function GenerateMealWeekButton({ nutritionPlanId, onApplied }: P
               )}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              Uses daily calories and macros already set on this plan.
-            </p>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Uses daily calories and macros already set on this plan.
+              </p>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Dietary restrictions</p>
+                <TagChipInput
+                  value={dietaryTags}
+                  onChange={setDietaryTags}
+                  suggestions={DIETARY_RESTRICTION_SUGGESTIONS}
+                  placeholder="Add another restriction..."
+                />
+              </div>
+            </div>
           )}
 
           <DialogFooter>

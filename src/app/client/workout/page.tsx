@@ -46,6 +46,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { WorkoutAnalytics } from '@/components/workout/WorkoutAnalytics';
+import { ExerciseFormVideo } from '@/components/workout/ExerciseFormVideo';
 
 const DAYS: { value: number; short: string; full: string }[] = [
   { value: 1, short: 'Mon', full: 'Monday' },
@@ -593,7 +594,7 @@ export default function WorkoutPage() {
                             return (
                               <div key={we.id} className="border rounded-lg p-4 space-y-3">
                                 <div className="flex items-start justify-between gap-2">
-                                  <div>
+                                  <div className="min-w-0">
                                     <div className="font-medium">
                                       {we.exercises?.name || 'Exercise'}
                                     </div>
@@ -609,6 +610,10 @@ export default function WorkoutPage() {
                                       </p>
                                     )}
                                   </div>
+                                  <ExerciseFormVideo
+                                    videoUrl={we.exercises?.video_url}
+                                    exerciseName={we.exercises?.name || 'Exercise'}
+                                  />
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                   <div className="space-y-1">
@@ -949,13 +954,21 @@ export default function WorkoutPage() {
                                     sessionExercises.map((we) => (
                                       <div
                                         key={we.id}
-                                        className="text-sm flex items-center justify-between bg-muted/30 rounded px-3 py-2"
+                                        className="text-sm flex items-center justify-between gap-2 bg-muted/30 rounded px-3 py-2"
                                       >
-                                        <span>{we.exercises?.name || 'Exercise'}</span>
-                                        <span className="text-xs text-muted-foreground">
-                                          {we.sets ? `${we.sets} sets` : ''}
-                                          {we.reps ? ` × ${we.reps} reps` : ''}
+                                        <span className="min-w-0 truncate">
+                                          {we.exercises?.name || 'Exercise'}
                                         </span>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                          <span className="text-xs text-muted-foreground">
+                                            {we.sets ? `${we.sets} sets` : ''}
+                                            {we.reps ? ` × ${we.reps} reps` : ''}
+                                          </span>
+                                          <ExerciseFormVideo
+                                            videoUrl={we.exercises?.video_url}
+                                            exerciseName={we.exercises?.name || 'Exercise'}
+                                          />
+                                        </div>
                                       </div>
                                     ))
                                   )}

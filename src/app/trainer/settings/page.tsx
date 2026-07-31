@@ -1,8 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
-import { trainerProfileApi, trainerSettingsApi, TrainerProfile, TrainerSettings } from '@/lib/supabase/trainer-api';
+import {
+  trainerProfileApi,
+  trainerSettingsApi,
+  billingApi,
+  clientManagementApi,
+  TrainerProfile,
+  TrainerSettings,
+  ClientUsage,
+} from '@/lib/supabase/trainer-api';
+import { TRAINER_PLANS, getPlanStripePriceId } from '@/lib/trainer-plans';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +23,8 @@ import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { ImageUpload } from '@/components/ui/image-upload';
+import { InvoiceClientDialog, InvoiceableClient } from '@/components/trainer/InvoiceClientDialog';
+import { CreditCard, Send, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const emptyProfileForm = {
@@ -34,8 +46,9 @@ const emptySettingsForm = {
   notification_push: true,
 };
 
-export default function TrainerSettingsPage() {
+function TrainerSettingsContent() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [profileForm, setProfileForm] = useState(emptyProfileForm);
   const [settingsForm, setSettingsForm] = useState(emptySettingsForm);
@@ -49,51 +62,85 @@ export default function TrainerSettingsPage() {
   const [subscriptionStatus, setSubscriptionStatus] = useState<string>('active');
   const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null);
   const [billingLoading, setBillingLoading] = useState(false);
+  const [checkoutPlanId, setCheckoutPlanId] = useState<string | null>(null);
+  const [usage, setUsage] = useState<ClientUsage | null>(null);
+  const [connectOnboarded, setConnectOnboarded] = useState(false);
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [invoiceClients, setInvoiceClients] = useState<InvoiceableClient[]>([]);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
 
-  useEffect(() => {
-    async function loadData() {
-      if (!user?.id) return;
-      setLoading(true);
+  const loadData = useCallback(async () => {
+    if (!user?.id) return;
+    setLoading(true);
 
-      const [profile, settings] = await Promise.all([
-        trainerProfileApi.getProfile(user.id),
-        trainerSettingsApi.getSettings(user.id),
-      ]);
+    const [profile, settings, usageResult, clients] = await Promise.all([
+      trainerProfileApi.getProfile(user.id),
+      trainerSettingsApi.getSettings(user.id),
+      billingApi.getClientUsage(user.id),
+      clientManagementApi.getClients(user.id),
+    ]);
 
-      if (profile) {
-        setProfileForm({
-          business_name: profile.business_name || '',
-          bio: profile.bio || '',
-          phone: profile.phone || '',
-          website: profile.website || '',
-          years_experience: profile.years_experience?.toString() || '',
-          specializations: (profile.specializations || []).join(', '),
-          certifications: (profile.certifications || []).join(', '),
-        });
-        setAvatarUrl(profile.avatar_url || '');
-        setSubscriptionTier(profile.subscription_tier || 'free');
-        setSubscriptionStatus(profile.subscription_status || 'active');
-        setStripeCustomerId(
-          (profile as TrainerProfile & { stripe_customer_id?: string }).stripe_customer_id || null
-        );
-      }
-
-      if (settings) {
-        setSettingsForm({
-          timezone: settings.timezone || 'UTC',
-          default_session_duration: settings.default_session_duration?.toString() || '60',
-          booking_buffer: settings.booking_buffer?.toString() || '30',
-          auto_accept_clients: settings.auto_accept_clients ?? false,
-          notification_email: settings.notification_preferences?.email ?? true,
-          notification_push: settings.notification_preferences?.push ?? true,
-        });
-      }
-
-      setLoading(false);
+    if (profile) {
+      setProfileForm({
+        business_name: profile.business_name || '',
+        bio: profile.bio || '',
+        phone: profile.phone || '',
+        website: profile.website || '',
+        years_experience: profile.years_experience?.toString() || '',
+        specializations: (profile.specializations || []).join(', '),
+        certifications: (profile.certifications || []).join(', '),
+      });
+      setAvatarUrl(profile.avatar_url || '');
+      setSubscriptionTier(profile.subscription_tier || 'free');
+      setSubscriptionStatus(profile.subscription_status || 'active');
+      setStripeCustomerId(
+        (profile as TrainerProfile & { stripe_customer_id?: string }).stripe_customer_id || null
+      );
+      setConnectOnboarded(Boolean(profile.stripe_connect_onboarded));
     }
 
-    loadData();
+    if (settings) {
+      setSettingsForm({
+        timezone: settings.timezone || 'UTC',
+        default_session_duration: settings.default_session_duration?.toString() || '60',
+        booking_buffer: settings.booking_buffer?.toString() || '30',
+        auto_accept_clients: settings.auto_accept_clients ?? false,
+        notification_email: settings.notification_preferences?.email ?? true,
+        notification_push: settings.notification_preferences?.push ?? true,
+      });
+    }
+
+    setUsage(usageResult);
+    setInvoiceClients(
+      clients
+        .filter((c) => c.status === 'active')
+        .map((c) => ({ id: c.client_id, email: c.client_email, name: c.client_name }))
+    );
+
+    setLoading(false);
   }, [user?.id]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Land back from Stripe Connect onboarding — re-check status server-side
+  // since there's no `account.updated` webhook wired up yet (MVP scope).
+  useEffect(() => {
+    const connectParam = searchParams.get('connect');
+    if (connectParam !== 'return') return;
+
+    (async () => {
+      try {
+        const res = await fetch('/api/stripe/connect/onboard');
+        const data = await res.json();
+        setConnectOnboarded(Boolean(data.onboarded));
+        toast(data.onboarded ? 'Stripe account connected' : 'Stripe onboarding not finished yet');
+      } catch {
+        // Non-fatal — trainer can just retry the connect button.
+      }
+    })();
+  }, [searchParams]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,17 +211,14 @@ export default function TrainerSettingsPage() {
     }
   };
 
-  const handleSubscribe = async () => {
+  const handleSubscribe = async (planId: string) => {
     if (!user?.email) return;
-    setBillingLoading(true);
-    const priceId =
-      process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO ||
-      process.env.NEXT_PUBLIC_STRIPE_PRICE_STARTER;
+    const priceId = getPlanStripePriceId(planId);
     if (!priceId) {
-      toast.error('Stripe price not configured');
-      setBillingLoading(false);
+      toast.error('Stripe price not configured for this plan');
       return;
     }
+    setCheckoutPlanId(planId);
     try {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
@@ -187,7 +231,21 @@ export default function TrainerSettingsPage() {
     } catch {
       toast.error('Checkout failed');
     } finally {
-      setBillingLoading(false);
+      setCheckoutPlanId(null);
+    }
+  };
+
+  const handleConnectStripe = async () => {
+    setConnectLoading(true);
+    try {
+      const res = await fetch('/api/stripe/connect/onboard', { method: 'POST' });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+      else toast.error(data.error || 'Could not start Stripe onboarding');
+    } catch {
+      toast.error('Could not start Stripe onboarding');
+    } finally {
+      setConnectLoading(false);
     }
   };
 
@@ -419,9 +477,9 @@ export default function TrainerSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Billing</CardTitle>
-          <CardDescription>Manage your trainer subscription</CardDescription>
+          <CardDescription>Manage your trainer subscription and client limit</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" className="capitalize">
               {subscriptionTier} plan
@@ -430,16 +488,135 @@ export default function TrainerSettingsPage() {
               {subscriptionStatus}
             </Badge>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={handleSubscribe} disabled={billingLoading}>
-              {billingLoading ? 'Loading...' : 'Subscribe'}
-            </Button>
-            <Button variant="outline" onClick={handleManageBilling} disabled={billingLoading || !stripeCustomerId}>
-              Manage billing
-            </Button>
+
+          {/* PF-313: usage meter */}
+          {usage && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">
+                  {usage.activeCount} of {usage.limit} clients
+                </span>
+                <span className="text-muted-foreground">
+                  {usage.pausedCount > 0 && `${usage.pausedCount} paused`}
+                  {usage.pausedCount > 0 && usage.pendingInvitationCount > 0 && ' · '}
+                  {usage.pendingInvitationCount > 0 &&
+                    `${usage.pendingInvitationCount} pending invite${usage.pendingInvitationCount === 1 ? '' : 's'}`}
+                </span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className={`h-full rounded-full ${usage.atCap ? 'bg-destructive' : 'bg-primary'}`}
+                  style={{ width: `${Math.min(100, (usage.usageForLimit / Math.max(usage.limit, 1)) * 100)}%` }}
+                />
+              </div>
+              {usage.atCap && (
+                <p className="text-sm text-destructive">
+                  You&apos;re at your plan&apos;s client limit — upgrade below to invite more clients.
+                </p>
+              )}
+            </div>
+          )}
+
+          <Button variant="outline" onClick={handleManageBilling} disabled={billingLoading || !stripeCustomerId}>
+            Manage billing
+          </Button>
+
+          <div className="space-y-3">
+            <p className="text-sm font-medium">Plans</p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {TRAINER_PLANS.map((plan) => {
+                const priceId = getPlanStripePriceId(plan.id);
+                const isCurrent = plan.id === subscriptionTier;
+                return (
+                  <div key={plan.id} className="flex flex-col justify-between gap-3 rounded-lg border p-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{plan.name}</p>
+                        {isCurrent && <Badge variant="secondary">Current</Badge>}
+                      </div>
+                      <p className="text-2xl font-semibold">
+                        ${plan.price}
+                        <span className="text-sm font-normal text-muted-foreground"> /mo</span>
+                      </p>
+                      <p className="text-sm text-muted-foreground">Up to {plan.clientLimit} clients</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={isCurrent ? 'outline' : 'default'}
+                      disabled={!priceId || isCurrent || checkoutPlanId === plan.id}
+                      onClick={() => handleSubscribe(plan.id)}
+                    >
+                      {!priceId
+                        ? 'Not configured'
+                        : isCurrent
+                          ? 'Current plan'
+                          : checkoutPlanId === plan.id
+                            ? 'Redirecting...'
+                            : 'Subscribe'}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* PF-321–324: Stripe Connect — trainer bills their clients */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Bill Your Clients</CardTitle>
+          <CardDescription>
+            Connect a Stripe account to send invoices to clients. ZarcFit does not take a platform fee.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {connectOnboarded ? (
+            <>
+              <div className="flex items-center gap-2 text-sm text-green-600">
+                <CheckCircle2 className="h-4 w-4" />
+                Billing ready — your Stripe account is connected
+              </div>
+              <Button
+                className="gap-2"
+                onClick={() => setInvoiceDialogOpen(true)}
+                disabled={invoiceClients.length === 0}
+              >
+                <Send className="h-4 w-4" />
+                Send Invoice
+              </Button>
+              {invoiceClients.length === 0 && (
+                <p className="text-sm text-muted-foreground">Invite an active client before sending an invoice.</p>
+              )}
+            </>
+          ) : (
+            <Button className="gap-2" onClick={handleConnectStripe} disabled={connectLoading}>
+              <CreditCard className="h-4 w-4" />
+              {connectLoading ? 'Connecting...' : 'Connect Stripe to bill clients'}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      <InvoiceClientDialog
+        open={invoiceDialogOpen}
+        onOpenChange={setInvoiceDialogOpen}
+        clients={invoiceClients}
+      />
     </div>
+  );
+}
+
+export default function TrainerSettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
+        </div>
+      }
+    >
+      <TrainerSettingsContent />
+    </Suspense>
   );
 }

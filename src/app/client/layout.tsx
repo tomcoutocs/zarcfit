@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   MessageSquare,
@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import AnimatedPage from '@/components/layout/AnimatedPage';
 import { NavBadge } from '@/components/layout/NavBadge';
 import { useUnreadMessageCount } from '@/hooks/use-unread-messages';
+import { userProfilesApi, hasCompletedIntake } from '@/lib/supabase/dashboard-api';
 
 interface NavItemProps {
   href: string;
@@ -69,7 +70,7 @@ const navItems = [
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const router = useRouter();
   const unreadMessages = useUnreadMessageCount();
 
@@ -77,6 +78,24 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     await signOut();
     router.push('/');
   };
+
+  // Route clients who haven't answered the intake questionnaire to
+  // /client/onboarding, once — needed for the macro calculator (Phase E).
+  useEffect(() => {
+    if (!user?.id || pathname === '/client/onboarding') return;
+    let cancelled = false;
+
+    userProfilesApi.getProfile(user.id).then((profile) => {
+      if (cancelled) return;
+      if (!hasCompletedIntake(profile)) {
+        router.replace('/client/onboarding');
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, pathname, router]);
 
   const isActive = (href: string) => {
     if (href === '/client') return pathname === '/client';

@@ -464,10 +464,10 @@ function MealPlansContent() {
         </Alert>
       )}
 
-      <Tabs defaultValue="templates">
+      <Tabs defaultValue="applied">
         <TabsList>
-          <TabsTrigger value="templates">My Templates ({templates.length})</TabsTrigger>
-          <TabsTrigger value="applied">Applied to Clients ({clientPlans.length})</TabsTrigger>
+          <TabsTrigger value="applied">Client Plans ({clientPlans.length})</TabsTrigger>
+          <TabsTrigger value="templates">Templates ({templates.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="templates" className="mt-4">
@@ -496,7 +496,12 @@ function MealPlansContent() {
                         <CardTitle className="text-base">{template.name}</CardTitle>
                         <CardDescription>Reusable template</CardDescription>
                       </div>
-                      <Badge variant="outline">Template</Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant="outline">Template</Badge>
+                        {template.plan_type === 'flexible' && (
+                          <Badge variant="secondary">Flexible</Badge>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
@@ -573,8 +578,13 @@ function MealPlansContent() {
               {clientPlans.map((plan) => (
                 <Card key={plan.id}>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">{plan.name}</CardTitle>
-                    <CardDescription>{plan.client_name}</CardDescription>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <CardTitle className="text-base">{plan.name}</CardTitle>
+                        <CardDescription>{plan.client_name}</CardDescription>
+                      </div>
+                      <Badge variant="outline">{plan.plan_type === 'flexible' ? 'Flexible' : 'Full plan'}</Badge>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mb-3">
@@ -585,7 +595,7 @@ function MealPlansContent() {
                         {plan.is_active ? 'Active' : 'Inactive'}
                       </Badge>
                     </div>
-                    <Link href={`/trainer/meal-plans/${plan.id}`}>
+                    <Link href={`/trainer/meal-plans/${plan.id}?client=${plan.user_id}`}>
                       <Button size="sm" variant="outline" className="gap-1">
                         <Layers className="h-4 w-4" />
                         Open builder

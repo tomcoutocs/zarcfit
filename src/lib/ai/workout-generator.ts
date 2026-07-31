@@ -100,3 +100,101 @@ export function swapExerciseSuggestion(
     .filter((e) => e.muscle_group === current.muscle_group && e.id !== currentExerciseId)
     .slice(0, 5);
 }
+
+export type ExerciseDifficultyRating = {
+  exercise_id: string;
+  avg_difficulty: number;
+  log_count: number;
+};
+
+function easierExercise(
+  exercises: Exercise[],
+  currentId: string
+): Exercise | undefined {
+  const current = exercises.find((e) => e.id === currentId);
+  if (!current) return undefined;
+  const sameMuscle = exercises.filter(
+    (e) =>
+      e.id !== currentId &&
+      e.muscle_group === current.muscle_group &&
+      (e.difficulty === 'beginner' || e.equipment?.toLowerCase().includes('bodyweight'))
+  );
+  return sameMuscle[0] || swapExerciseSuggestion(exercises, currentId)[0];
+}
+
+function harderExercise(
+  exercises: Exercise[],
+  currentId: string
+): Exercise | undefined {
+  const current = exercises.find((e) => e.id === currentId);
+  if (!current) return undefined;
+  return exercises.find(
+    (e) =>
+      e.id !== currentId &&
+      e.muscle_group === current.muscle_group &&
+      e.difficulty === 'advanced'
+  );
+}
+
+export function regenerateWeekFromRatings(input: {
+  sessions: WorkoutDraft['sessions'];
+  exercises: Exercise[];
+  ratings: ExerciseDifficultyRating[];
+}): { sessions: WorkoutDraft['sessions']; adjustments: string[] } {
+  const ratingMap = new Map(input.ratings.map((r) => [r.exercise_id, r]));
+  const adjustments: string[] = [];
+
+  const sessions = input.sessions.map((session) => ({
+    ...session,
+    exercises: session.exercises.map((ex) => {
+      const rating = ratingMap.get(ex.exercise_id);
+      if (!rating || rating.log_count < 1) return ex;
+
+      if (rating.avg_difficulty >= 4) {
+        const swap = easierExercise(input.exercises, ex.exercise_id);
+        if (swap?.id) {
+          adjustments.push(
+            `${swap.name}: swapped (client rated ${rating.avg_difficulty.toFixed(1)}/5 hard)`
+          );
+          return {
+            ...ex,
+            exercise_id: swap.id,
+            sets: Math.max(2, (ex.sets || 3) - 1),
+            rest_seconds: Math.min(180, (ex.rest_seconds || 60) + 30),
+            notes: 'Regenerated — reduced load after high difficulty ratings',
+          };
+        }
+        return {
+          ...ex,
+          sets: Math.max(2, (ex.sets || 3) - 1),
+          rest_seconds: Math.min(180, (ex.rest_seconds || 60) + 30),
+          notes: 'Regenerated — easier volume after high difficulty ratings',
+        };
+      }
+
+      if (rating.avg_difficulty <= 2 && rating.log_count >= 2) {
+        const swap = harderExercise(input.exercises, ex.exercise_id);
+        if (swap?.id) {
+          adjustments.push(
+            `${swap.name}: progressed (client rated ${rating.avg_difficulty.toFixed(1)}/5 easy)`
+          );
+          return {
+            ...ex,
+            exercise_id: swap.id,
+            sets: Math.min(5, (ex.sets || 3) + 1),
+            notes: 'Regenerated — progressed after easy difficulty ratings',
+          };
+        }
+        return {
+          ...ex,
+          sets: Math.min(5, (ex.sets || 3) + 1),
+          notes: 'Regenerated — added volume after easy ratings',
+        };
+      }
+
+      return ex;
+    }),
+  }));
+
+  return { sessions, adjustments };
+}

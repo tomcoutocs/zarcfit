@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -39,6 +40,8 @@ export default function GenerateWorkoutDraftButton({
   defaultDurationWeeks = 4,
   onApplied,
 }: Props) {
+  const searchParams = useSearchParams();
+  const clientIdFromUrl = searchParams.get('client') || undefined;
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<WorkoutDraft | null>(null);
@@ -62,11 +65,13 @@ export default function GenerateWorkoutDraftButton({
           sessions_per_week: Number(sessionsPerWeek),
           duration_weeks: Number(durationWeeks),
           equipment,
+          client_id: clientIdFromUrl,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || data.error || 'Generation failed');
       setPreview(data.draft);
+      if (data.mode === 'llm') toast.success('LLM draft generated');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Generation failed');
     } finally {

@@ -9,6 +9,28 @@ export type TrainerPlan = {
   stripePriceId?: string;
 };
 
+/** Minimal shape needed to resolve a trainer's effective client limit. */
+export type ClientLimitSource = {
+  max_clients?: number | null;
+  subscription_tier?: string | null;
+};
+
+/**
+ * Resolve a trainer's effective client limit (PF-312).
+ * Priority: an explicit per-trainer override (`trainer_profiles.max_clients`),
+ * then the plan's limit for their subscription tier, then the free-tier default.
+ */
+export function resolveClientLimit(profile: ClientLimitSource | null | undefined): number {
+  if (profile?.max_clients != null && profile.max_clients > 0) {
+    return profile.max_clients;
+  }
+  const plan = TRAINER_PLANS.find((p) => p.id === profile?.subscription_tier);
+  if (plan) return plan.clientLimit;
+  return FREE_TIER_CLIENT_LIMIT;
+}
+
+export const FREE_TIER_CLIENT_LIMIT = 5;
+
 /** Resolve Stripe price ID from env (client-safe NEXT_PUBLIC_* or server STRIPE_PRICE_*). */
 export function getPlanStripePriceId(planId: string): string | undefined {
   const envMap: Record<string, string | undefined> = {
@@ -65,11 +87,11 @@ export const TRAINER_PLANS: TrainerPlan[] = [
     id: 'growth',
     name: 'Growth',
     description: 'For trainers scaling their client roster',
-    price: 59,
-    clientLimit: 20,
+    price: 79,
+    clientLimit: 50,
     popular: true,
     features: [
-      'Up to 20 active clients',
+      'Up to 50 active clients',
       'Everything in Starter',
       'Meal plan templates & builder',
       'Reusable program templates',
@@ -81,10 +103,10 @@ export const TRAINER_PLANS: TrainerPlan[] = [
     id: 'pro',
     name: 'Pro',
     description: 'For established coaches managing larger rosters',
-    price: 99,
-    clientLimit: 50,
+    price: 149,
+    clientLimit: 200,
     features: [
-      'Up to 50 active clients',
+      'Up to 200 active clients',
       'Everything in Growth',
       'Priority email support',
       'Advanced client progress views',

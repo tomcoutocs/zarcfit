@@ -5,6 +5,7 @@ import { useAuth } from '@/context/auth-context';
 import {
   clientManagementApi,
   invitationApi,
+  trainerProfileApi,
   ClientWithProfile,
   ClientInvitation,
   buildInvitationUrl,
@@ -37,8 +38,17 @@ import {
   X,
   Send,
   Pause,
+  Play,
+  Ban,
+  MoreVertical,
   MessageSquare,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Select,
   SelectContent,
@@ -48,6 +58,7 @@ import {
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ClientStatusBadge } from '@/components/trainer/ClientStatusBadge';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
@@ -58,6 +69,51 @@ function invitationName(invitation: ClientInvitation) {
 
 function invitationInitials(invitation: ClientInvitation) {
   return invitationName(invitation).substring(0, 2).toUpperCase();
+}
+
+type ClientStatus = 'active' | 'paused' | 'terminated';
+
+function ClientStatusMenu({
+  status,
+  disabled,
+  onChange,
+}: {
+  status: string;
+  disabled: boolean;
+  onChange: (next: ClientStatus) => void;
+}) {
+  if (status === 'pending') return null;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" disabled={disabled}>
+          <MoreVertical className="h-4 w-4" />
+          <span className="sr-only">Change status</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {status !== 'active' && (
+          <DropdownMenuItem onSelect={() => onChange('active')}>
+            <Play className="mr-2 h-4 w-4" />
+            Set active
+          </DropdownMenuItem>
+        )}
+        {status !== 'paused' && (
+          <DropdownMenuItem onSelect={() => onChange('paused')}>
+            <Pause className="mr-2 h-4 w-4" />
+            Pause
+          </DropdownMenuItem>
+        )}
+        {status !== 'terminated' && (
+          <DropdownMenuItem className="text-destructive" onSelect={() => onChange('terminated')}>
+            <Ban className="mr-2 h-4 w-4" />
+            Cancel client
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 function ClientsContent() {
@@ -73,20 +129,24 @@ function ClientsContent() {
   const [invitationFilter, setInvitationFilter] = useState<string>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
   const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [billingReady, setBillingReady] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!user?.id) return;
 
     try {
-      const [clientsData, invitationsData] = await Promise.all([
+      const [clientsData, invitationsData, trainerProfile] = await Promise.all([
         clientManagementApi.getClients(user.id),
         invitationApi.getInvitations(user.id),
+        trainerProfileApi.getProfile(user.id),
       ]);
       setClients(clientsData);
       setInvitations(invitationsData);
+      setBillingReady(Boolean(trainerProfile?.stripe_connect_onboarded));
     } catch (error) {
       console.error('Error fetching clients:', error);
     } finally {
@@ -170,6 +230,23 @@ function ClientsContent() {
     });
   };
 
+  const handleStatusChange = async (clientId: string, next: ClientStatus) => {
+    if (!user?.id) return;
+    setStatusUpdatingId(clientId);
+    setActionError('');
+
+    const ok = await clientManagementApi.updateClientStatus(user.id, clientId, next);
+    setStatusUpdatingId(null);
+
+    if (ok) {
+      const label = next === 'terminated' ? 'cancelled' : next;
+      toast.success(`Client ${label}`);
+      fetchData();
+    } else {
+      setActionError('Failed to update client status');
+    }
+  };
+
   const handleBulkPause = async () => {
     if (!user?.id || selectedClientIds.size === 0) return;
     setBulkLoading(true);
@@ -196,19 +273,6 @@ function ClientsContent() {
     const firstId = Array.from(selectedClientIds)[0];
     if (!firstId) return;
     router.push(`/trainer/messages?client=${firstId}`);
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <Badge className="bg-green-500">Active</Badge>;
-      case 'pending':
-        return <Badge variant="secondary">Pending</Badge>;
-      case 'paused':
-        return <Badge variant="outline">Paused</Badge>;
-      default:
-        return <Badge variant="destructive">{status}</Badge>;
-    }
   };
 
   const getInvitationStatusBadge = (invitation: ClientInvitation) => {
@@ -239,7 +303,14 @@ function ClientsContent() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Clients</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold">Clients</h1>
+            {billingReady && (
+              <Badge variant="secondary" className="gap-1">
+                Billing ready
+              </Badge>
+            )}
+          </div>
           <p className="text-muted-foreground">
             Manage your client roster and track pending invitation links
           </p>
@@ -258,24 +329,34 @@ function ClientsContent() {
         </Alert>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>Total Clients</CardDescription>
-            <CardTitle className="text-3xl">{clients.length}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription>Active Clients</CardDescription>
-            <CardTitle className="text-3xl">
+            <CardDescription>Active</CardDescription>
+            <CardTitle className="text-3xl text-green-600">
               {clients.filter((c) => c.status === 'active').length}
             </CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>Pending Email Invitations</CardDescription>
+            <CardDescription>Paused</CardDescription>
+            <CardTitle className="text-3xl text-amber-500">
+              {clients.filter((c) => c.status === 'paused').length}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription>Cancelled</CardDescription>
+            <CardTitle className="text-3xl text-red-600">
+              {clients.filter((c) => c.status === 'terminated').length}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription>Pending Invitations</CardDescription>
             <CardTitle className="text-3xl">{pendingInvitationCount}</CardTitle>
           </CardHeader>
         </Card>
@@ -324,6 +405,7 @@ function ClientsContent() {
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="paused">Paused</SelectItem>
+                    <SelectItem value="terminated">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -414,27 +496,32 @@ function ClientsContent() {
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0">
-                            <CardTitle className="text-lg truncate">
-                              {client.client_name}
-                            </CardTitle>
+                            <div className="flex items-center gap-2">
+                              <CardTitle className="text-lg truncate">
+                                {client.client_name}
+                              </CardTitle>
+                              <ClientStatusBadge status={client.status} />
+                            </div>
                             <CardDescription className="text-sm truncate">
                               {client.client_email}
                             </CardDescription>
                           </div>
                         </Link>
                       </div>
+                      <ClientStatusMenu
+                        status={client.status}
+                        disabled={statusUpdatingId === client.client_id}
+                        onChange={(next) => handleStatusChange(client.client_id, next)}
+                      />
                     </div>
                   </CardHeader>
                   <CardContent>
                     <Link href={`/trainer/clients/${client.client_id}`}>
-                      <div className="flex items-center justify-between">
-                        {getStatusBadge(client.status)}
-                        <p className="text-sm text-muted-foreground">
-                          {client.accepted_at
-                            ? `Since ${new Date(client.accepted_at).toLocaleDateString()}`
-                            : `Invited ${new Date(client.invited_at).toLocaleDateString()}`}
-                        </p>
-                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {client.accepted_at
+                          ? `Since ${new Date(client.accepted_at).toLocaleDateString()}`
+                          : `Invited ${new Date(client.invited_at).toLocaleDateString()}`}
+                      </p>
                       {client.notes && (
                         <p className="text-sm text-muted-foreground mt-3 line-clamp-2">
                           {client.notes}

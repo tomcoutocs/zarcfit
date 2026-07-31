@@ -2,8 +2,31 @@
 
 import React, { Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  useDroppable,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
 import { ClientContextStrip } from '@/components/trainer/ClientContextStrip';
 import GenerateWorkoutDraftButton from '@/components/trainer/GenerateWorkoutDraftButton';
+import RegenerateWeekButton from '@/components/trainer/RegenerateWeekButton';
+import { ExerciseLibraryPane } from '@/components/trainer/builder/ExerciseLibraryPane';
+import { SortableExerciseRow } from '@/components/trainer/builder/SortableExerciseRow';
+import {
+  ExerciseEditDialog,
+  type SessionExercise,
+} from '@/components/trainer/builder/ExerciseEditDialog';
 import { swapExerciseSuggestion } from '@/lib/ai/workout-generator';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
@@ -13,7 +36,6 @@ import {
   exercisesApi,
   WorkoutProgram,
   WorkoutSession,
-  WorkoutExercise,
   Exercise,
 } from '@/lib/supabase/dashboard-api';
 import DashboardPageHeader from '@/components/layout/DashboardPageHeader';
@@ -21,7 +43,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -31,23 +52,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
-import {
-  ArrowLeft,
-  Plus,
-  Trash2,
-  Dumbbell,
-  Search,
-  ChevronUp,
-  ChevronDown,
-  Layers,
-  Shuffle,
-} from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Dumbbell, Layers, ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const DAYS = [
   { value: 1, label: 'Monday', short: 'Mon' },
@@ -59,25 +65,41 @@ const DAYS = [
   { value: 7, label: 'Sunday', short: 'Sun' },
 ];
 
-type SessionExercise = WorkoutExercise & { exercises?: Exercise };
+function dayShort(day?: number) {
+  return DAYS.find((d) => d.value === day)?.short || '?';
+}
 
-const emptySessionForm = {
-  name: '',
-  day_of_week: '1',
-  week_number: '1',
-  notes: '',
-};
+function SessionDropZone({
+  sessionId,
+  children,
+  isEmpty,
+}: {
+  sessionId: string;
+  children: React.ReactNode;
+  isEmpty: boolean;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `session-${sessionId}`,
+    data: { type: 'session', sessionId },
+  });
 
-const emptyExerciseForm = {
-  exercise_id: '',
-  sets: '3',
-  reps: '10',
-  rest_seconds: '60',
-  notes: '',
-};
-
-function dayLabel(day?: number) {
-  return DAYS.find((d) => d.value === day)?.label || 'Unscheduled';
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'min-h-[48px] space-y-1.5 rounded-md p-1 transition-colors',
+        isOver && 'bg-primary/10 ring-1 ring-primary/40',
+        isEmpty && 'border border-dashed border-muted-foreground/30'
+      )}
+    >
+      {isEmpty ? (
+        <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+          Drop exercises here
+        </p>
+      ) : null}
+      {children}
+    </div>
+  );
 }
 
 export default function ProgramBuilderPage() {
@@ -87,16 +109,29 @@ export default function ProgramBuilderPage() {
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [sessionExercises, setSessionExercises] = useState<Record<string, SessionExercise[]>>({});
-  const [openSessions, setOpenSessions] = useState<string[]>([]);
+  const [collapsedWeeks, setCollapsedWeeks] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [savingSession, setSavingSession] = useState(false);
+  const [sessionForm, setSessionForm] = useState({
+    name: '',
+    day_of_week: '1',
+    week_number: '1',
+  });
+  const [libSearch, setLibSearch] = useState('');
+  const [libMuscle, setLibMuscle] = useState('all');
+  const [libEquipment, setLibEquipment] = useState('all');
+  const [activeDrag, setActiveDrag] = useState<{
+    kind: 'library' | 'session';
+    label: string;
+  } | null>(null);
+  const [editing, setEditing] = useState<SessionExercise | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
 
-  const [sessionForm, setSessionForm] = useState(emptySessionForm);
-  const [exerciseForms, setExerciseForms] = useState<Record<string, typeof emptyExerciseForm>>({});
-  const [exerciseSearch, setExerciseSearch] = useState<Record<string, string>>({});
-  const [muscleFilter, setMuscleFilter] = useState<Record<string, string>>({});
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  );
 
   const loadSessionExercises = useCallback(async (sessionId: string) => {
     const detail = await workoutSessionsApi.getSessionWithExercises(sessionId);
@@ -134,7 +169,6 @@ export default function ProgramBuilderPage() {
       })
     );
     setSessionExercises(exerciseMap);
-    setOpenSessions(sessionList.map((s) => s.id).filter(Boolean) as string[]);
     setLoading(false);
   }, [programId]);
 
@@ -149,6 +183,28 @@ export default function ProgramBuilderPage() {
     });
     return Array.from(groups).sort();
   }, [exercises]);
+
+  const equipmentList = useMemo(() => {
+    const set = new Set<string>();
+    exercises.forEach((ex) => {
+      if (ex.equipment) set.add(ex.equipment);
+    });
+    return Array.from(set).sort();
+  }, [exercises]);
+
+  const filteredLibrary = useMemo(() => {
+    const q = libSearch.trim().toLowerCase();
+    return exercises.filter((ex) => {
+      const matchesMuscle = libMuscle === 'all' || ex.muscle_group === libMuscle;
+      const matchesEq = libEquipment === 'all' || ex.equipment === libEquipment;
+      const matchesQuery =
+        !q ||
+        ex.name.toLowerCase().includes(q) ||
+        ex.muscle_group?.toLowerCase().includes(q) ||
+        ex.equipment?.toLowerCase().includes(q);
+      return matchesMuscle && matchesEq && matchesQuery;
+    });
+  }, [exercises, libSearch, libMuscle, libEquipment]);
 
   const totalExercises = useMemo(
     () => Object.values(sessionExercises).reduce((sum, list) => sum + list.length, 0),
@@ -172,34 +228,14 @@ export default function ProgramBuilderPage() {
       .sort((a, b) => a.week - b.week);
   }, [sessions]);
 
-  const getExerciseForm = (sessionId: string) =>
-    exerciseForms[sessionId] || emptyExerciseForm;
-
-  const setExerciseFormForSession = (
-    sessionId: string,
-    updater: (prev: typeof emptyExerciseForm) => typeof emptyExerciseForm
-  ) => {
-    setExerciseForms((prev) => ({
-      ...prev,
-      [sessionId]: updater(prev[sessionId] || emptyExerciseForm),
-    }));
+  const findSessionForExercise = (exerciseId: string) => {
+    for (const [sessionId, list] of Object.entries(sessionExercises)) {
+      if (list.some((e) => e.id === exerciseId)) return sessionId;
+    }
+    return null;
   };
 
-  const filteredExercises = (sessionId: string) => {
-    const query = (exerciseSearch[sessionId] || '').trim().toLowerCase();
-    const muscle = muscleFilter[sessionId] || 'all';
-    return exercises.filter((ex) => {
-      const matchesMuscle = muscle === 'all' || ex.muscle_group === muscle;
-      const matchesQuery =
-        !query ||
-        ex.name.toLowerCase().includes(query) ||
-        ex.muscle_group?.toLowerCase().includes(query) ||
-        ex.equipment?.toLowerCase().includes(query);
-      return matchesMuscle && matchesQuery;
-    });
-  };
-
-  const handleAddSession = async () => {
+  const handleAddSession = async (weekOverride?: number) => {
     if (!programId || !sessionForm.name.trim()) return;
     setSavingSession(true);
     setError('');
@@ -209,17 +245,15 @@ export default function ProgramBuilderPage() {
       program_id: programId,
       name: sessionForm.name.trim(),
       day_of_week: Number(sessionForm.day_of_week),
-      week_number: Number(sessionForm.week_number) || 1,
-      notes: sessionForm.notes.trim() || undefined,
+      week_number: weekOverride ?? (Number(sessionForm.week_number) || 1),
     });
 
     setSavingSession(false);
 
     if (created?.id) {
-      setSessionForm(emptySessionForm);
+      setSessionForm({ name: '', day_of_week: '1', week_number: String(weekOverride || 1) });
       setSuccess(`Session "${created.name}" added.`);
       await loadData();
-      setOpenSessions((prev) => [...prev, created.id as string]);
     } else {
       setError('Failed to add session. Please try again.');
     }
@@ -236,26 +270,20 @@ export default function ProgramBuilderPage() {
     }
   };
 
-  const handleAddExercise = async (sessionId: string) => {
-    const form = getExerciseForm(sessionId);
-    if (!form.exercise_id) return;
-
+  const addExerciseToSession = async (sessionId: string, exercise: Exercise) => {
+    if (!exercise.id) return;
     const orderIndex = (sessionExercises[sessionId]?.length || 0) + 1;
     const created = await workoutSessionsApi.addExercise({
       workout_session_id: sessionId,
-      exercise_id: form.exercise_id,
-      sets: Number(form.sets) || undefined,
-      reps: form.reps || undefined,
-      rest_seconds: form.rest_seconds ? Number(form.rest_seconds) : undefined,
-      notes: form.notes.trim() || undefined,
+      exercise_id: exercise.id,
+      sets: 3,
+      reps: '8-10',
+      rest_seconds: 60,
       order_index: orderIndex,
     });
-
     if (created) {
-      setExerciseForms((prev) => ({ ...prev, [sessionId]: emptyExerciseForm }));
-      setExerciseSearch((prev) => ({ ...prev, [sessionId]: '' }));
       await loadSessionExercises(sessionId);
-      setSuccess('Exercise added to session.');
+      setSuccess(`Added ${exercise.name}`);
     } else {
       setError('Failed to add exercise.');
     }
@@ -282,26 +310,72 @@ export default function ProgramBuilderPage() {
     if (ok) await loadSessionExercises(sessionId);
   };
 
-  const handleMoveExercise = async (
-    sessionId: string,
-    exercise: SessionExercise,
-    direction: 'up' | 'down'
-  ) => {
-    const list = sessionExercises[sessionId] || [];
-    const index = list.findIndex((e) => e.id === exercise.id);
-    if (index < 0) return;
-    const swapIndex = direction === 'up' ? index - 1 : index + 1;
-    if (swapIndex < 0 || swapIndex >= list.length) return;
+  const persistOrder = async (sessionId: string, ordered: SessionExercise[]) => {
+    setSessionExercises((prev) => ({ ...prev, [sessionId]: ordered }));
+    await Promise.all(
+      ordered.map((ex, index) =>
+        ex.id
+          ? workoutSessionsApi.updateExercise({ ...ex, order_index: index + 1 })
+          : Promise.resolve()
+      )
+    );
+  };
 
-    const current = list[index];
-    const swap = list[swapIndex];
-    if (!current.id || !swap.id) return;
+  const handleDragStart = (event: DragStartEvent) => {
+    const data = event.active.data.current;
+    if (data?.type === 'library') {
+      setActiveDrag({ kind: 'library', label: (data.exercise as Exercise).name });
+    } else if (data?.type === 'session-exercise') {
+      setActiveDrag({
+        kind: 'session',
+        label: (data.exercise as SessionExercise).exercises?.name || 'Exercise',
+      });
+    }
+  };
 
-    await Promise.all([
-      workoutSessionsApi.updateExercise({ ...current, order_index: swapIndex + 1 }),
-      workoutSessionsApi.updateExercise({ ...swap, order_index: index + 1 }),
-    ]);
-    await loadSessionExercises(sessionId);
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveDrag(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeData = active.data.current;
+    const overData = over.data.current;
+
+    // Library → session drop
+    if (activeData?.type === 'library') {
+      const exercise = activeData.exercise as Exercise;
+      let targetSessionId: string | null = null;
+      if (overData?.type === 'session') {
+        targetSessionId = overData.sessionId as string;
+      } else if (overData?.type === 'session-exercise') {
+        targetSessionId = findSessionForExercise(String(over.id));
+      } else if (String(over.id).startsWith('session-')) {
+        targetSessionId = String(over.id).replace('session-', '');
+      }
+      if (targetSessionId) await addExerciseToSession(targetSessionId, exercise);
+      return;
+    }
+
+    // Reorder within session
+    if (activeData?.type === 'session-exercise') {
+      const fromSession = findSessionForExercise(String(active.id));
+      if (!fromSession) return;
+
+      let toSession = fromSession;
+      if (overData?.type === 'session') {
+        toSession = overData.sessionId as string;
+      } else if (overData?.type === 'session-exercise') {
+        toSession = findSessionForExercise(String(over.id)) || fromSession;
+      }
+
+      if (fromSession === toSession) {
+        const list = [...(sessionExercises[fromSession] || [])];
+        const oldIndex = list.findIndex((e) => e.id === active.id);
+        const newIndex = list.findIndex((e) => e.id === over.id);
+        if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
+        await persistOrder(fromSession, arrayMove(list, oldIndex, newIndex));
+      }
+    }
   };
 
   if (!isTrainer) {
@@ -313,10 +387,10 @@ export default function ProgramBuilderPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <DashboardPageHeader
         title={program?.name || 'Program Builder'}
-        description="Build sessions, add exercises, and set sets, reps, and rest"
+        description="Drag exercises from the library into sessions. Edit sets, reps, and rest per exercise."
       >
         <div className="flex flex-wrap items-center gap-2">
           {programId && (
@@ -360,10 +434,10 @@ export default function ProgramBuilderPage() {
         <>
           {program && (
             <Card>
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-2">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <CardTitle className="text-base flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-base">
                       <Layers className="h-4 w-4" />
                       Program Overview
                     </CardTitle>
@@ -373,12 +447,14 @@ export default function ProgramBuilderPage() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {program.is_template && <Badge variant="outline">Template</Badge>}
-                    {program.difficulty && <Badge variant="secondary">{program.difficulty}</Badge>}
+                    {program.difficulty && (
+                      <Badge variant="secondary">{program.difficulty}</Badge>
+                    )}
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
                   <div>
                     <p className="text-muted-foreground">Sessions</p>
                     <p className="text-xl font-semibold">{sessions.length}</p>
@@ -404,428 +480,215 @@ export default function ProgramBuilderPage() {
             </Card>
           )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Add Session</CardTitle>
-              <CardDescription>
-                Create a workout day, then add exercises below
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="session_name">Session Name</Label>
-                  <Input
-                    id="session_name"
-                    placeholder="e.g. Upper Body A, Leg Day"
-                    value={sessionForm.name}
-                    onChange={(e) =>
-                      setSessionForm((prev) => ({ ...prev, name: e.target.value }))
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Day</Label>
-                  <Select
-                    value={sessionForm.day_of_week}
-                    onValueChange={(v) =>
-                      setSessionForm((prev) => ({ ...prev, day_of_week: v }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DAYS.map((day) => (
-                        <SelectItem key={day.value} value={String(day.value)}>
-                          {day.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="week_number">Week</Label>
-                  <Input
-                    id="week_number"
-                    type="number"
-                    min={1}
-                    value={sessionForm.week_number}
-                    onChange={(e) =>
-                      setSessionForm((prev) => ({ ...prev, week_number: e.target.value }))
-                    }
-                  />
-                </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Add session</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex flex-wrap items-end gap-2">
+                    <div className="min-w-[160px] flex-1 space-y-1">
+                      <Label className="text-xs">Name</Label>
+                      <Input
+                        placeholder="Upper Body A"
+                        value={sessionForm.name}
+                        onChange={(e) =>
+                          setSessionForm((p) => ({ ...p, name: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="w-28 space-y-1">
+                      <Label className="text-xs">Day</Label>
+                      <Select
+                        value={sessionForm.day_of_week}
+                        onValueChange={(v) =>
+                          setSessionForm((p) => ({ ...p, day_of_week: v }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DAYS.map((d) => (
+                            <SelectItem key={d.value} value={String(d.value)}>
+                              {d.short}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="w-20 space-y-1">
+                      <Label className="text-xs">Week</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={sessionForm.week_number}
+                        onChange={(e) =>
+                          setSessionForm((p) => ({ ...p, week_number: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <Button
+                      onClick={() => handleAddSession()}
+                      disabled={savingSession || !sessionForm.name.trim()}
+                      className="gap-1"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {sessions.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-12 text-center">
+                      <Dumbbell className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">
+                        Add a session, then drag exercises from the right.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  sessionsByWeek.map(({ week, sessions: weekSessions }) => (
+                    <div key={week} className="rounded-lg border">
+                      <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-2 px-2"
+                          onClick={() =>
+                            setCollapsedWeeks((prev) => ({
+                              ...prev,
+                              [week]: !prev[week],
+                            }))
+                          }
+                        >
+                          <ChevronDown
+                            className={cn(
+                              'h-4 w-4 transition-transform',
+                              collapsedWeeks[week] && '-rotate-90'
+                            )}
+                          />
+                          <span className="font-semibold">Week {week}</span>
+                          <Badge variant="secondary" className="font-normal">
+                            {weekSessions.length} sessions
+                          </Badge>
+                        </Button>
+                        <RegenerateWeekButton
+                          programId={programId}
+                          weekNumber={week}
+                          onApplied={loadData}
+                        />
+                      </div>
+                      {!collapsedWeeks[week] && (
+                        <div className="space-y-3 p-3">
+                          {weekSessions.map((session) => {
+                            if (!session.id) return null;
+                            const sessionId = session.id;
+                            const list = sessionExercises[sessionId] || [];
+                            return (
+                              <div key={sessionId} className="rounded-md border bg-muted/20 p-3">
+                                <div className="mb-2 flex items-start justify-between gap-2">
+                                  <div>
+                                    <p className="font-medium">
+                                      <Badge variant="outline" className="mr-2 font-normal">
+                                        {dayShort(session.day_of_week)}
+                                      </Badge>
+                                      {session.name}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {list.length} exercise{list.length !== 1 ? 's' : ''}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8"
+                                    onClick={() => handleDeleteSession(sessionId)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                <SortableContext
+                                  items={list.map((e) => e.id!).filter(Boolean)}
+                                  strategy={verticalListSortingStrategy}
+                                >
+                                  <SessionDropZone
+                                    sessionId={sessionId}
+                                    isEmpty={list.length === 0}
+                                  >
+                                    {list.map((we) => (
+                                      <SortableExerciseRow
+                                        key={we.id}
+                                        exercise={we}
+                                        swapOptions={
+                                          we.exercise_id
+                                            ? swapExerciseSuggestion(exercises, we.exercise_id)
+                                            : []
+                                        }
+                                        onEdit={() => {
+                                          setEditing(we);
+                                          setEditOpen(true);
+                                        }}
+                                        onDelete={() =>
+                                          we.id && handleDeleteExercise(sessionId, we.id)
+                                        }
+                                        onSwap={(id) => handleSwapExercise(sessionId, we, id)}
+                                      />
+                                    ))}
+                                  </SessionDropZone>
+                                </SortableContext>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="session_notes">Session Notes (optional)</Label>
-                <Textarea
-                  id="session_notes"
-                  rows={2}
-                  placeholder="e.g. Focus on tempo, rest 90s between sets"
-                  value={sessionForm.notes}
-                  onChange={(e) =>
-                    setSessionForm((prev) => ({ ...prev, notes: e.target.value }))
-                  }
+
+              <div className="lg:sticky lg:top-4 lg:self-start">
+                <ExerciseLibraryPane
+                  exercises={filteredLibrary}
+                  search={libSearch}
+                  muscle={libMuscle}
+                  equipment={libEquipment}
+                  onSearchChange={setLibSearch}
+                  onMuscleChange={setLibMuscle}
+                  onEquipmentChange={setLibEquipment}
+                  muscleGroups={muscleGroups}
+                  equipmentList={equipmentList}
                 />
               </div>
-              <Button
-                onClick={handleAddSession}
-                disabled={savingSession || !sessionForm.name.trim()}
-                className="gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                {savingSession ? 'Adding...' : 'Add Session'}
-              </Button>
-            </CardContent>
-          </Card>
-
-          {sessions.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <Dumbbell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">
-                  No sessions yet. Add your first session above, then add exercises to it.
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-8">
-              {sessionsByWeek.map(({ week, sessions: weekSessions }) => (
-                <div key={week} className="space-y-3">
-                  <h3 className="text-lg font-semibold">Week {week}</h3>
-                  <Accordion
-                    type="multiple"
-                    value={openSessions}
-                    onValueChange={setOpenSessions}
-                    className="space-y-3"
-                  >
-                    {weekSessions.map((session) => {
-                      if (!session.id) return null;
-                      const sessionId = session.id;
-                      const exercisesInSession = sessionExercises[sessionId] || [];
-                      const form = getExerciseForm(sessionId);
-                      const options = filteredExercises(sessionId);
-
-                      return (
-                        <AccordionItem
-                          key={sessionId}
-                          value={sessionId}
-                          className="border rounded-lg px-4"
-                        >
-                          <AccordionTrigger className="hover:no-underline py-4">
-                            <div className="flex flex-1 items-center justify-between gap-3 pr-4 text-left">
-                              <div>
-                                <p className="font-medium">{session.name}</p>
-                                <p className="text-sm text-muted-foreground font-normal">
-                                  {dayLabel(session.day_of_week)} · {exercisesInSession.length}{' '}
-                                  exercise{exercisesInSession.length !== 1 ? 's' : ''}
-                                </p>
-                              </div>
-                              <Badge variant="secondary" className="shrink-0">
-                                {DAYS.find((d) => d.value === session.day_of_week)?.short}
-                              </Badge>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent className="space-y-4 pb-4">
-                            {session.notes && (
-                              <p className="text-sm text-muted-foreground bg-muted/40 rounded-md p-3">
-                                {session.notes}
-                              </p>
-                            )}
-
-                            {exercisesInSession.length === 0 ? (
-                              <p className="text-sm text-muted-foreground">
-                                No exercises in this session yet.
-                              </p>
-                            ) : (
-                              <div className="space-y-2">
-                                {exercisesInSession.map((we, index) => (
-                                  <div
-                                    key={we.id}
-                                    className="border rounded-lg p-3 space-y-3"
-                                  >
-                                    <div className="flex items-start justify-between gap-2">
-                                      <div>
-                                        <p className="font-medium text-sm">
-                                          {we.exercises?.name || 'Exercise'}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">
-                                          {we.exercises?.muscle_group || 'General'}
-                                          {we.exercises?.equipment
-                                            ? ` · ${we.exercises.equipment}`
-                                            : ''}
-                                        </p>
-                                      </div>
-                                      <div className="flex gap-1 items-center">
-                                        {we.exercise_id && swapExerciseSuggestion(exercises, we.exercise_id).length > 0 && (
-                                          <Select
-                                            onValueChange={(id) => handleSwapExercise(sessionId, we, id)}
-                                          >
-                                            <SelectTrigger className="h-8 w-8 p-0 border-0 shadow-none" aria-label="Swap exercise">
-                                              <Shuffle className="h-4 w-4 mx-auto" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              {swapExerciseSuggestion(exercises, we.exercise_id).map((alt) => (
-                                                <SelectItem key={alt.id} value={alt.id!}>
-                                                  {alt.name}
-                                                </SelectItem>
-                                              ))}
-                                            </SelectContent>
-                                          </Select>
-                                        )}
-                                        <Button
-                                          size="icon"
-                                          variant="ghost"
-                                          disabled={index === 0}
-                                          onClick={() =>
-                                            handleMoveExercise(sessionId, we, 'up')
-                                          }
-                                        >
-                                          <ChevronUp className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                          size="icon"
-                                          variant="ghost"
-                                          disabled={index === exercisesInSession.length - 1}
-                                          onClick={() =>
-                                            handleMoveExercise(sessionId, we, 'down')
-                                          }
-                                        >
-                                          <ChevronDown className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                          size="icon"
-                                          variant="ghost"
-                                          onClick={() =>
-                                            we.id && handleDeleteExercise(sessionId, we.id)
-                                          }
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                      <div className="space-y-1">
-                                        <Label className="text-xs">Sets</Label>
-                                        <Input
-                                          type="number"
-                                          defaultValue={we.sets ?? ''}
-                                          onBlur={(e) =>
-                                            handleUpdateExercise(sessionId, {
-                                              ...we,
-                                              sets: e.target.value
-                                                ? Number(e.target.value)
-                                                : undefined,
-                                            })
-                                          }
-                                        />
-                                      </div>
-                                      <div className="space-y-1">
-                                        <Label className="text-xs">Reps</Label>
-                                        <Input
-                                          defaultValue={we.reps ?? ''}
-                                          placeholder="8-10"
-                                          onBlur={(e) =>
-                                            handleUpdateExercise(sessionId, {
-                                              ...we,
-                                              reps: e.target.value || undefined,
-                                            })
-                                          }
-                                        />
-                                      </div>
-                                      <div className="space-y-1">
-                                        <Label className="text-xs">Rest (sec)</Label>
-                                        <Input
-                                          type="number"
-                                          defaultValue={we.rest_seconds ?? ''}
-                                          onBlur={(e) =>
-                                            handleUpdateExercise(sessionId, {
-                                              ...we,
-                                              rest_seconds: e.target.value
-                                                ? Number(e.target.value)
-                                                : undefined,
-                                            })
-                                          }
-                                        />
-                                      </div>
-                                      <div className="space-y-1">
-                                        <Label className="text-xs">Notes</Label>
-                                        <Input
-                                          defaultValue={we.notes ?? ''}
-                                          placeholder="Optional"
-                                          onBlur={(e) =>
-                                            handleUpdateExercise(sessionId, {
-                                              ...we,
-                                              notes: e.target.value || undefined,
-                                            })
-                                          }
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            <div className="border rounded-lg p-4 space-y-3 bg-muted/20">
-                              <p className="text-sm font-medium">Add Exercise</p>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div className="space-y-2">
-                                  <Label className="text-xs">Search</Label>
-                                  <div className="relative">
-                                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                      className="pl-8"
-                                      placeholder="Search exercises..."
-                                      value={exerciseSearch[sessionId] || ''}
-                                      onChange={(e) =>
-                                        setExerciseSearch((prev) => ({
-                                          ...prev,
-                                          [sessionId]: e.target.value,
-                                        }))
-                                      }
-                                    />
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
-                                  <Label className="text-xs">Muscle Group</Label>
-                                  <Select
-                                    value={muscleFilter[sessionId] || 'all'}
-                                    onValueChange={(v) =>
-                                      setMuscleFilter((prev) => ({
-                                        ...prev,
-                                        [sessionId]: v,
-                                      }))
-                                    }
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="All groups" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="all">All groups</SelectItem>
-                                      {muscleGroups.map((group) => (
-                                        <SelectItem key={group} value={group}>
-                                          {group}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </div>
-                              <div className="space-y-2">
-                                <Label className="text-xs">Exercise</Label>
-                                <Select
-                                  value={form.exercise_id}
-                                  onValueChange={(v) =>
-                                    setExerciseFormForSession(sessionId, (prev) => ({
-                                      ...prev,
-                                      exercise_id: v,
-                                    }))
-                                  }
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select exercise" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {options.length === 0 ? (
-                                      <SelectItem value="none" disabled>
-                                        No exercises match
-                                      </SelectItem>
-                                    ) : (
-                                      options.map((ex) => (
-                                        <SelectItem key={ex.id} value={ex.id as string}>
-                                          {ex.name}
-                                          {ex.muscle_group ? ` (${ex.muscle_group})` : ''}
-                                        </SelectItem>
-                                      ))
-                                    )}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                <div className="space-y-1">
-                                  <Label className="text-xs">Sets</Label>
-                                  <Input
-                                    type="number"
-                                    value={form.sets}
-                                    onChange={(e) =>
-                                      setExerciseFormForSession(sessionId, (prev) => ({
-                                        ...prev,
-                                        sets: e.target.value,
-                                      }))
-                                    }
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <Label className="text-xs">Reps</Label>
-                                  <Input
-                                    value={form.reps}
-                                    placeholder="8-10"
-                                    onChange={(e) =>
-                                      setExerciseFormForSession(sessionId, (prev) => ({
-                                        ...prev,
-                                        reps: e.target.value,
-                                      }))
-                                    }
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <Label className="text-xs">Rest (sec)</Label>
-                                  <Input
-                                    type="number"
-                                    value={form.rest_seconds}
-                                    onChange={(e) =>
-                                      setExerciseFormForSession(sessionId, (prev) => ({
-                                        ...prev,
-                                        rest_seconds: e.target.value,
-                                      }))
-                                    }
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <Label className="text-xs">Notes</Label>
-                                  <Input
-                                    value={form.notes}
-                                    placeholder="Optional"
-                                    onChange={(e) =>
-                                      setExerciseFormForSession(sessionId, (prev) => ({
-                                        ...prev,
-                                        notes: e.target.value,
-                                      }))
-                                    }
-                                  />
-                                </div>
-                              </div>
-                              <div className="flex justify-between gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => session.id && handleDeleteSession(session.id)}
-                                >
-                                  Delete Session
-                                </Button>
-                                <Button
-                                  onClick={() => handleAddExercise(sessionId)}
-                                  disabled={!form.exercise_id || form.exercise_id === 'none'}
-                                  className="gap-2"
-                                >
-                                  <Plus className="h-4 w-4" />
-                                  Add Exercise
-                                </Button>
-                              </div>
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      );
-                    })}
-                  </Accordion>
-                </div>
-              ))}
             </div>
-          )}
+
+            <DragOverlay>
+              {activeDrag ? (
+                <div className="rounded-md border bg-background px-3 py-2 text-sm shadow-lg">
+                  {activeDrag.label}
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         </>
       )}
+
+      <ExerciseEditDialog
+        exercise={editing}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSave={async (updated) => {
+          const sessionId = findSessionForExercise(updated.id!);
+          if (sessionId) await handleUpdateExercise(sessionId, updated);
+        }}
+      />
     </div>
   );
 }

@@ -6,15 +6,17 @@ import {
   clientManagementApi,
   ClientWithProfile,
   trainerDashboardApi,
+  trainerProfileApi,
   notificationsApi,
   UserNotification,
   ClientActivityItem,
   TrainerDashboardStats,
 } from '@/lib/supabase/trainer-api';
+import { userProfilesApi } from '@/lib/supabase/dashboard-api';
 import NotificationsFeed from '@/components/NotificationsFeed';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Link from 'next/link';
 import { DashboardPageSkeleton } from '@/components/ui/dashboard-skeleton';
@@ -67,6 +69,10 @@ function activityIcon(type: ClientActivityItem['activity_type']) {
   }
 }
 
+function possessive(name: string) {
+  return /s$/i.test(name) ? `${name}'` : `${name}'s`;
+}
+
 function activityLink(item: ClientActivityItem) {
   if (item.activity_type === 'message') {
     return `/trainer/messages?client=${item.client_id}`;
@@ -81,6 +87,7 @@ export default function TrainerDashboardPage() {
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [clientActivity, setClientActivity] = useState<ClientActivityItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -92,18 +99,22 @@ export default function TrainerDashboardPage() {
       }
 
       try {
-        const [clientsData, statsData, notificationsData, unread, activityData] = await Promise.all([
-          clientManagementApi.getClients(user.id),
-          trainerDashboardApi.getStats(),
-          notificationsApi.getNotifications(15),
-          notificationsApi.getUnreadCount(),
-          trainerDashboardApi.getClientActivity(50),
-        ]);
+        const [clientsData, statsData, notificationsData, unread, activityData, profile, trainerProfile] =
+          await Promise.all([
+            clientManagementApi.getClients(user.id),
+            trainerDashboardApi.getStats(),
+            notificationsApi.getNotifications(15),
+            notificationsApi.getUnreadCount(),
+            trainerDashboardApi.getClientActivity(50),
+            userProfilesApi.getProfile(user.id),
+            trainerProfileApi.getProfile(user.id),
+          ]);
         setClients(clientsData);
         setStats(statsData);
         setNotifications(notificationsData);
         setUnreadCount(unread);
         setClientActivity(activityData);
+        setDisplayName(profile?.first_name?.trim() || trainerProfile?.business_name?.trim() || '');
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
         setError('Failed to load dashboard data');
@@ -157,7 +168,9 @@ export default function TrainerDashboardPage() {
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Trainer Dashboard</h1>
+          <h1 className="text-3xl font-bold">
+            {displayName ? `${possessive(displayName)} Dashboard` : 'Trainer Dashboard'}
+          </h1>
           <p className="text-muted-foreground">
             Manage your clients and track their progress
           </p>
@@ -173,18 +186,20 @@ export default function TrainerDashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Clients</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeClients.length}</div>
-            <p className="text-xs text-muted-foreground">
-              {pendingClients.length > 0 && `${pendingClients.length} pending`}
-            </p>
-          </CardContent>
-        </Card>
+        <Link href="/trainer/clients">
+          <Card className="h-full transition-colors hover:bg-accent/40">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Clients</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{activeClients.length}</div>
+              <p className="text-xs text-muted-foreground">
+                {pendingClients.length > 0 && `${pendingClients.length} pending`}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -241,53 +256,36 @@ export default function TrainerDashboardPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Active Clients</CardTitle>
-            <CardDescription>Your current client roster</CardDescription>
+            <CardTitle>Quick Actions</CardTitle>
+            <CardDescription>Common tasks and shortcuts</CardDescription>
           </CardHeader>
           <CardContent>
-            {activeClients.length === 0 ? (
-              <div className="text-center py-8">
-                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground mb-4">
-                  You don&apos;t have any active clients yet
-                </p>
-                <Link href="/trainer/clients/add">
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Invite Your First Client
-                  </Button>
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {activeClients.slice(0, 5).map((client) => (
-                  <Link key={client.id} href={`/trainer/clients/${client.client_id}`}>
-                    <div className="flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors cursor-pointer">
-                      <div className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarImage src={client.client_profile?.avatar_url} />
-                          <AvatarFallback>
-                            {client.client_name.substring(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">{client.client_name}</p>
-                          <p className="text-sm text-muted-foreground">{client.client_email}</p>
-                        </div>
-                      </div>
-                      <Button variant="ghost" size="sm">View</Button>
-                    </div>
-                  </Link>
-                ))}
-                {activeClients.length > 5 && (
-                  <Link href="/trainer/clients">
-                    <Button variant="outline" className="w-full">
-                      View All {activeClients.length} Clients
-                    </Button>
-                  </Link>
-                )}
-              </div>
-            )}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Link href="/trainer/clients/add">
+                <Button variant="outline" className="w-full h-auto flex-col py-6 gap-2">
+                  <Plus className="h-6 w-6" />
+                  <span>Invite Client</span>
+                </Button>
+              </Link>
+              <Link href="/trainer/clients">
+                <Button variant="outline" className="w-full h-auto flex-col py-6 gap-2">
+                  <Users className="h-6 w-6" />
+                  <span>View Clients</span>
+                </Button>
+              </Link>
+              <Link href="/trainer/programs">
+                <Button variant="outline" className="w-full h-auto flex-col py-6 gap-2">
+                  <Dumbbell className="h-6 w-6" />
+                  <span>Create Program</span>
+                </Button>
+              </Link>
+              <Link href="/trainer/messages">
+                <Button variant="outline" className="w-full h-auto flex-col py-6 gap-2">
+                  <MessageSquare className="h-6 w-6" />
+                  <span>Messages</span>
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
 
@@ -330,35 +328,6 @@ export default function TrainerDashboardPage() {
           </CardContent>
         </Card>
       )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>Common tasks and shortcuts</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <Link href="/trainer/clients/add">
-              <Button variant="outline" className="w-full h-auto flex-col py-6 gap-2">
-                <Plus className="h-6 w-6" />
-                <span>Invite Client</span>
-              </Button>
-            </Link>
-            <Link href="/trainer/programs">
-              <Button variant="outline" className="w-full h-auto flex-col py-6 gap-2">
-                <Dumbbell className="h-6 w-6" />
-                <span>Create Program</span>
-              </Button>
-            </Link>
-            <Link href="/trainer/messages">
-              <Button variant="outline" className="w-full h-auto flex-col py-6 gap-2">
-                <MessageSquare className="h-6 w-6" />
-                <span>Messages</span>
-              </Button>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>

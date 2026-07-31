@@ -1,17 +1,21 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams } from 'next/navigation';
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
 import {
   mealsApi,
   nutritionPlansApi,
+  userProfilesApi,
   NutritionPlan,
   Meal,
   MealPlan,
+  UserProfile,
+  PlanType,
 } from '@/lib/supabase/dashboard-api';
 import { FoodSearchResult, MacroTotals } from '@/lib/nutrition/food-types';
+import { suggestMacros, MacroInput } from '@/lib/nutrition/macro-calculator';
 import { FoodSearch } from '@/components/nutrition/food-search';
 import { MacroProgressBars } from '@/components/nutrition/macro-progress-bars';
 import GenerateMealWeekButton from '@/components/trainer/GenerateMealWeekButton';
@@ -36,7 +40,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Plus, Utensils, Trash2, Search, Layers } from 'lucide-react';
+import { ArrowLeft, Plus, Utensils, Trash2, Search, Layers, Calculator, Info } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const DAYS = [
   { value: 1, label: 'Monday', short: 'Mon' },
@@ -86,8 +91,34 @@ function formKey(day: number, mealType: string) {
   return `${day}-${mealType}`;
 }
 
-export default function TrainerMealPlanBuilderPage() {
+const emptyMacroCalc = {
+  weightKg: '',
+  heightCm: '',
+  age: '',
+  sex: 'male' as MacroInput['sex'],
+  activity: 'moderate' as MacroInput['activity'],
+  goal: 'maintain' as MacroInput['goal'],
+};
+
+const emptyTargetsForm = {
+  daily_calories: '',
+  protein_grams: '',
+  carbs_grams: '',
+  fat_grams: '',
+};
+
+function ageFromDob(dob?: string): number | null {
+  if (!dob) return null;
+  const birth = new Date(dob);
+  if (Number.isNaN(birth.getTime())) return null;
+  const diffMs = Date.now() - birth.getTime();
+  return Math.max(0, Math.floor(diffMs / (365.25 * 24 * 60 * 60 * 1000)));
+}
+
+function MealPlanBuilderContent() {
   const { planId } = useParams<{ planId: string }>();
+  const searchParams = useSearchParams();
+  const clientId = searchParams.get('client');
   const { isTrainer } = useAuth();
 
   const [plan, setPlan] = useState<NutritionPlan | null>(null);
@@ -101,6 +132,13 @@ export default function TrainerMealPlanBuilderPage() {
   const [mealForms, setMealForms] = useState<Record<string, typeof emptyMealForm>>({});
   const [mealSearch, setMealSearch] = useState<Record<string, string>>({});
   const [savingMeal, setSavingMeal] = useState<Record<string, boolean>>({});
+
+  const [clientProfile, setClientProfile] = useState<UserProfile | null>(null);
+  const [showMacroStep, setShowMacroStep] = useState(false);
+  const [macroCalc, setMacroCalc] = useState(emptyMacroCalc);
+  const [targetsForm, setTargetsForm] = useState(emptyTargetsForm);
+  const [savingTargets, setSavingTargets] = useState(false);
+  const [savingPlanType, setSavingPlanType] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!planId) return;
@@ -124,12 +162,109 @@ export default function TrainerMealPlanBuilderPage() {
     setMeals(planMeals);
     setDayPlans(plans);
     setOpenDays(DAYS.map((d) => String(d.value)));
+    setTargetsForm({
+      daily_calories: found.daily_calories?.toString() || '',
+      protein_grams: found.protein_grams?.toString() || '',
+      carbs_grams: found.carbs_grams?.toString() || '',
+      fat_grams: found.fat_grams?.toString() || '',
+    });
+    setShowMacroStep(!found.daily_calories || Boolean(clientId));
     setLoading(false);
-  }, [planId]);
+  }, [planId, clientId]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Prefill the macro calculator from the client's intake answers, when
+  // this plan was opened from a client's Nutrition tab (PF-232).
+  useEffect(() => {
+    if (!clientId) {
+      setClientProfile(null);
+      return;
+    }
+    let cancelled = false;
+    userProfilesApi.getProfile(clientId).then((profile) => {
+      if (cancelled || !profile) return;
+      setClientProfile(profile);
+      setMacroCalc((prev) => ({
+        ...prev,
+        weightKg: profile.weight_kg?.toString() || prev.weightKg,
+        heightCm: profile.height_cm?.toString() || prev.heightCm,
+        age: ageFromDob(profile.date_of_birth)?.toString() || prev.age,
+        sex: profile.gender === 'female' ? 'female' : prev.sex,
+        activity: profile.activity_level || prev.activity,
+        goal: profile.primary_goal || prev.goal,
+      }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId]);
+
+  const handleCalculateMacros = () => {
+    const weightKg = Number(macroCalc.weightKg);
+    const heightCm = Number(macroCalc.heightCm);
+    const age = Number(macroCalc.age);
+    if (!weightKg || !heightCm || !age) {
+      setError('Enter weight, height, and age to calculate macros.');
+      return;
+    }
+    setError('');
+
+    const suggestion = suggestMacros({
+      weightKg,
+      heightCm,
+      age,
+      sex: macroCalc.sex,
+      activity: macroCalc.activity,
+      goal: macroCalc.goal,
+    });
+
+    setTargetsForm({
+      daily_calories: suggestion.daily_calories.toString(),
+      protein_grams: suggestion.protein_grams.toString(),
+      carbs_grams: suggestion.carbs_grams.toString(),
+      fat_grams: suggestion.fat_grams.toString(),
+    });
+    setSuccess('Macro targets calculated — review and save below.');
+  };
+
+  const handleSaveTargets = async () => {
+    if (!plan?.id) return;
+    setSavingTargets(true);
+    setError('');
+
+    const updated = await nutritionPlansApi.updateNutritionPlan({
+      ...plan,
+      daily_calories: targetsForm.daily_calories ? Number(targetsForm.daily_calories) : undefined,
+      protein_grams: targetsForm.protein_grams ? Number(targetsForm.protein_grams) : undefined,
+      carbs_grams: targetsForm.carbs_grams ? Number(targetsForm.carbs_grams) : undefined,
+      fat_grams: targetsForm.fat_grams ? Number(targetsForm.fat_grams) : undefined,
+    });
+
+    setSavingTargets(false);
+
+    if (updated) {
+      setPlan(updated);
+      setShowMacroStep(false);
+      setSuccess('Macro targets saved.');
+    } else {
+      setError('Failed to save macro targets. Please try again.');
+    }
+  };
+
+  const handleChangePlanType = async (planType: PlanType) => {
+    if (!plan?.id || plan.plan_type === planType) return;
+    setSavingPlanType(true);
+    const updated = await nutritionPlansApi.updateNutritionPlan({ ...plan, plan_type: planType });
+    setSavingPlanType(false);
+    if (updated) {
+      setPlan(updated);
+    } else {
+      setError('Failed to change plan type. Please try again.');
+    }
+  };
 
   const dayPlanByDay = useMemo(() => {
     const map = new Map<number, MealPlan>();
@@ -327,16 +462,28 @@ export default function TrainerMealPlanBuilderPage() {
     <div className="space-y-6">
       <DashboardPageHeader
         title={plan?.name || 'Meal Plan Builder'}
-        description="Build daily meals, search foods for macros, and track targets"
+        description={
+          plan?.plan_type === 'flexible'
+            ? 'Macro targets only — no meals to build'
+            : 'Build daily meals, search foods for macros, and track targets'
+        }
       >
         <div className="flex flex-wrap items-center gap-2">
-          {planId && (
-            <GenerateMealWeekButton nutritionPlanId={planId} onApplied={loadData} />
+          {planId && plan?.plan_type !== 'flexible' && (
+            <GenerateMealWeekButton
+              nutritionPlanId={planId}
+              onApplied={loadData}
+              clientId={clientId || undefined}
+              initialDietaryTags={[
+                ...(clientProfile?.dietary_restrictions || []),
+                ...(clientProfile?.allergies || []),
+              ]}
+            />
           )}
-          <Link href="/trainer/meal-plans">
+          <Link href={clientId ? `/trainer/clients/${clientId}` : '/trainer/meal-plans'}>
             <Button variant="outline" className="gap-2">
               <ArrowLeft className="h-4 w-4" />
-              Back to Meal Plans
+              {clientId ? 'Back to Client' : 'Back to Meal Plans'}
             </Button>
           </Link>
         </div>
@@ -368,6 +515,170 @@ export default function TrainerMealPlanBuilderPage() {
         </Card>
       ) : (
         <>
+          {showMacroStep && (
+            <Card className="border-primary/40">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calculator className="h-5 w-5 text-primary" />
+                      Step 1 · Set Macro Targets
+                    </CardTitle>
+                    <CardDescription>
+                      {clientProfile
+                        ? `Prefilled from ${clientProfile.first_name || 'the client'}'s intake answers — adjust and save.`
+                        : 'Calculate daily calorie and macro targets before building this plan.'}
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="calc_weight" className="text-xs">Weight (kg)</Label>
+                    <Input
+                      id="calc_weight"
+                      type="number"
+                      value={macroCalc.weightKg}
+                      onChange={(e) => setMacroCalc((prev) => ({ ...prev, weightKg: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="calc_height" className="text-xs">Height (cm)</Label>
+                    <Input
+                      id="calc_height"
+                      type="number"
+                      value={macroCalc.heightCm}
+                      onChange={(e) => setMacroCalc((prev) => ({ ...prev, heightCm: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="calc_age" className="text-xs">Age</Label>
+                    <Input
+                      id="calc_age"
+                      type="number"
+                      value={macroCalc.age}
+                      onChange={(e) => setMacroCalc((prev) => ({ ...prev, age: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="calc_sex" className="text-xs">Sex</Label>
+                    <Select
+                      value={macroCalc.sex}
+                      onValueChange={(value) => setMacroCalc((prev) => ({ ...prev, sex: value as MacroInput['sex'] }))}
+                    >
+                      <SelectTrigger id="calc_sex">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="calc_activity" className="text-xs">Activity</Label>
+                    <Select
+                      value={macroCalc.activity}
+                      onValueChange={(value) =>
+                        setMacroCalc((prev) => ({ ...prev, activity: value as MacroInput['activity'] }))
+                      }
+                    >
+                      <SelectTrigger id="calc_activity">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sedentary">Sedentary</SelectItem>
+                        <SelectItem value="light">Light</SelectItem>
+                        <SelectItem value="moderate">Moderate</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="very_active">Very active</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="calc_goal" className="text-xs">Goal</Label>
+                    <Select
+                      value={macroCalc.goal}
+                      onValueChange={(value) => setMacroCalc((prev) => ({ ...prev, goal: value as MacroInput['goal'] }))}
+                    >
+                      <SelectTrigger id="calc_goal">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lose">Lose weight</SelectItem>
+                        <SelectItem value="maintain">Maintain</SelectItem>
+                        <SelectItem value="gain">Gain muscle</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <Button type="button" variant="secondary" className="gap-2" onClick={handleCalculateMacros}>
+                  <Calculator className="h-4 w-4" />
+                  Calculate suggested targets
+                </Button>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-lg border p-4 bg-muted/20">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="target_calories" className="text-xs">Daily Calories</Label>
+                    <Input
+                      id="target_calories"
+                      type="number"
+                      value={targetsForm.daily_calories}
+                      onChange={(e) => setTargetsForm((prev) => ({ ...prev, daily_calories: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="target_protein" className="text-xs">Protein (g)</Label>
+                    <Input
+                      id="target_protein"
+                      type="number"
+                      value={targetsForm.protein_grams}
+                      onChange={(e) => setTargetsForm((prev) => ({ ...prev, protein_grams: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="target_carbs" className="text-xs">Carbs (g)</Label>
+                    <Input
+                      id="target_carbs"
+                      type="number"
+                      value={targetsForm.carbs_grams}
+                      onChange={(e) => setTargetsForm((prev) => ({ ...prev, carbs_grams: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="target_fat" className="text-xs">Fat (g)</Label>
+                    <Input
+                      id="target_fat"
+                      type="number"
+                      value={targetsForm.fat_grams}
+                      onChange={(e) => setTargetsForm((prev) => ({ ...prev, fat_grams: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setShowMacroStep(false)}
+                    disabled={savingTargets}
+                  >
+                    Skip for now
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleSaveTargets}
+                    disabled={savingTargets || !targetsForm.daily_calories}
+                  >
+                    {savingTargets ? 'Saving...' : 'Save Targets & Continue'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between gap-3">
@@ -377,11 +688,48 @@ export default function TrainerMealPlanBuilderPage() {
                     Plan Overview
                   </CardTitle>
                   <CardDescription>
-                    {plan.description || 'Weekly nutrition template for clients'}
+                    {plan.description ||
+                      (plan.is_template
+                        ? 'Reusable weekly nutrition template'
+                        : 'Nutrition plan assigned to a client')}
                   </CardDescription>
                 </div>
-                <Badge variant="outline">Template</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{plan.plan_type === 'flexible' ? 'Flexible' : 'Full plan'}</Badge>
+                  <Badge variant="outline">{plan.is_template ? 'Template' : 'Client plan'}</Badge>
+                </div>
               </div>
+
+              {!plan.is_template && (
+                <div className="mt-4 flex items-center gap-2 rounded-lg bg-muted/40 p-1 w-fit">
+                  <button
+                    type="button"
+                    disabled={savingPlanType}
+                    onClick={() => handleChangePlanType('full')}
+                    className={cn(
+                      'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                      (plan.plan_type || 'full') === 'full'
+                        ? 'bg-background shadow-sm'
+                        : 'text-muted-foreground'
+                    )}
+                  >
+                    Full meal plan
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingPlanType}
+                    onClick={() => handleChangePlanType('flexible')}
+                    className={cn(
+                      'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                      plan.plan_type === 'flexible'
+                        ? 'bg-background shadow-sm'
+                        : 'text-muted-foreground'
+                    )}
+                  >
+                    Flexible dieting (macros only)
+                  </button>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -418,14 +766,58 @@ export default function TrainerMealPlanBuilderPage() {
             </CardContent>
           </Card>
 
-          {(plan.daily_calories || plan.protein_grams || plan.carbs_grams || plan.fat_grams) && (
-            <MacroProgressBars
-              title="Weekly Average vs Targets"
-              subtitle="Average across days that have meals planned"
-              totals={weeklyAverageMacros}
-              targets={planTargets}
-            />
-          )}
+          {plan.plan_type === 'flexible' ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Info className="h-5 w-5 text-primary" />
+                  Flexible Dieting
+                </CardTitle>
+                <CardDescription>
+                  This client tracks their own meals against macro targets — no prescribed day-by-day
+                  plan is needed.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Set daily calorie and macro targets above (Step 1). Your client will see these
+                  targets on their Meal Plan page and log their own food against them in the daily
+                  diary — hit the numbers, eat what fits. Switch back to <strong>Full meal plan</strong>{' '}
+                  above if you&apos;d rather prescribe specific meals.
+                </p>
+                {(plan.daily_calories || plan.protein_grams || plan.carbs_grams || plan.fat_grams) && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 rounded-lg border p-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Calories</p>
+                      <p className="text-xl font-bold">{plan.daily_calories || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Protein</p>
+                      <p className="text-xl font-bold">{plan.protein_grams ? `${plan.protein_grams}g` : '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Carbs</p>
+                      <p className="text-xl font-bold">{plan.carbs_grams ? `${plan.carbs_grams}g` : '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Fat</p>
+                      <p className="text-xl font-bold">{plan.fat_grams ? `${plan.fat_grams}g` : '—'}</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+          {!plan.is_template &&
+            (plan.daily_calories || plan.protein_grams || plan.carbs_grams || plan.fat_grams) && (
+              <MacroProgressBars
+                title="Weekly Average vs Targets"
+                subtitle="Average across days that have meals planned"
+                totals={weeklyAverageMacros}
+                targets={planTargets}
+              />
+            )}
 
           <Accordion
             type="multiple"
@@ -801,8 +1193,24 @@ export default function TrainerMealPlanBuilderPage() {
               );
             })}
           </Accordion>
+            </>
+          )}
         </>
       )}
     </div>
+  );
+}
+
+export default function TrainerMealPlanBuilderPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
+        </div>
+      }
+    >
+      <MealPlanBuilderContent />
+    </Suspense>
   );
 }

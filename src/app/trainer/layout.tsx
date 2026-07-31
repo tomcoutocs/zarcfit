@@ -27,12 +27,13 @@ import {
 const navigation = [
   { name: 'Dashboard', href: '/trainer/dashboard', icon: LayoutDashboard, mobilePrimary: true },
   { name: 'Clients', href: '/trainer/clients', icon: Users, mobilePrimary: true },
-  { name: 'Workout Plans', href: '/trainer/programs', icon: Dumbbell, mobilePrimary: true },
-  { name: 'Meal Plans', href: '/trainer/meal-plans', icon: Utensils, mobilePrimary: false },
   { name: 'Messages', href: '/trainer/messages', icon: MessageSquare, mobilePrimary: true, badge: 'messages' as const },
   { name: 'Schedule', href: '/trainer/schedule', icon: Calendar, mobilePrimary: false },
-  { name: 'Settings', href: '/trainer/settings', icon: Settings, mobilePrimary: false },
+  { name: 'Programs', href: '/trainer/programs', icon: Dumbbell, mobilePrimary: true },
+  { name: 'Meal Plans', href: '/trainer/meal-plans', icon: Utensils, mobilePrimary: false },
 ];
+
+const settingsNav = { name: 'Settings', href: '/trainer/settings', icon: Settings };
 
 export default function TrainerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -96,6 +97,18 @@ export default function TrainerLayout({ children }: { children: React.ReactNode 
           </nav>
 
           <div className="border-t border-border/40 p-4">
+            <Link href={settingsNav.href}>
+              <Button
+                variant="ghost"
+                className={cn(
+                  'sidebar-nav-item mb-3 h-auto w-full justify-start',
+                  isActive(settingsNav.href) && 'nav-pill-active'
+                )}
+              >
+                <settingsNav.icon className="h-5 w-5 shrink-0" />
+                <span className="flex-1 text-left">{settingsNav.name}</span>
+              </Button>
+            </Link>
             <div className="mb-3 flex items-center gap-3">
               <Avatar>
                 <AvatarFallback>{user?.email?.substring(0, 2).toUpperCase() || 'TR'}</AvatarFallback>
@@ -154,6 +167,18 @@ export default function TrainerLayout({ children }: { children: React.ReactNode 
                   </Link>
                 );
               })}
+              <Link href={settingsNav.href} onClick={() => setMobileMenuOpen(false)}>
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    'w-full justify-start',
+                    isActive(settingsNav.href) && 'nav-pill-active'
+                  )}
+                >
+                  <settingsNav.icon className="mr-2 h-5 w-5" />
+                  {settingsNav.name}
+                </Button>
+              </Link>
               <Button variant="ghost" className="mt-2 w-full justify-start" onClick={handleSignOut}>
                 <LogOut className="mr-2 h-5 w-5" />
                 Sign Out

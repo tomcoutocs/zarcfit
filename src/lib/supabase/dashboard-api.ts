@@ -16,6 +16,9 @@ function withoutId<T extends { id?: string }>(row: T): Omit<T, 'id'> {
 }
 
 // User Profile Types
+export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+export type PrimaryGoal = 'lose' | 'maintain' | 'gain';
+
 export type UserProfile = {
   id: string;
   first_name?: string;
@@ -28,9 +31,21 @@ export type UserProfile = {
   notification_preferences?: Record<string, boolean>;
   privacy_settings?: Record<string, boolean>;
   unit_preferences?: { weight?: string; height?: string; week_starts_on?: number };
+  // Client intake (Phase E) — feeds the trainer's macro calculator
+  weight_kg?: number;
+  activity_level?: ActivityLevel;
+  primary_goal?: PrimaryGoal;
+  dietary_restrictions?: string[];
+  allergies?: string[];
   created_at?: string;
   updated_at?: string;
 };
+
+/** True once a client has answered the intake questionnaire (Phase E onboarding). */
+export function hasCompletedIntake(profile: UserProfile | null | undefined): boolean {
+  if (!profile) return false;
+  return Boolean(profile.weight_kg && profile.activity_level && profile.primary_goal);
+}
 
 // Workout Program Types
 export type WorkoutProgram = {
@@ -108,6 +123,8 @@ export type ExerciseLog = {
 };
 
 // Nutrition Types
+export type PlanType = 'full' | 'flexible';
+
 export type NutritionPlan = {
   id?: string;
   user_id: string;
@@ -119,6 +136,8 @@ export type NutritionPlan = {
   fat_grams?: number;
   is_active?: boolean;
   is_template?: boolean;
+  /** 'full' = day-by-day meal plan, 'flexible' = macro targets only */
+  plan_type?: PlanType;
   created_by_trainer_id?: string;
   created_at?: string;
   updated_at?: string;
@@ -299,6 +318,11 @@ export const userProfilesApi = {
         notification_preferences: profile.notification_preferences,
         privacy_settings: profile.privacy_settings,
         unit_preferences: profile.unit_preferences,
+        weight_kg: profile.weight_kg,
+        activity_level: profile.activity_level,
+        primary_goal: profile.primary_goal,
+        dietary_restrictions: profile.dietary_restrictions,
+        allergies: profile.allergies,
         updated_at: new Date().toISOString()
       })
       .eq('id', profile.id)
@@ -553,6 +577,7 @@ export const planTemplatesApi = {
       protein_grams: sourcePlan.protein_grams,
       carbs_grams: sourcePlan.carbs_grams,
       fat_grams: sourcePlan.fat_grams,
+      plan_type: sourcePlan.plan_type,
       is_active: true,
       is_template: true,
       created_by_trainer_id: trainerId,

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { clientManagementApi, TrainerWithProfile, trainerSettingsApi, TrainerSettings } from '@/lib/supabase/trainer-api';
 import { sessionRequestsApi, SessionRequest } from '@/lib/supabase/session-requests-api';
+import { calendarApi } from '@/lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +36,8 @@ export function SessionRequestPanel() {
     message: '',
   });
   const [trainerSettings, setTrainerSettings] = useState<TrainerSettings | null>(null);
+  const [dateBlocked, setDateBlocked] = useState(false);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
 
   useEffect(() => {
     async function loadTrainerSettings() {
@@ -47,6 +50,32 @@ export function SessionRequestPanel() {
     }
     loadTrainerSettings();
   }, [form.trainer_id]);
+
+  // Checks whether the trainer has marked this date unavailable, so we can
+  // warn the client before they even try to submit.
+  useEffect(() => {
+    let cancelled = false;
+    async function checkAvailability() {
+      if (!form.trainer_id || !form.requested_date || !user?.id) {
+        setDateBlocked(false);
+        return;
+      }
+      setCheckingAvailability(true);
+      const dayEvents = await calendarApi.getEventsForUsers(
+        [form.trainer_id, user.id],
+        form.requested_date,
+        form.requested_date
+      );
+      if (!cancelled) {
+        setDateBlocked(dayEvents.some((e) => e.event_type === 'unavailable'));
+        setCheckingAvailability(false);
+      }
+    }
+    checkAvailability();
+    return () => {
+      cancelled = true;
+    };
+  }, [form.trainer_id, form.requested_date, user?.id]);
 
   const loadData = async () => {
     if (!user?.id) return;
@@ -75,6 +104,20 @@ export function SessionRequestPanel() {
     setSubmitting(true);
     setError('');
     setSuccess('');
+
+    // Re-check right before submitting to avoid a race with a trainer
+    // blocking the day after the form loaded.
+    const dayEvents = await calendarApi.getEventsForUsers(
+      [form.trainer_id, user.id],
+      form.requested_date,
+      form.requested_date
+    );
+    if (dayEvents.some((ev) => ev.event_type === 'unavailable')) {
+      setDateBlocked(true);
+      setSubmitting(false);
+      setError('Your trainer is unavailable on this date. Please choose another day.');
+      return;
+    }
 
     const result = await sessionRequestsApi.createRequest({
       client_id: user.id,
@@ -208,6 +251,14 @@ export function SessionRequestPanel() {
             </div>
           </div>
 
+          {dateBlocked && !checkingAvailability && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                Your trainer is unavailable on this date. Please choose another day.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="req_message">Message (optional)</Label>
             <Textarea
@@ -219,7 +270,7 @@ export function SessionRequestPanel() {
             />
           </div>
 
-          <Button type="submit" disabled={submitting || !form.trainer_id}>
+          <Button type="submit" disabled={submitting || !form.trainer_id || dateBlocked}>
             {submitting ? 'Sending...' : 'Send Request'}
           </Button>
         </form>

@@ -6,6 +6,7 @@ import { useAuth } from '@/context/auth-context';
 import {
   clientManagementApi,
   clientNotesApi,
+  trainerProfileApi,
   TrainerClient,
   ClientNote,
 } from '@/lib/supabase/trainer-api';
@@ -27,9 +28,25 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import Link from 'next/link';
 import { ClientActivitySummary } from '@/components/trainer/ClientActivitySummary';
+import { ClientStatusBadge } from '@/components/trainer/ClientStatusBadge';
 import { AdherenceWidget } from '@/components/trainer/AdherenceWidget';
+import { InvoiceClientDialog, InvoiceableClient } from '@/components/trainer/InvoiceClientDialog';
+import {
+  ClientIntakeForm,
+  IntakeFormValues,
+  emptyIntakeForm,
+} from '@/components/nutrition/ClientIntakeForm';
+import { toast } from 'sonner';
 import {
   ArrowLeft,
   Activity,
@@ -40,7 +57,24 @@ import {
   Trash2,
   UserPlus,
   Utensils,
+  Pencil,
+  Plus,
+  Send,
 } from 'lucide-react';
+
+function intakeFormFromProfile(profile: UserProfile | null): IntakeFormValues {
+  if (!profile) return emptyIntakeForm;
+  return {
+    height_cm: profile.height_cm?.toString() || '',
+    weight_kg: profile.weight_kg?.toString() || '',
+    date_of_birth: profile.date_of_birth || '',
+    gender: profile.gender || '',
+    activity_level: profile.activity_level || '',
+    primary_goal: profile.primary_goal || '',
+    dietary_restrictions: profile.dietary_restrictions || [],
+    allergies: profile.allergies || [],
+  };
+}
 
 export default function ClientDetailPage() {
   const params = useParams();
@@ -59,13 +93,20 @@ export default function ClientDetailPage() {
   const [newNote, setNewNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [diaryDaysLogged, setDiaryDaysLogged] = useState(0);
+  const [intakeDialogOpen, setIntakeDialogOpen] = useState(false);
+  const [intakeForm, setIntakeForm] = useState<IntakeFormValues>(emptyIntakeForm);
+  const [savingIntake, setSavingIntake] = useState(false);
+  const [creatingPlan, setCreatingPlan] = useState(false);
+  const [connectOnboarded, setConnectOnboarded] = useState(false);
+  const [invoiceableClient, setInvoiceableClient] = useState<InvoiceableClient | null>(null);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
 
   useEffect(() => {
     async function fetchClientData() {
       if (!user?.id || !clientId) return;
 
       try {
-        const [relation, profile, programsData, logsData, nutritionData, progressData, notesData] =
+        const [relation, profile, programsData, logsData, nutritionData, progressData, notesData, trainerProfile, rosterClients] =
           await Promise.all([
             clientManagementApi.getClient(user.id, clientId),
             userProfilesApi.getProfile(clientId),
@@ -74,6 +115,8 @@ export default function ClientDetailPage() {
             nutritionPlansApi.getUserNutritionPlans(clientId),
             progressTrackingApi.getUserProgress(clientId),
             clientNotesApi.getNotes(user.id, clientId),
+            trainerProfileApi.getProfile(user.id),
+            clientManagementApi.getClients(user.id),
           ]);
 
         setClientRelation(relation);
@@ -83,6 +126,16 @@ export default function ClientDetailPage() {
         setNutritionPlans(nutritionData);
         setProgressRecords(progressData);
         setNotes(notesData);
+        setConnectOnboarded(Boolean(trainerProfile?.stripe_connect_onboarded));
+
+        const rosterMatch = rosterClients.find((c) => c.client_id === clientId);
+        if (rosterMatch) {
+          setInvoiceableClient({
+            id: rosterMatch.client_id,
+            email: rosterMatch.client_email,
+            name: rosterMatch.client_name,
+          });
+        }
       } catch (error) {
         console.error('Error fetching client data:', error);
       } finally {
@@ -133,6 +186,60 @@ export default function ClientDetailPage() {
     refreshNotes();
   };
 
+  const openIntakeDialog = () => {
+    setIntakeForm(intakeFormFromProfile(clientProfile));
+    setIntakeDialogOpen(true);
+  };
+
+  const handleSaveIntake = async () => {
+    if (!clientId) return;
+    setSavingIntake(true);
+
+    const result = await userProfilesApi.updateProfile({
+      id: clientId,
+      height_cm: intakeForm.height_cm ? Number(intakeForm.height_cm) : undefined,
+      weight_kg: intakeForm.weight_kg ? Number(intakeForm.weight_kg) : undefined,
+      date_of_birth: intakeForm.date_of_birth || undefined,
+      gender: intakeForm.gender || undefined,
+      activity_level: intakeForm.activity_level || undefined,
+      primary_goal: intakeForm.primary_goal || undefined,
+      dietary_restrictions: intakeForm.dietary_restrictions,
+      allergies: intakeForm.allergies,
+    });
+
+    setSavingIntake(false);
+
+    if (result) {
+      setClientProfile(result);
+      setIntakeDialogOpen(false);
+      toast.success('Intake answers updated');
+    } else {
+      toast.error('Failed to update intake answers');
+    }
+  };
+
+  const handleCreateNutritionPlan = async () => {
+    if (!user?.id || !clientId) return;
+    setCreatingPlan(true);
+
+    const plan = await nutritionPlansApi.createNutritionPlan({
+      user_id: clientId,
+      name: `${clientName}'s Nutrition Plan`,
+      is_active: true,
+      is_template: false,
+      plan_type: 'full',
+      created_by_trainer_id: user.id,
+    });
+
+    setCreatingPlan(false);
+
+    if (plan?.id) {
+      router.push(`/trainer/meal-plans/${plan.id}?client=${clientId}`);
+    } else {
+      toast.error('Failed to create nutrition plan');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -180,9 +287,7 @@ export default function ClientDetailPage() {
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
                   <h1 className="text-2xl font-bold">{clientName}</h1>
-                  <Badge className="bg-green-500">
-                    {clientRelation.status}
-                  </Badge>
+                  <ClientStatusBadge status={clientRelation.status} />
                 </div>
                 <p className="text-muted-foreground mb-4">
                   {clientProfile.bio || 'No bio available'}
@@ -198,6 +303,12 @@ export default function ClientDetailPage() {
                       Schedule
                     </Button>
                   </Link>
+                  {connectOnboarded && invoiceableClient && (
+                    <Button variant="outline" className="gap-2" onClick={() => setInvoiceDialogOpen(true)}>
+                      <Send className="h-4 w-4" />
+                      Invoice Client
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -376,7 +487,77 @@ export default function ClientDetailPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="nutrition">
+        <TabsContent value="nutrition" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div>
+                  <CardTitle>Intake Answers</CardTitle>
+                  <CardDescription>
+                    Used to calculate macro targets — edit if self-reported data looks off
+                  </CardDescription>
+                </div>
+                <Button size="sm" variant="outline" className="gap-1" onClick={openIntakeDialog}>
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Height</p>
+                  <p className="font-medium">{clientProfile.height_cm ? `${clientProfile.height_cm} cm` : 'Not set'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Weight</p>
+                  <p className="font-medium">{clientProfile.weight_kg ? `${clientProfile.weight_kg} kg` : 'Not set'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Date of Birth</p>
+                  <p className="font-medium">
+                    {clientProfile.date_of_birth
+                      ? new Date(clientProfile.date_of_birth).toLocaleDateString()
+                      : 'Not set'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Sex</p>
+                  <p className="font-medium capitalize">{clientProfile.gender || 'Not set'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Activity Level</p>
+                  <p className="font-medium capitalize">
+                    {clientProfile.activity_level?.replace('_', ' ') || 'Not set'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Primary Goal</p>
+                  <p className="font-medium capitalize">{clientProfile.primary_goal || 'Not set'}</p>
+                </div>
+              </div>
+              {((clientProfile.dietary_restrictions?.length ?? 0) > 0 ||
+                (clientProfile.allergies?.length ?? 0) > 0) && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {(clientProfile.dietary_restrictions || []).map((tag) => (
+                    <Badge key={`diet-${tag}`} variant="secondary">{tag}</Badge>
+                  ))}
+                  {(clientProfile.allergies || []).map((tag) => (
+                    <Badge key={`allergy-${tag}`} variant="outline" className="border-destructive/40 text-destructive">
+                      ⚠ {tag}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              {!clientProfile.weight_kg && (
+                <p className="mt-4 text-xs text-muted-foreground">
+                  This client hasn&apos;t completed onboarding yet — the macro calculator will need weight,
+                  activity level, and goal before it can suggest targets.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
@@ -387,10 +568,19 @@ export default function ClientDetailPage() {
                   </CardDescription>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    className="gap-1"
+                    onClick={handleCreateNutritionPlan}
+                    disabled={creatingPlan}
+                  >
+                    <Plus className="h-4 w-4" />
+                    {creatingPlan ? 'Creating...' : 'Create Nutrition Plan'}
+                  </Button>
                   <Link href={`/trainer/meal-plans?client=${clientId}`}>
                     <Button size="sm" variant="outline" className="gap-1">
                       <Utensils className="h-4 w-4" />
-                      Assign Meal Plan
+                      Apply Template
                     </Button>
                   </Link>
                   <Button size="sm" variant="outline" className="gap-1" onClick={handleMessage}>
@@ -406,32 +596,35 @@ export default function ClientDetailPage() {
                   <p className="text-center text-muted-foreground py-8">
                     No meal plan assigned
                   </p>
-                  <Link href={`/trainer/meal-plans?client=${clientId}`}>
-                    <Button variant="outline" className="w-full">
-                      Assign Meal Plan
-                    </Button>
-                  </Link>
+                  <Button className="w-full gap-2" onClick={handleCreateNutritionPlan} disabled={creatingPlan}>
+                    <Plus className="h-4 w-4" />
+                    {creatingPlan ? 'Creating...' : 'Create Nutrition Plan'}
+                  </Button>
                 </>
               ) : (
                 <div className="space-y-2">
                   {nutritionPlans.map((plan) => (
-                    <div key={plan.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
+                    <Link
+                      key={plan.id}
+                      href={`/trainer/meal-plans/${plan.id}?client=${clientId}`}
+                      className="flex items-center justify-between rounded-md border p-3 text-sm hover:bg-muted/40 transition-colors"
+                    >
                       <div>
                         <p className="font-medium">{plan.name}</p>
                         <p className="text-muted-foreground">
-                          {plan.daily_calories ? `${plan.daily_calories} cal/day` : ''}
+                          {plan.daily_calories ? `${plan.daily_calories} cal/day` : 'No targets set yet'}
                         </p>
                       </div>
-                      <Badge variant={plan.is_active ? 'default' : 'secondary'}>
-                        {plan.is_active ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">
+                          {plan.plan_type === 'flexible' ? 'Flexible' : 'Full plan'}
+                        </Badge>
+                        <Badge variant={plan.is_active ? 'default' : 'secondary'}>
+                          {plan.is_active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </div>
+                    </Link>
                   ))}
-                  <Link href={`/trainer/meal-plans?client=${clientId}`}>
-                    <Button variant="outline" className="w-full">
-                      Manage Meal Plans
-                    </Button>
-                  </Link>
                 </div>
               )}
             </CardContent>
@@ -524,6 +717,35 @@ export default function ClientDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={intakeDialogOpen} onOpenChange={setIntakeDialogOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Intake Answers</DialogTitle>
+            <DialogDescription>
+              Correct {clientName}&apos;s self-reported details. This feeds the macro calculator.
+            </DialogDescription>
+          </DialogHeader>
+          <ClientIntakeForm value={intakeForm} onChange={setIntakeForm} idPrefix="client-intake" />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIntakeDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveIntake} disabled={savingIntake}>
+              {savingIntake ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {invoiceableClient && (
+        <InvoiceClientDialog
+          open={invoiceDialogOpen}
+          onOpenChange={setInvoiceDialogOpen}
+          clients={[invoiceableClient]}
+          defaultClientId={invoiceableClient.id}
+        />
+      )}
     </div>
   );
 }

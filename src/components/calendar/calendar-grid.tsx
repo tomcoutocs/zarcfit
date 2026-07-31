@@ -1,4 +1,5 @@
 import React from 'react';
+import { Plus } from 'lucide-react';
 import { CalendarEvent } from '@/lib/supabase';
 
 interface CalendarGridProps {
@@ -7,6 +8,10 @@ interface CalendarGridProps {
   events: CalendarEvent[];
   onEventClick?: (event: CalendarEvent) => void;
   onDateClick?: (date: Date) => void;
+  /** Shows a small "+" button in the bottom-right of each day cell (e.g. trainer schedule). */
+  showAddButton?: boolean;
+  /** Called when the "+" button is clicked. Falls back to onDateClick if omitted. */
+  onAddClick?: (date: Date) => void;
 }
 
 interface CalendarDay {
@@ -16,7 +21,15 @@ interface CalendarDay {
   events: CalendarEvent[];
 }
 
-export function CalendarGrid({ year, month, events = [], onEventClick, onDateClick }: CalendarGridProps) {
+export function CalendarGrid({
+  year,
+  month,
+  events = [],
+  onEventClick,
+  onDateClick,
+  showAddButton = false,
+  onAddClick,
+}: CalendarGridProps) {
   // Generate days for the selected month
   const safeEvents = events || []; // Ensure events is never undefined or null
   const days = generateCalendarDays(year, month, safeEvents);
@@ -26,7 +39,7 @@ export function CalendarGrid({ year, month, events = [], onEventClick, onDateCli
       {days.map((day, index) => (
         <div
           key={index}
-          className={`min-h-[100px] p-1 border rounded-md ${
+          className={`group relative min-h-[100px] p-1 border rounded-md ${
             !day.isCurrentMonth ? 'bg-muted text-muted-foreground' : ''
           } ${day.isToday ? 'border-primary' : ''} hover:bg-accent/50 cursor-pointer transition-colors`}
           onClick={() => onDateClick?.(day.date)}
@@ -62,6 +75,20 @@ export function CalendarGrid({ year, month, events = [], onEventClick, onDateCli
               </div>
             ))}
           </div>
+
+          {showAddButton && (
+            <button
+              type="button"
+              aria-label="Add event"
+              className="absolute bottom-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:opacity-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                (onAddClick ?? onDateClick)?.(day.date);
+              }}
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          )}
         </div>
       ))}
     </div>
@@ -155,6 +182,8 @@ function getEventStyles(type: string) {
       return 'bg-orange-100 text-orange-800 border-l-2 border-orange-500';
     case 'milestone':
       return 'bg-pink-100 text-pink-800 border-l-2 border-pink-500';
+    case 'unavailable':
+      return 'bg-gray-200 text-gray-700 border-l-2 border-gray-500';
     default:
       return 'bg-gray-100 text-gray-800 border-l-2 border-gray-500';
   }

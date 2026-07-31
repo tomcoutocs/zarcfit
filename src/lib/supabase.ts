@@ -11,9 +11,10 @@ export type CalendarEvent = {
   start_time?: string;
   end_time?: string;
   is_all_day: boolean;
-  event_type: 'workout' | 'coaching' | 'nutrition' | 'recovery' | 'milestone';
+  event_type: 'workout' | 'coaching' | 'nutrition' | 'recovery' | 'milestone' | 'unavailable';
   has_reminder: boolean;
   is_recurring: boolean;
+  meeting_url?: string;
   user_id: string;
   created_at?: string;
 };

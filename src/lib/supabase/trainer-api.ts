@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { resolveClientLimit } from '@/lib/trainer-plans';
 
 // ============================================
 // TYPES
@@ -15,9 +16,16 @@ export type TrainerProfile = {
   website?: string;
   avatar_url?: string;
   is_active: boolean;
-  subscription_tier: 'free' | 'basic' | 'pro' | 'enterprise';
+  // 'basic'/'enterprise' are legacy values from the original schema — the
+  // Stripe checkout/webhook flow and TRAINER_PLANS only ever write/read
+  // 'free' | 'starter' | 'growth' | 'pro' (see retier-subscription.sql).
+  subscription_tier: 'free' | 'starter' | 'growth' | 'pro' | 'basic' | 'enterprise';
   subscription_status: 'active' | 'trial' | 'cancelled' | 'past_due';
   max_clients: number;
+  stripe_customer_id?: string;
+  stripe_subscription_id?: string;
+  stripe_connect_account_id?: string;
+  stripe_connect_onboarded?: boolean;
   created_at?: string;
   updated_at?: string;
 };
@@ -96,6 +104,7 @@ export type CreateInvitationResult =
   | { status: 'invalid_email' }
   | { status: 'not_a_trainer' }
   | { status: 'not_authenticated' }
+  | { status: 'limit_reached'; limit: number; usage: number }
   | { status: 'error' };
 
 export type TrainerSettings = {
@@ -450,6 +459,11 @@ export const invitationApi = {
       return { status: 'success', invitation: result.invitation };
     }
 
+    if (result.status === 'limit_reached') {
+      const limited = data as { limit?: number; usage?: number };
+      return { status: 'limit_reached', limit: Number(limited.limit ?? 0), usage: Number(limited.usage ?? 0) };
+    }
+
     if (
       result.status === 'is_trainer' ||
       result.status === 'invalid_email' ||
@@ -523,6 +537,65 @@ export const invitationApi = {
     }
 
     return true;
+  },
+};
+
+// ============================================
+// BILLING / USAGE API (PF-312, PF-313)
+// ============================================
+
+export type ClientUsage = {
+  /** Roster clients with status = 'active'. Drives the "X of Y clients" meter. */
+  activeCount: number;
+  /** Roster clients with status = 'paused' — still count against the cap. */
+  pausedCount: number;
+  /** Pending, non-expired invitations — would become clients on acceptance. */
+  pendingInvitationCount: number;
+  /** Effective seat count against the limit: active + paused + pending invites. */
+  usageForLimit: number;
+  limit: number;
+  tier: string;
+  atCap: boolean;
+};
+
+export const billingApi = {
+  getClientUsage: async (trainerId: string): Promise<ClientUsage> => {
+    const [profileRes, clientsRes, invitesRes] = await Promise.all([
+      supabase
+        .from('trainer_profiles')
+        .select('max_clients, subscription_tier')
+        .eq('id', trainerId)
+        .single(),
+      supabase.from('trainer_clients').select('status').eq('trainer_id', trainerId).in('status', ['active', 'paused']),
+      supabase.from('client_invitations').select('expires_at').eq('trainer_id', trainerId).eq('status', 'pending'),
+    ]);
+
+    const clientRows = (clientsRes.data as { status: string }[] | null) || [];
+    const activeCount = clientRows.filter((row) => row.status === 'active').length;
+    const pausedCount = clientRows.filter((row) => row.status === 'paused').length;
+
+    const now = Date.now();
+    const inviteRows = (invitesRes.data as { expires_at: string | null }[] | null) || [];
+    const pendingInvitationCount = inviteRows.filter(
+      (row) => !row.expires_at || new Date(row.expires_at).getTime() > now
+    ).length;
+
+    const tier = (profileRes.data?.subscription_tier as string | undefined) || 'free';
+    const limit = resolveClientLimit({
+      max_clients: profileRes.data?.max_clients as number | null | undefined,
+      subscription_tier: tier,
+    });
+    const usageForLimit = activeCount + pausedCount + pendingInvitationCount;
+
+    return {
+      activeCount,
+      pausedCount,
+      pendingInvitationCount,
+      usageForLimit,
+      limit,
+      tier,
+      atCap: usageForLimit >= limit,
+    };
   },
 };
 
