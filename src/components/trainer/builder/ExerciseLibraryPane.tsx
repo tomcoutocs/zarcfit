@@ -1,7 +1,6 @@
 'use client';
 
 import { useDraggable } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
 import type { Exercise } from '@/lib/supabase/dashboard-api';
 import { Input } from '@/components/ui/input';
 import {
@@ -16,15 +15,16 @@ import { cn } from '@/lib/utils';
 
 function DraggableExercise({ exercise }: { exercise: Exercise }) {
   const id = exercise.id || exercise.name;
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `library-${id}`,
     data: { type: 'library', exercise },
   });
 
+  // No transform on the source — DragOverlay owns the cursor-following preview.
+  // Applying both causes the ghost to drift away from the pointer.
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Translate.toString(transform) }}
       className={cn(
         'flex items-center gap-2 rounded-md border bg-background px-2 py-2 text-sm cursor-grab active:cursor-grabbing',
         isDragging && 'opacity-40'
@@ -67,8 +67,8 @@ export function ExerciseLibraryPane({
   equipmentList,
 }: Props) {
   return (
-    <aside className="flex h-full min-h-[420px] flex-col rounded-lg border bg-card">
-      <div className="border-b p-3 space-y-2">
+    <aside className="flex max-h-[min(70vh,720px)] flex-col overflow-hidden rounded-lg border bg-card lg:max-h-[calc(100vh-6rem)]">
+      <div className="shrink-0 space-y-2 border-b p-3">
         <p className="text-sm font-semibold">Exercise database</p>
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -111,7 +111,7 @@ export function ExerciseLibraryPane({
           Drag an exercise onto a session on the left
         </p>
       </div>
-      <div className="flex-1 space-y-1.5 overflow-y-auto p-2">
+      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain p-2">
         {exercises.length === 0 ? (
           <p className="p-4 text-center text-sm text-muted-foreground">No matches</p>
         ) : (

@@ -654,7 +654,7 @@ export default function ProgramBuilderPage() {
                 )}
               </div>
 
-              <div className="lg:sticky lg:top-4 lg:self-start">
+              <div className="lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-6rem)]">
                 <ExerciseLibraryPane
                   exercises={filteredLibrary}
                   search={libSearch}
@@ -669,10 +669,10 @@ export default function ProgramBuilderPage() {
               </div>
             </div>
 
-            <DragOverlay>
+            <DragOverlay dropAnimation={null}>
               {activeDrag ? (
-                <div className="rounded-md border bg-background px-3 py-2 text-sm shadow-lg">
-                  {activeDrag.label}
+                <div className="flex w-[280px] cursor-grabbing items-center gap-2 rounded-md border bg-background px-2 py-2 text-sm shadow-lg">
+                  <span className="font-medium">{activeDrag.label}</span>
                 </div>
               ) : null}
             </DragOverlay>
