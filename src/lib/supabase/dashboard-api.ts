@@ -83,6 +83,8 @@ export type Exercise = {
   equipment?: string;
   difficulty?: 'beginner' | 'intermediate' | 'advanced';
   video_url?: string;
+  /** Null = global library; set for trainer-owned custom exercises */
+  created_by_trainer_id?: string | null;
   created_at?: string;
 };
 
@@ -823,7 +825,7 @@ export const workoutLogsApi = {
   }
 };
 
-// Exercise Library API (shared, read-only reference data)
+// Exercise Library API — global seed + trainer custom exercises
 export const exercisesApi = {
   getAll: async (): Promise<Exercise[]> => {
     const { data, error } = await supabase
@@ -843,7 +845,95 @@ export const exercisesApi = {
     }
 
     return data || [];
-  }
+  },
+
+  getCustomForTrainer: async (trainerId: string): Promise<Exercise[]> => {
+    const { data, error } = await supabase
+      .from('exercises')
+      .select('*')
+      .eq('created_by_trainer_id', trainerId)
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching custom exercises:', error);
+      return [];
+    }
+    return data || [];
+  },
+
+  create: async (
+    trainerId: string,
+    input: {
+      name: string;
+      muscle_group?: string;
+      equipment?: string;
+      difficulty?: Exercise['difficulty'];
+      video_url?: string;
+      description?: string;
+    }
+  ): Promise<Exercise | null> => {
+    const { data, error } = await supabase
+      .from('exercises')
+      .insert({
+        name: input.name.trim(),
+        muscle_group: input.muscle_group || null,
+        equipment: input.equipment || null,
+        difficulty: input.difficulty || 'beginner',
+        video_url: input.video_url?.trim() || null,
+        description: input.description?.trim() || null,
+        created_by_trainer_id: trainerId,
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error creating custom exercise:', error);
+      throw error;
+    }
+    return data;
+  },
+
+  update: async (
+    id: string,
+    input: Partial<{
+      name: string;
+      muscle_group: string;
+      equipment: string;
+      difficulty: Exercise['difficulty'];
+      video_url: string;
+      description: string;
+    }>
+  ): Promise<Exercise | null> => {
+    const payload: Record<string, unknown> = {};
+    if (input.name !== undefined) payload.name = input.name.trim();
+    if (input.muscle_group !== undefined) payload.muscle_group = input.muscle_group || null;
+    if (input.equipment !== undefined) payload.equipment = input.equipment || null;
+    if (input.difficulty !== undefined) payload.difficulty = input.difficulty;
+    if (input.video_url !== undefined) payload.video_url = input.video_url.trim() || null;
+    if (input.description !== undefined) payload.description = input.description.trim() || null;
+
+    const { data, error } = await supabase
+      .from('exercises')
+      .update(payload)
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error updating custom exercise:', error);
+      throw error;
+    }
+    return data;
+  },
+
+  delete: async (id: string): Promise<boolean> => {
+    const { error } = await supabase.from('exercises').delete().eq('id', id);
+    if (error) {
+      console.error('Error deleting custom exercise:', error);
+      throw error;
+    }
+    return true;
+  },
 };
 
 // Exercise Logs API — the individual sets/reps/weight entries within a

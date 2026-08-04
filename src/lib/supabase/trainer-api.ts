@@ -695,6 +695,185 @@ export const clientNotesApi = {
 };
 
 // ============================================
+// CONNECT INVOICES + RECURRING SUBSCRIPTIONS (CA-401–404)
+// ============================================
+
+export type TrainerClientInvoice = {
+  id: string;
+  trainer_id: string;
+  client_id: string | null;
+  stripe_invoice_id: string;
+  stripe_account_id: string;
+  amount_cents: number;
+  currency: string;
+  status: 'draft' | 'open' | 'paid' | 'void' | 'uncollectible' | 'payment_failed';
+  description?: string | null;
+  hosted_invoice_url?: string | null;
+  due_date?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type InvoiceBillingStatus = 'paid' | 'overdue' | 'unpaid' | 'none';
+
+/** Roster/detail badge status from a client's most recent invoice (CA-402). */
+export function resolveInvoiceBillingStatus(
+  invoice: TrainerClientInvoice | null | undefined
+): InvoiceBillingStatus {
+  if (!invoice) return 'none';
+  if (invoice.status === 'paid') return 'paid';
+  if (invoice.status === 'void' || invoice.status === 'uncollectible') return 'none';
+
+  const isPastDue = invoice.due_date ? new Date(invoice.due_date) < new Date() : false;
+  if (isPastDue) return 'overdue';
+
+  // 'draft', 'open', 'payment_failed' with no due date (or not yet due) yet.
+  return 'unpaid';
+}
+
+/** Picks the most recently created invoice per client_id. */
+export function latestInvoiceByClient(
+  invoices: TrainerClientInvoice[]
+): Map<string, TrainerClientInvoice> {
+  const latest = new Map<string, TrainerClientInvoice>();
+  for (const invoice of invoices) {
+    if (!invoice.client_id) continue;
+    const current = latest.get(invoice.client_id);
+    if (!current || new Date(invoice.created_at || 0) > new Date(current.created_at || 0)) {
+      latest.set(invoice.client_id, invoice);
+    }
+  }
+  return latest;
+}
+
+export const invoicesApi = {
+  getInvoicesForTrainer: async (trainerId: string): Promise<TrainerClientInvoice[]> => {
+    const { data, error } = await supabase
+      .from('trainer_client_invoices')
+      .select('*')
+      .eq('trainer_id', trainerId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching invoices:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  getInvoicesForClient: async (trainerId: string, clientId: string): Promise<TrainerClientInvoice[]> => {
+    const { data, error } = await supabase
+      .from('trainer_client_invoices')
+      .select('*')
+      .eq('trainer_id', trainerId)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching client invoices:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  resendInvoice: async (invoiceId: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/stripe/connect/invoices/${invoiceId}/resend`, { method: 'POST' });
+      return res.ok;
+    } catch (error) {
+      console.error('Error resending invoice:', error);
+      return false;
+    }
+  },
+
+  voidInvoice: async (invoiceId: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/stripe/connect/invoices/${invoiceId}/void`, { method: 'POST' });
+      return res.ok;
+    } catch (error) {
+      console.error('Error voiding invoice:', error);
+      return false;
+    }
+  },
+};
+
+export type TrainerClientSubscription = {
+  id: string;
+  trainer_id: string;
+  client_id: string | null;
+  stripe_account_id: string;
+  stripe_customer_id: string;
+  stripe_subscription_id: string;
+  stripe_price_id?: string | null;
+  amount_cents: number;
+  currency: string;
+  interval: 'month' | 'year';
+  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
+  description?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export const subscriptionsApi = {
+  getSubscriptionsForClient: async (
+    trainerId: string,
+    clientId: string
+  ): Promise<TrainerClientSubscription[]> => {
+    const { data, error } = await supabase
+      .from('trainer_client_subscriptions')
+      .select('*')
+      .eq('trainer_id', trainerId)
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching client subscriptions:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  createSubscription: async (input: {
+    clientId: string;
+    clientEmail: string;
+    clientName: string;
+    amountCents: number;
+    interval: 'month' | 'year';
+    description?: string;
+  }): Promise<{ ok: true } | { ok: false; error: string }> => {
+    try {
+      const res = await fetch('/api/stripe/connect/subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { ok: false, error: data.error || 'Failed to create subscription' };
+      }
+      return { ok: true };
+    } catch {
+      return { ok: false, error: 'Failed to create subscription' };
+    }
+  },
+
+  cancelSubscription: async (subscriptionId: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/stripe/connect/subscription/${subscriptionId}/cancel`, {
+        method: 'POST',
+      });
+      return res.ok;
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      return false;
+    }
+  },
+};
+
+// ============================================
 // MESSAGING API
 // ============================================
 
@@ -783,6 +962,16 @@ export const messagingApi = {
       return null;
     }
 
+    // CA-203: best-effort web push to the other party. Never blocks or
+    // fails the send if this errors out or push isn't configured.
+    if (data?.id && typeof fetch !== 'undefined') {
+      fetch('/api/push/notify-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId: data.conversation_id, messageId: data.id }),
+      }).catch(() => {});
+    }
+
     return data;
   },
 
@@ -838,7 +1027,7 @@ export type TrainerDashboardStats = {
 };
 
 export type ClientActivityItem = {
-  activity_type: 'workout' | 'progress' | 'goal' | 'message' | 'sleep';
+  activity_type: 'workout' | 'progress' | 'goal' | 'message' | 'sleep' | 'check_in';
   client_id: string;
   client_name: string;
   summary: string;
@@ -855,7 +1044,8 @@ export type UserNotification = {
     | 'workout_logged'
     | 'progress_logged'
     | 'goal_updated'
-    | 'sleep_logged';
+    | 'sleep_logged'
+    | 'check_in_logged';
   title: string;
   body: string;
   link_path?: string | null;

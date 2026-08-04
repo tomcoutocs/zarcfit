@@ -6,6 +6,7 @@
 -- Prefer well-known instructional demos (Jeff Nippard, Athlean-X,
 -- Scott Herman, Renaissance Periodization / Bret Contreras, etc.).
 -- Safe to re-run — overwrites video_url by exact exercise name.
+-- CA-102 expansion: also run exercise-video-urls-expansion.sql (300+ library).
 
 -- Chest
 UPDATE exercises SET video_url = 'https://www.youtube.com/watch?v=vcBig73ojpE' WHERE name = 'Bench Press';

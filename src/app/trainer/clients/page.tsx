@@ -6,8 +6,12 @@ import {
   clientManagementApi,
   invitationApi,
   trainerProfileApi,
+  invoicesApi,
+  resolveInvoiceBillingStatus,
+  latestInvoiceByClient,
   ClientWithProfile,
   ClientInvitation,
+  TrainerClientInvoice,
   buildInvitationUrl,
   getInvitationDisplayStatus,
 } from '@/lib/supabase/trainer-api';
@@ -59,6 +63,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ClientStatusBadge } from '@/components/trainer/ClientStatusBadge';
+import { BillingStatusBadge } from '@/components/trainer/BillingStatusBadge';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
@@ -133,20 +138,23 @@ function ClientsContent() {
   const [actionError, setActionError] = useState('');
   const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [billingReady, setBillingReady] = useState(false);
+  const [connectOnboarded, setConnectOnboarded] = useState(false);
+  const [invoicesByClient, setInvoicesByClient] = useState<Map<string, TrainerClientInvoice>>(new Map());
 
   const fetchData = useCallback(async () => {
     if (!user?.id) return;
 
     try {
-      const [clientsData, invitationsData, trainerProfile] = await Promise.all([
+      const [clientsData, invitationsData, trainerProfile, invoicesData] = await Promise.all([
         clientManagementApi.getClients(user.id),
         invitationApi.getInvitations(user.id),
         trainerProfileApi.getProfile(user.id),
+        invoicesApi.getInvoicesForTrainer(user.id),
       ]);
       setClients(clientsData);
       setInvitations(invitationsData);
-      setBillingReady(Boolean(trainerProfile?.stripe_connect_onboarded));
+      setConnectOnboarded(Boolean(trainerProfile?.stripe_connect_onboarded));
+      setInvoicesByClient(latestInvoiceByClient(invoicesData));
     } catch (error) {
       console.error('Error fetching clients:', error);
     } finally {
@@ -303,14 +311,7 @@ function ClientsContent() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold">Clients</h1>
-            {billingReady && (
-              <Badge variant="secondary" className="gap-1">
-                Billing ready
-              </Badge>
-            )}
-          </div>
+          <h1 className="text-3xl font-bold">Clients</h1>
           <p className="text-muted-foreground">
             Manage your client roster and track pending invitation links
           </p>
@@ -496,11 +497,16 @@ function ClientsContent() {
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <CardTitle className="text-lg truncate">
                                 {client.client_name}
                               </CardTitle>
                               <ClientStatusBadge status={client.status} />
+                              {connectOnboarded && (
+                                <BillingStatusBadge
+                                  status={resolveInvoiceBillingStatus(invoicesByClient.get(client.client_id))}
+                                />
+                              )}
                             </div>
                             <CardDescription className="text-sm truncate">
                               {client.client_email}

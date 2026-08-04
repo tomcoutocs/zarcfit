@@ -14,6 +14,7 @@ import { clientManagementApi, TrainerWithProfile, notificationsApi } from '@/lib
 import { useRealtimeNotifications } from '@/hooks/use-realtime-notifications';
 import NotificationsFeed from '@/components/NotificationsFeed';
 import { ClientOnboardingChecklist } from '@/components/client/ClientOnboardingChecklist';
+import { CheckInBanner } from '@/components/client/CheckInBanner';
 import { MessageSquare, UserRound } from 'lucide-react';
 import { workoutLogsApi } from '@/lib/supabase/dashboard-api';
 import { DashboardPageSkeleton } from '@/components/ui/dashboard-skeleton';
@@ -202,6 +203,8 @@ export default function DashboardPage() {
       />
 
       {user?.id && <MyTrainerCard userId={user.id} />}
+
+      {user?.id && <CheckInBanner userId={user.id} />}
 
       {user?.id && (
         <ClientOnboardingChecklist

@@ -107,7 +107,7 @@ export type ExerciseDifficultyRating = {
   log_count: number;
 };
 
-function easierExercise(
+export function easierExercise(
   exercises: Exercise[],
   currentId: string
 ): Exercise | undefined {
@@ -122,7 +122,7 @@ function easierExercise(
   return sameMuscle[0] || swapExerciseSuggestion(exercises, currentId)[0];
 }
 
-function harderExercise(
+export function harderExercise(
   exercises: Exercise[],
   currentId: string
 ): Exercise | undefined {

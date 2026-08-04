@@ -104,6 +104,32 @@ export async function POST(request: NextRequest) {
     const finalized = await stripe.invoices.finalizeInvoice(invoice.id, {}, { stripeAccount });
     const sent = await stripe.invoices.sendInvoice(finalized.id, {}, { stripeAccount });
 
+    // CA-401: persist so the roster/detail UI can show status without
+    // round-tripping to Stripe; kept in sync afterwards by the Connect
+    // webhook (src/app/api/webhooks/stripe-connect/route.ts).
+    const { error: upsertError } = await auth.supabase.from('trainer_client_invoices').upsert(
+      {
+        trainer_id: auth.user.id,
+        client_id: clientId || null,
+        stripe_invoice_id: sent.id,
+        stripe_account_id: accountId,
+        amount_cents: sent.amount_due ?? Math.round(amountCents),
+        currency: sent.currency || 'usd',
+        status: sent.status || 'open',
+        description: description || null,
+        hosted_invoice_url: sent.hosted_invoice_url || null,
+        due_date: sent.due_date ? new Date(sent.due_date * 1000).toISOString() : null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'stripe_invoice_id' }
+    );
+
+    if (upsertError) {
+      // Non-fatal — the invoice was already sent to the client. Log so we
+      // can investigate why local sync failed (e.g. table not migrated yet).
+      console.error('Error saving invoice record:', upsertError);
+    }
+
     return NextResponse.json({
       invoiceId: sent.id,
       hostedInvoiceUrl: sent.hosted_invoice_url,

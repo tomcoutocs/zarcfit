@@ -1,5 +1,7 @@
 'use client';
 
+import { useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useDraggable } from '@dnd-kit/core';
 import type { Exercise } from '@/lib/supabase/dashboard-api';
 import { Input } from '@/components/ui/input';
@@ -13,6 +15,8 @@ import {
 import { GripVertical, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+const ROW_HEIGHT = 58;
+
 function DraggableExercise({ exercise }: { exercise: Exercise }) {
   const id = exercise.id || exercise.name;
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -21,12 +25,11 @@ function DraggableExercise({ exercise }: { exercise: Exercise }) {
   });
 
   // No transform on the source — DragOverlay owns the cursor-following preview.
-  // Applying both causes the ghost to drift away from the pointer.
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        'flex items-center gap-2 rounded-md border bg-background px-2 py-2 text-sm cursor-grab active:cursor-grabbing',
+        'flex h-[54px] items-center gap-2 rounded-md border bg-background px-2 py-2 text-sm cursor-grab active:cursor-grabbing',
         isDragging && 'opacity-40'
       )}
       {...listeners}
@@ -34,7 +37,12 @@ function DraggableExercise({ exercise }: { exercise: Exercise }) {
     >
       <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">{exercise.name}</p>
+        <p className="truncate font-medium">
+          {exercise.name}
+          {exercise.created_by_trainer_id ? (
+            <span className="ml-1 text-[10px] font-normal text-muted-foreground">(custom)</span>
+          ) : null}
+        </p>
         <p className="truncate text-xs text-muted-foreground">
           {[exercise.muscle_group, exercise.equipment].filter(Boolean).join(' · ')}
         </p>
@@ -66,6 +74,15 @@ export function ExerciseLibraryPane({
   muscleGroups,
   equipmentList,
 }: Props) {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: exercises.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 8,
+  });
+
   return (
     <aside className="flex max-h-[min(70vh,720px)] flex-col overflow-hidden rounded-lg border bg-card lg:max-h-[calc(100vh-6rem)]">
       <div className="shrink-0 space-y-2 border-b p-3">
@@ -108,14 +125,36 @@ export function ExerciseLibraryPane({
           </Select>
         </div>
         <p className="text-xs text-muted-foreground">
-          Drag an exercise onto a session on the left
+          {exercises.length} shown · Drag onto a session
         </p>
       </div>
-      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain p-2">
+      <div
+        ref={parentRef}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2"
+      >
         {exercises.length === 0 ? (
           <p className="p-4 text-center text-sm text-muted-foreground">No matches</p>
         ) : (
-          exercises.map((ex) => <DraggableExercise key={ex.id || ex.name} exercise={ex} />)
+          <div
+            className="relative w-full"
+            style={{ height: `${virtualizer.getTotalSize()}px` }}
+          >
+            {virtualizer.getVirtualItems().map((item) => {
+              const ex = exercises[item.index];
+              return (
+                <div
+                  key={ex.id || ex.name}
+                  className="absolute left-0 top-0 w-full px-0"
+                  style={{
+                    height: `${item.size}px`,
+                    transform: `translateY(${item.start}px)`,
+                  }}
+                >
+                  <DraggableExercise exercise={ex} />
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     </aside>

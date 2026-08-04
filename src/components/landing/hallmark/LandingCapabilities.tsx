@@ -1,4 +1,4 @@
-import { CalendarDays, MessageSquare, Salad, Users, Dumbbell, LineChart } from 'lucide-react';
+import { CalendarDays, MessageSquare, Salad, Users, Dumbbell, LineChart, Sparkles } from 'lucide-react';
 import { Reveal } from './Reveal';
 
 const CAPABILITIES = [
@@ -37,6 +37,12 @@ const CAPABILITIES = [
     title: 'Progress views',
     description: 'Workout logs, sleep tracking, and goals in one client profile.',
     className: 'hm-cap-card--wide',
+  },
+  {
+    icon: Sparkles,
+    title: 'Adaptive programming',
+    description: 'Clients rate exercise difficulty after every workout — regenerate next week\u2019s sets, reps, and swaps in one click.',
+    className: 'hm-cap-card--half',
   },
 ];
 

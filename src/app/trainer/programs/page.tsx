@@ -239,6 +239,9 @@ function ProgramsContent() {
         title="Workout Plans"
         description="Build reusable templates and apply them to clients"
       >
+        <Button variant="outline" asChild>
+          <Link href="/trainer/programs/exercises">Custom exercises</Link>
+        </Button>
         <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2" onClick={openCreateTemplateDialog}>

@@ -3,6 +3,7 @@ import LandingNav from './LandingNav';
 import LandingHero from './LandingHero';
 import LandingWorkbench from './LandingWorkbench';
 import LandingCapabilities from './LandingCapabilities';
+import LandingNutrition from './LandingNutrition';
 import LandingWorkflow from './LandingWorkflow';
 import LandingPricing from './LandingPricing';
 import LandingCta from './LandingCta';
@@ -16,6 +17,7 @@ export default function HallmarkLanding() {
         <LandingHero />
         <LandingWorkbench />
         <LandingCapabilities />
+        <LandingNutrition />
         <LandingWorkflow />
         <LandingPricing />
         <LandingCta />

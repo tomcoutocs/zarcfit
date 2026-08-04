@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { subscribeToPush, unsubscribeFromPush } from '@/lib/push/client';
 
 type ProfilePreferencesProps = {
   userId: string;
@@ -55,6 +56,22 @@ export function ProfilePreferences({ userId }: ProfilePreferencesProps) {
     }
     load();
   }, [userId]);
+
+  // CA-204: the "push" toggle also drives the actual browser subscription,
+  // not just the saved preference. Reverts if permission is denied.
+  const handlePushToggle = async (checked: boolean) => {
+    setNotifications((prev) => ({ ...prev, push: checked }));
+
+    if (checked) {
+      const subscribed = await subscribeToPush();
+      if (!subscribed) {
+        setNotifications((prev) => ({ ...prev, push: false }));
+        toast.error('Could not enable push notifications — check your browser permissions');
+      }
+    } else {
+      await unsubscribeFromPush();
+    }
+  };
 
   const handleSave = async () => {
     if (!profile) return;
@@ -110,8 +127,10 @@ export function ProfilePreferences({ userId }: ProfilePreferencesProps) {
               <Switch
                 id={`notif-${key}`}
                 checked={notifications[key]}
-                onCheckedChange={(checked) =>
-                  setNotifications((prev) => ({ ...prev, [key]: checked }))
+                onCheckedChange={
+                  key === 'push'
+                    ? handlePushToggle
+                    : (checked) => setNotifications((prev) => ({ ...prev, [key]: checked }))
                 }
               />
             </div>

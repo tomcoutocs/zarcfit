@@ -13,12 +13,16 @@ import {
   TrainerDashboardStats,
 } from '@/lib/supabase/trainer-api';
 import { userProfilesApi } from '@/lib/supabase/dashboard-api';
+import { checkInsApi, MissedCheckIn } from '@/lib/supabase/check-ins-api';
+import { adaptiveApi, type DifficultyDigestItem } from '@/lib/supabase/adaptive-api';
 import NotificationsFeed from '@/components/NotificationsFeed';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { DashboardPageSkeleton } from '@/components/ui/dashboard-skeleton';
 import { 
   Users, 
@@ -32,6 +36,9 @@ import {
   Moon,
   Target,
   TrendingUp,
+  ClipboardList,
+  Mail,
+  Sparkles,
 } from 'lucide-react';
 
 function formatRelativeTime(iso: string) {
@@ -64,6 +71,8 @@ function activityIcon(type: ClientActivityItem['activity_type']) {
       return MessageSquare;
     case 'sleep':
       return Moon;
+    case 'check_in':
+      return ClipboardList;
     default:
       return Activity;
   }
@@ -90,6 +99,9 @@ export default function TrainerDashboardPage() {
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [missedCheckIns, setMissedCheckIns] = useState<MissedCheckIn[]>([]);
+  const [sendingDigest, setSendingDigest] = useState(false);
+  const [difficultyDigest, setDifficultyDigest] = useState<DifficultyDigestItem[]>([]);
 
   useEffect(() => {
     async function fetchData() {
@@ -99,7 +111,7 @@ export default function TrainerDashboardPage() {
       }
 
       try {
-        const [clientsData, statsData, notificationsData, unread, activityData, profile, trainerProfile] =
+        const [clientsData, statsData, notificationsData, unread, activityData, profile, trainerProfile, digestData] =
           await Promise.all([
             clientManagementApi.getClients(user.id),
             trainerDashboardApi.getStats(),
@@ -108,6 +120,7 @@ export default function TrainerDashboardPage() {
             trainerDashboardApi.getClientActivity(50),
             userProfilesApi.getProfile(user.id),
             trainerProfileApi.getProfile(user.id),
+            adaptiveApi.getTrainerDifficultyDigest(7),
           ]);
         setClients(clientsData);
         setStats(statsData);
@@ -115,6 +128,7 @@ export default function TrainerDashboardPage() {
         setUnreadCount(unread);
         setClientActivity(activityData);
         setDisplayName(profile?.first_name?.trim() || trainerProfile?.business_name?.trim() || '');
+        setDifficultyDigest(digestData);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
         setError('Failed to load dashboard data');
@@ -142,6 +156,29 @@ export default function TrainerDashboardPage() {
     await notificationsApi.markAllRead();
     setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
     setUnreadCount(0);
+  };
+
+  const handleSendDigest = async () => {
+    setSendingDigest(true);
+    const result = await checkInsApi.sendMissedDigest();
+    setSendingDigest(false);
+
+    if (!result) {
+      toast.error('Failed to check missed check-ins');
+      return;
+    }
+
+    setMissedCheckIns(result.clients);
+
+    if (result.reason === 'none_missed') {
+      toast.success('All active clients are up to date on check-ins');
+    } else if (result.sent) {
+      toast.success(`Digest emailed — ${result.clients.length} client(s) missed a check-in`);
+    } else if (result.skipped) {
+      toast.success(`${result.clients.length} client(s) missed a check-in — email not configured yet`);
+    } else {
+      toast.error(result.error || 'Failed to send digest email');
+    }
   };
 
   if (loading) {
@@ -175,7 +212,11 @@ export default function TrainerDashboardPage() {
             Manage your clients and track their progress
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" className="gap-2" onClick={handleSendDigest} disabled={sendingDigest}>
+            <Mail className="h-4 w-4" />
+            {sendingDigest ? 'Checking...' : 'Email missed check-ins digest'}
+          </Button>
           <Link href="/trainer/clients/add">
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
@@ -251,6 +292,79 @@ export default function TrainerDashboardPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
+      )}
+
+      {missedCheckIns.length > 0 && (
+        <Card className="border-amber-500/40 bg-amber-500/10">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-amber-600" />
+              Missed Check-ins
+            </CardTitle>
+            <CardDescription>
+              These active clients haven&apos;t logged a check-in in the last 7 days
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {missedCheckIns.map((client) => (
+                <Link
+                  key={client.client_id}
+                  href={`/trainer/clients/${client.client_id}`}
+                  className="flex items-center justify-between rounded-md border bg-background p-3 text-sm transition-colors hover:bg-accent/40"
+                >
+                  <span className="font-medium">{client.client_name}</span>
+                  <span className="text-muted-foreground">
+                    {client.last_check_in_date
+                      ? `Last check-in ${new Date(client.last_check_in_date).toLocaleDateString()}`
+                      : 'Never checked in'}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {difficultyDigest.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Adaptive Programming Digest
+            </CardTitle>
+            <CardDescription>
+              Exercises your clients rated too hard or too easy in the last 7 days
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {difficultyDigest.map((item) => {
+                const isHard = item.hard_count >= item.easy_count;
+                return (
+                  <Link
+                    key={`${item.client_id}-${item.exercise_id}`}
+                    href={`/trainer/clients/${item.client_id}`}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm transition-colors hover:bg-accent/40"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium">
+                        {item.client_name} · {item.exercise_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Avg {item.avg_difficulty.toFixed(1)}/5 across {item.log_count} log
+                        {item.log_count !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <Badge variant={isHard ? 'destructive' : 'secondary'} className="shrink-0">
+                      {isHard ? `Too hard ×${item.hard_count}` : `Too easy ×${item.easy_count}`}
+                    </Badge>
+                  </Link>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">

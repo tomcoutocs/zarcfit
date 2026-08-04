@@ -26,6 +26,7 @@ import { ImageUpload } from '@/components/ui/image-upload';
 import { InvoiceClientDialog, InvoiceableClient } from '@/components/trainer/InvoiceClientDialog';
 import { CreditCard, Send, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { subscribeToPush, unsubscribeFromPush } from '@/lib/push/client';
 
 const emptyProfileForm = {
   business_name: '',
@@ -232,6 +233,22 @@ function TrainerSettingsContent() {
       toast.error('Checkout failed');
     } finally {
       setCheckoutPlanId(null);
+    }
+  };
+
+  // CA-204: toggling push actually (un)subscribes this device, not just the
+  // saved preference. Reverts the switch if the browser denies permission.
+  const handlePushToggle = async (checked: boolean) => {
+    setSettingsForm((prev) => ({ ...prev, notification_push: checked }));
+
+    if (checked) {
+      const subscribed = await subscribeToPush();
+      if (!subscribed) {
+        setSettingsForm((prev) => ({ ...prev, notification_push: false }));
+        toast.error('Could not enable push notifications — check your browser permissions');
+      }
+    } else {
+      await unsubscribeFromPush();
     }
   };
 
@@ -463,7 +480,7 @@ function TrainerSettingsContent() {
               </div>
               <Switch
                 checked={settingsForm.notification_push}
-                onCheckedChange={(checked) => setSettingsForm(prev => ({ ...prev, notification_push: checked }))}
+                onCheckedChange={handlePushToggle}
               />
             </div>
 
@@ -595,6 +612,22 @@ function TrainerSettingsContent() {
               {connectLoading ? 'Connecting...' : 'Connect Stripe to bill clients'}
             </Button>
           )}
+
+          {/* CA-405: not tax/legal advice — just points trainers at the right place. */}
+          <p className="text-xs text-muted-foreground border-t pt-3">
+            Payouts, 1099-K reporting, and sales tax on client payments are handled by your Stripe
+            Express account, not ZarcFit — see{' '}
+            <a
+              href="https://dashboard.stripe.com/settings/tax"
+              target="_blank"
+              rel="noreferrer"
+              className="underline underline-offset-2"
+            >
+              Stripe Tax
+            </a>{' '}
+            and your Express dashboard&apos;s tax forms for details. This isn&apos;t tax or legal advice —
+            check with your accountant.
+          </p>
         </CardContent>
       </Card>
 

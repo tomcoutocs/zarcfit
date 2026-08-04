@@ -22,6 +22,7 @@ import {
   NutritionPlan,
   ProgressRecord,
 } from '@/lib/supabase/dashboard-api';
+import { checkInsApi, ClientCheckIn } from '@/lib/supabase/check-ins-api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -40,7 +41,9 @@ import Link from 'next/link';
 import { ClientActivitySummary } from '@/components/trainer/ClientActivitySummary';
 import { ClientStatusBadge } from '@/components/trainer/ClientStatusBadge';
 import { AdherenceWidget } from '@/components/trainer/AdherenceWidget';
+import { AdaptiveProgrammingCard } from '@/components/trainer/AdaptiveProgrammingCard';
 import { InvoiceClientDialog, InvoiceableClient } from '@/components/trainer/InvoiceClientDialog';
+import { ClientBillingCard } from '@/components/trainer/ClientBillingCard';
 import {
   ClientIntakeForm,
   IntakeFormValues,
@@ -60,6 +63,7 @@ import {
   Pencil,
   Plus,
   Send,
+  ClipboardList,
 } from 'lucide-react';
 
 function intakeFormFromProfile(profile: UserProfile | null): IntakeFormValues {
@@ -89,6 +93,7 @@ export default function ClientDetailPage() {
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
   const [nutritionPlans, setNutritionPlans] = useState<NutritionPlan[]>([]);
   const [progressRecords, setProgressRecords] = useState<ProgressRecord[]>([]);
+  const [checkIns, setCheckIns] = useState<ClientCheckIn[]>([]);
   const [notes, setNotes] = useState<ClientNote[]>([]);
   const [newNote, setNewNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
@@ -106,7 +111,7 @@ export default function ClientDetailPage() {
       if (!user?.id || !clientId) return;
 
       try {
-        const [relation, profile, programsData, logsData, nutritionData, progressData, notesData, trainerProfile, rosterClients] =
+        const [relation, profile, programsData, logsData, nutritionData, progressData, checkInsData, notesData, trainerProfile, rosterClients] =
           await Promise.all([
             clientManagementApi.getClient(user.id, clientId),
             userProfilesApi.getProfile(clientId),
@@ -114,6 +119,7 @@ export default function ClientDetailPage() {
             workoutLogsApi.getUserLogs(clientId, 10),
             nutritionPlansApi.getUserNutritionPlans(clientId),
             progressTrackingApi.getUserProgress(clientId),
+            checkInsApi.getCheckIns(clientId, 5),
             clientNotesApi.getNotes(user.id, clientId),
             trainerProfileApi.getProfile(user.id),
             clientManagementApi.getClients(user.id),
@@ -125,6 +131,7 @@ export default function ClientDetailPage() {
         setLogs(logsData);
         setNutritionPlans(nutritionData);
         setProgressRecords(progressData);
+        setCheckIns(checkInsData);
         setNotes(notesData);
         setConnectOnboarded(Boolean(trainerProfile?.stripe_connect_onboarded));
 
@@ -346,6 +353,7 @@ export default function ClientDetailPage() {
           <TabsTrigger value="nutrition">Nutrition</TabsTrigger>
           <TabsTrigger value="progress">Progress</TabsTrigger>
           <TabsTrigger value="notes">Notes {notes.length > 0 && `(${notes.length})`}</TabsTrigger>
+          {connectOnboarded && <TabsTrigger value="billing">Billing</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -436,6 +444,49 @@ export default function ClientDetailPage() {
               </CardContent>
             </Card>
           </div>
+
+          <AdaptiveProgrammingCard clientId={clientId} programs={programs} />
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Weekly Check-ins
+              </CardTitle>
+              <CardDescription>
+                Mood, energy, and sleep quality from the client&apos;s last 5 check-ins
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {checkIns.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  No check-ins logged yet
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {checkIns.map((checkIn) => (
+                    <div
+                      key={checkIn.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm"
+                    >
+                      <span className="font-medium">
+                        {new Date(checkIn.check_in_date).toLocaleDateString()}
+                      </span>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground">
+                        <span>Mood {checkIn.mood}/5</span>
+                        <span>Energy {checkIn.energy}/5</span>
+                        <span>Sleep {checkIn.sleep_quality}/5</span>
+                        {checkIn.weight_kg && <span>{checkIn.weight_kg} kg</span>}
+                      </div>
+                      {checkIn.notes && (
+                        <p className="w-full text-xs text-muted-foreground">{checkIn.notes}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="workouts">
@@ -716,6 +767,17 @@ export default function ClientDetailPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {connectOnboarded && (
+          <TabsContent value="billing">
+            <ClientBillingCard
+              trainerId={user?.id || ''}
+              clientId={clientId}
+              connectOnboarded={connectOnboarded}
+              invoiceableClient={invoiceableClient}
+            />
+          </TabsContent>
+        )}
       </Tabs>
 
       <Dialog open={intakeDialogOpen} onOpenChange={setIntakeDialogOpen}>

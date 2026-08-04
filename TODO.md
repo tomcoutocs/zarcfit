@@ -1,67 +1,48 @@
 # Your checklist
 
-Manual / decision items left after the product-feedback round. Code for Phases A–G is in `main`.
+Synced to [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) (competitive gap backlog).
 
 ---
 
-## Today / this week
+## Phase 0 — Launch billing (do these in Stripe / Vercel)
 
-- [ ] **Seed the demo client** (needs `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`)
-  ```bash
-  npm run seed:demo-client -- --trainer your@email.com
-  ```
-- [ ] **Walk `/trainer/clients/{demo-id}`** — Overview, Workouts, Nutrition, Progress, Notes — and write what you’d change
-- [ ] **Click through the new UI locally** — dashboard name, sidebar order, program builder drag-and-drop, schedule month grid, Settings → Billing
+Code is ready; these are **manual Dashboard / env** steps:
 
----
-
-## Stripe (launch blockers)
-
-Do these in the [Stripe Dashboard](https://dashboard.stripe.com) before real checkouts:
-
-- [ ] **Create products/prices** matching the new tiers
-  - Starter — $29/mo — up to 5 clients
-  - Growth — $79/mo — up to 50 clients
-  - Pro — $149/mo — up to 200 clients
-- [ ] **Put price IDs in env** (local + Vercel)
-  - `NEXT_PUBLIC_STRIPE_PRICE_STARTER` / `STRIPE_PRICE_STARTER`
-  - `NEXT_PUBLIC_STRIPE_PRICE_GROWTH` / `STRIPE_PRICE_GROWTH`
-  - `NEXT_PUBLIC_STRIPE_PRICE_PRO` / `STRIPE_PRICE_PRO`
-- [ ] **Register webhook** → `https://your-domain/api/webhooks/stripe`  
+- [ ] **CA-001** Create products/prices: Starter $29 · Growth $79 · Pro $149
+- [ ] **CA-002** Put price IDs in `.env.local` + Vercel  
+  `NEXT_PUBLIC_STRIPE_PRICE_STARTER` / `GROWTH` / `PRO` (and server `STRIPE_PRICE_*`)
+- [ ] **CA-003** Webhook → `https://your-domain/api/webhooks/stripe`  
   Events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`
-- [ ] **Enable Customer Portal** (Billing → Customer portal)
-- [ ] **Enable Connect Express** (Connect → Get started) so trainers can invoice clients
-- [ ] **Smoke-test checkout** with card `4242 4242 4242 4242` and confirm `trainer_profiles` updates
+- [ ] **CA-003b** Connect webhook → `/api/webhooks/stripe-connect` + `STRIPE_CONNECT_WEBHOOK_SECRET`  
+  (invoice + subscription events — see [STRIPE_SETUP.md](./STRIPE_SETUP.md))
+- [ ] **CA-004** Enable Customer Portal + Connect Express
+- [ ] **CA-005** Smoke-test checkout with `4242…` → `trainer_profiles` updates
+- [ ] **CA-006** (Optional) `OPENAI_API_KEY` on Vercel
+- [ ] **CA-007** Prod chat image → `user-uploads` bucket
+- [ ] **Push** Set Vercel `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT`  
+  (`npx web-push generate-vapid-keys`)
 
 Details: [STRIPE_SETUP.md](./STRIPE_SETUP.md)
 
 ---
 
-## Optional but recommended
+## Code backlog status
 
-- [ ] Add `OPENAI_API_KEY` on Vercel (better AI workout/meal drafts)
-- [ ] Prod smoke test: send a chat image attachment → lands in `user-uploads`
-- [ ] Run Playwright E2E with real trainer + client test accounts (`E2E_*` in `.env`)
-
----
-
-## Decisions (reply anytime — shapes later work)
-
-- [ ] Confirm tier prices/caps feel right (or say what you want instead)
-- [ ] Should ZarcFit ever take a % of client→trainer invoices? (currently **0%**)
-- [ ] Multi-trainer / team seats — real near-term need, or later?
-- [ ] Google Calendar / Zoom sync — wait until a paying trainer asks?
+| Phase | Status |
+|-------|--------|
+| 1 Exercise library 300+ + custom CRUD | Done (356 exercises, virtualized builder, `/trainer/programs/exercises`) |
+| 2 PWA + web push | Done (apply `web-push.sql` ✓ · set VAPID in Vercel) |
+| 3 Weekly check-ins | Done |
+| 4 Connect invoice sync + recurring | Done (set Connect webhook secret) |
+| 5 Brand + SEO | Done |
+| 6 Adaptive programming productization | Done |
 
 ---
 
-## Intentionally deferred (don’t block launch)
+## Out of scope for now
 
-- Web push, 2FA, Redis rate limits  
-- Google / Zoom / Calendly OAuth  
-- Multi-trainer orgs  
-- Custom exercise CRUD  
-- Full paid/overdue invoice sync on the roster  
+White-label apps · multi-trainer orgs · Google/Zoom OAuth · client AI coach
 
 ---
 
-*See [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) for the full backlog.*
+*Full backlog: [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) · Audit: [COMPETITIVE_AUDIT.md](./COMPETITIVE_AUDIT.md)*

@@ -24,15 +24,15 @@ const FAQ_ITEMS: FaqItem[] = [
   {
     id: 'general-1',
     category: 'general',
-    question: 'What makes ZarcFit different from other fitness programs?',
+    question: 'What is ZarcFit, exactly?',
     answer: (
       <>
-        <p className="mb-4">ZarcFit combines customized workout plans, nutrition guidance, one-on-one coaching, and a comprehensive tracking app in one platform.</p>
+        <p className="mb-4">ZarcFit is a coaching platform, not a coaching service — it&apos;s the software independent trainers use to run their own client roster. If you&apos;re a client, you&apos;ll use it because your coach invited you onto it.</p>
         <ul className="list-disc pl-6 space-y-2">
-          <li>Customized workout plans based on your goals</li>
-          <li>Personalized nutrition guidance</li>
-          <li>One-on-one coaching from certified trainers</li>
-          <li>A comprehensive app for workouts, meals, and progress</li>
+          <li>Program builder your coach uses to assign your workouts</li>
+          <li>Nutrition tools — full meal plans or flexible, macros-first tracking</li>
+          <li>Direct messaging with your coach</li>
+          <li>One app for workouts, meals, sleep, and progress</li>
         </ul>
       </>
     ),
@@ -40,27 +40,25 @@ const FAQ_ITEMS: FaqItem[] = [
   {
     id: 'general-2',
     category: 'general',
-    question: 'How long does it take to see results with your programs?',
+    question: 'How long does it take to see results with a program on ZarcFit?',
     answer: (
-      <>
-        <p className="mb-4">Results vary, but most clients notice energy improvements in 2–4 weeks and visible changes in 8–12 weeks with consistent adherence.</p>
-      </>
+      <p className="mb-4">That depends on the program your coach builds for you and how consistently you follow it — ZarcFit is the platform, your coach sets the plan. Most people following a consistent program notice energy improvements in 2–4 weeks and visible changes in 8–12 weeks.</p>
     ),
   },
   {
     id: 'general-3',
     category: 'general',
-    question: 'Do I need special equipment for your workouts?',
+    question: 'Do I need special equipment for my workouts?',
     answer: (
-      <p>Equipment depends on your program — home workouts may need minimal gear, gym programs use standard equipment, and bodyweight options are available too.</p>
+      <p>Equipment depends on the program your coach assigns — home workouts may need minimal gear, gym programs use standard equipment, and bodyweight-only options are common too.</p>
     ),
   },
   {
     id: 'general-4',
     category: 'general',
-    question: 'Is nutrition guidance included in your programs?',
+    question: 'Does ZarcFit support flexible dieting, or only full meal plans?',
     answer: (
-      <p>Yes. All programs include macro guidance, meal planning tools, and diary tracking. Premium coaching adds personalized nutrition support.</p>
+      <p>Both. Coaches can build full meal plans with specific foods, or set flexible dieting targets (calories and macros only) and let clients choose their own foods within those numbers via the food diary. Neither mode costs extra — nutrition tools are included on Growth and Pro plans.</p>
     ),
   },
   {
@@ -68,11 +66,9 @@ const FAQ_ITEMS: FaqItem[] = [
     category: 'billing',
     question: 'How does trainer pricing work?',
     answer: (
-      <>
-        <p className="mb-4">
-          Review tiers on our <a href="/main/plans" className="text-primary underline">Plans page</a>. Creating a trainer account is free; paid tiers checkout via Stripe.
-        </p>
-      </>
+      <p className="mb-4">
+        Review tiers on our <a href="/main/plans" className="text-primary underline">Plans page</a>. Creating a trainer account is free; paid tiers checkout via Stripe.
+      </p>
     ),
   },
   {
@@ -108,9 +104,9 @@ const FAQ_ITEMS: FaqItem[] = [
   {
     id: 'coaching-2',
     category: 'coaching',
-    question: 'What qualifications do your coaches have?',
+    question: 'Does ZarcFit vet or certify the coaches who use the platform?',
     answer: (
-      <p>All ZarcFit coaches hold recognized certifications (NASM, ACE, ISSA, etc.) and professional coaching experience.</p>
+      <p>ZarcFit is software, not a coaching marketplace — trainers bring their own certifications and client relationships to the platform. If you were invited by a coach, ask them directly about their credentials and experience.</p>
     ),
   },
   {
@@ -133,7 +129,7 @@ const FAQ_ITEMS: FaqItem[] = [
 
 const CATEGORIES = [
   { id: 'all', label: 'All Questions' },
-  { id: 'general', label: 'Programs' },
+  { id: 'general', label: 'Platform & Programs' },
   { id: 'billing', label: 'Billing' },
   { id: 'coaching', label: 'Coaching' },
   { id: 'technical', label: 'Technical' },
@@ -174,7 +170,7 @@ export default function FAQPageClient() {
       <PageHero
         badge="Help Center"
         title="Frequently Asked Questions"
-        subtitle="Find answers to the most common questions about our fitness programs and services"
+        subtitle="Answers about the ZarcFit coaching platform, billing, and how coaches and clients use it"
         size="compact"
       >
         <div className="relative mx-auto max-w-md">

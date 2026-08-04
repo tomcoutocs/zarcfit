@@ -33,6 +33,7 @@
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.49.1",
     "@tanstack/react-query": "^5.67.1",
+    "@tanstack/react-virtual": "^3.14.9",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -49,6 +50,7 @@
     "stripe": "^22.3.2",
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
+    "web-push": "^3.6.7",
     "zod": "^3.24.2",
     "zustand": "^5.0.3"
   },
@@ -70,6 +72,7 @@
     "@types/node": "^20",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
+    "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.21",
     "dotenv": "^16.4.7",
     "eslint": "^9",

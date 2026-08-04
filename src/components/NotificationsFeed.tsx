@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import {
   Bell,
+  ClipboardList,
   Dumbbell,
   MessageSquare,
   Moon,
@@ -44,6 +45,8 @@ function notificationIcon(type: UserNotification['type']) {
       return Target;
     case 'sleep_logged':
       return Moon;
+    case 'check_in_logged':
+      return ClipboardList;
     default:
       return Bell;
   }

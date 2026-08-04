@@ -1,6 +1,8 @@
-# Stripe Setup Guide (NG-201 – NG-204)
+# Stripe Setup Guide (CA-001 – CA-005 / NG-201 – NG-204)
 
 Complete these steps in the [Stripe Dashboard](https://dashboard.stripe.com) before enabling live billing.
+
+Competitive backlog IDs: **CA-001** prices · **CA-002** env · **CA-003** webhook · **CA-004** portal + Connect · **CA-005** smoke test.
 
 ## 1. Create products & prices (NG-201)
 
@@ -61,14 +63,36 @@ Enable:
 
 Use any future expiry and any CVC.
 
-## 6. Stripe Connect — trainer bills their clients (PF-321–324)
+## 6. Stripe Connect — trainer bills their clients (PF-321–324, CA-401–405)
 
-Separate from the subscription billing above. Trainers connect their own Stripe account and invoice their clients directly; ZarcFit takes **0% platform fee** on these payments (decision, July 30 2026).
+Separate from the subscription billing above. Trainers connect their own Stripe account and invoice their clients directly; ZarcFit takes **0% platform fee** on these payments (decision, July 30 2026) — for both one-off invoices and recurring packages.
 
 1. Stripe → **Connect → Get started** → enable Express accounts for your platform.
-2. No extra env vars needed — uses the same `STRIPE_SECRET_KEY`.
-3. Run the SQL migrations (in order): `retier-subscription.sql`, `enforce-client-limit.sql`, `stripe-connect.sql`.
+2. No extra env vars needed for onboarding/invoicing — uses the same `STRIPE_SECRET_KEY`. The Connect webhook (step 6 below) needs one more env var.
+3. Run the SQL migrations (in order): `retier-subscription.sql`, `enforce-client-limit.sql`, `stripe-connect.sql`, `trainer-client-invoices.sql`.
 4. From a trainer account: Settings → Billing → "Connect Stripe to bill clients" → complete Express onboarding → land back on Settings, which re-checks status via `GET /api/stripe/connect/onboard`.
-5. Once connected, use "Send Invoice" (Settings → Billing, or the client detail page) to email a one-off Stripe-hosted invoice.
+5. Once connected, use "Send Invoice" (Settings → Billing, or the client detail page) to email a one-off Stripe-hosted invoice, or "Set up recurring package" (client detail → Billing tab) for a monthly/annual subscription.
 
-**Deferred:** recurring per-client subscriptions, automatic paid/overdue sync on the roster (only a static "Billing ready" badge exists today), payouts/1099-K documentation, and a platform fee (the code has a comment marking exactly where to add `application_fee_amount` later).
+### Connect webhook — invoice/subscription sync (CA-401)
+
+Invoices and subscriptions are created on each trainer's *connected* account, so they need their own webhook endpoint — separate from `/api/webhooks/stripe` above, which only ever sees platform-account events.
+
+1. Stripe → **Developers → Webhooks → Add endpoint**.
+2. URL: `https://zarcfit.vercel.app/api/webhooks/stripe-connect`
+3. Toggle **"Listen to events on Connected accounts"** (this is what populates `event.account` with the connected account ID — the handler ignores events without it).
+4. Events to listen for:
+   - `invoice.paid`
+   - `invoice.payment_failed`
+   - `invoice.voided`
+   - `invoice.updated`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+5. Copy the signing secret → `STRIPE_CONNECT_WEBHOOK_SECRET` in Vercel (this is a *different* secret than `STRIPE_WEBHOOK_SECRET` — Connect webhook endpoints sign independently).
+
+Once wired up, `trainer_client_invoices` and `trainer_client_subscriptions` stay in sync automatically — this powers the Paid/Overdue/Unpaid/None roster badges (CA-402) and the client detail invoice history (CA-403).
+
+### Payouts & tax (CA-405)
+
+Payouts, 1099-K reporting, and any sales/use tax on client payments are the trainer's own Stripe Express account's responsibility, not ZarcFit's — Stripe issues 1099-Ks directly to trainers who meet the reporting threshold, and [Stripe Tax](https://dashboard.stripe.com/settings/tax) can be enabled per-connected-account if a trainer needs to collect tax. ZarcFit does not calculate, collect, or remit tax on Connect payments, and this doc is not tax or legal advice.
+
+**Deferred:** a platform fee (the invoice/subscription routes have comments marking exactly where to add `application_fee_amount` / `application_fee_percent` later).
