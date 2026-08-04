@@ -13,6 +13,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
+import { snapCenterToCursor } from '@dnd-kit/modifiers';
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -669,10 +670,10 @@ export default function ProgramBuilderPage() {
               </div>
             </div>
 
-            <DragOverlay dropAnimation={null}>
+            <DragOverlay dropAnimation={null} modifiers={[snapCenterToCursor]}>
               {activeDrag ? (
-                <div className="flex w-[280px] cursor-grabbing items-center gap-2 rounded-md border bg-background px-2 py-2 text-sm shadow-lg">
-                  <span className="font-medium">{activeDrag.label}</span>
+                <div className="flex w-[240px] cursor-grabbing items-center gap-2 rounded-md border bg-background px-2 py-2 text-sm shadow-lg">
+                  <span className="truncate font-medium">{activeDrag.label}</span>
                 </div>
               ) : null}
             </DragOverlay>

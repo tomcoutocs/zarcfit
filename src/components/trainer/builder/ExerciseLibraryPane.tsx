@@ -144,10 +144,12 @@ export function ExerciseLibraryPane({
               return (
                 <div
                   key={ex.id || ex.name}
-                  className="absolute left-0 top-0 w-full px-0"
+                  className="absolute left-0 w-full"
+                  // Use `top` (not transform) — CSS transforms on ancestors break
+                  // dnd-kit DragOverlay cursor alignment.
                   style={{
                     height: `${item.size}px`,
-                    transform: `translateY(${item.start}px)`,
+                    top: `${item.start}px`,
                   }}
                 >
                   <DraggableExercise exercise={ex} />
